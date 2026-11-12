@@ -11,7 +11,7 @@ import { VendixLogo } from "@/components/ui/vendix-logo";
 import type { SubscriptionStatus } from "@/lib/types";
 import { formatPlanLabel } from "@/lib/plans";
 import { formatDate } from "@/lib/utils";
-import { guestAllowedPath, isGuestMode, isLandingPath } from "@/lib/guest-mode";
+import { guestAllowedPath, isGuestMode, isLandingPath, publicBrowsePath } from "@/lib/guest-mode";
 import type { LicensePlan } from "@/lib/types";
 
 export function ShopAuthGate({
@@ -82,7 +82,7 @@ export function ShopAuthGate({
     );
   }
 
-  if (!user && guest && guestAllowedPath(pathname)) {
+  if (!user && ((guest && guestAllowedPath(pathname)) || publicBrowsePath(pathname))) {
     return <>{children}</>;
   }
 
@@ -118,7 +118,7 @@ export function ShopAuthGate({
                 transition={{ delay: 0.22, duration: 0.45 }}
                 className="mt-3 hidden max-w-sm text-sm leading-relaxed text-neutral-400 sm:mt-4 sm:block"
               >
-                로그인하면 상점 이용이 열려요. 로그인 없이 게스트로 월드를 둘러볼 수도 있어요.
+                구매·충전은 Discord 로그인이 필요해요. 로그인 없이 게스트로 상점을 둘러볼 수도 있어요.
               </motion.p>
               {subscription === "active" && (
                 <p className="mt-2 font-[family-name:var(--font-jetbrains)] text-[11px] text-neutral-400 sm:mt-3">

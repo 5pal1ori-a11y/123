@@ -1,0 +1,47 @@
+# Cloudflare 배포 (Linux에서 빌드)
+# Windows에서 OpenNext로 빌드하면 런타임 500(workUnitAsyncStorage invariant)이 날 수 있어서 여기서 빌드한다.
+# 실행 조건: 이 브랜치에 커밋 메시지에 [deploy]가 들어간 push, 또는 Actions 탭에서 수동 실행.
+# 필요한 저장소 시크릿: CLOUDFLARE_API_TOKEN (Workers 편집 권한)
+name: Deploy to Cloudflare
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/minecraft-account-product-ui-nax6xg
+
+concurrency:
+  group: cloudflare-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: 0d534114b2ec23051f976533656d46f1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check token
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::저장소 시크릿 CLOUDFLARE_API_TOKEN 이 없습니다."
+            exit 1
+          fi
+
+      - run: npm ci --no-audit --no-fund
+
+      # Next 15.5.24 는 배포 중인 버전과 같다 (지원 기간 종료 경고만 우회)
+      - name: Build
+        run: npx opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion
+
+      - name: Deploy
+        run: npx opennextjs-cloudflare deploy

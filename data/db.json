@@ -1,0 +1,291 @@
+{
+  "licenses": [
+    {
+      "id": "f029d1f9-e4c1-47f2-b182-534932e2389d",
+      "key": "OREL-669F26-728E1F-5F85",
+      "buyerEmail": "test@test.com",
+      "plan": "standard",
+      "amount": 99000,
+      "status": "activated",
+      "shopId": "shop_b85ea125",
+      "depositorName": "ddd",
+      "createdAt": "2026-08-30T04:14:04.794Z",
+      "activatedAt": "2026-08-30T04:14:31.821Z",
+      "paidAt": "2026-08-30T04:14:10.263Z"
+    },
+    {
+      "id": "12c4b17f-94f3-4030-9384-48f81f0b4f1a",
+      "key": "OREL-0DF289-9FA99E-DAFE",
+      "buyerEmail": "orel-admin@orel-admin.com",
+      "plan": "standard",
+      "amount": 99000,
+      "status": "activated",
+      "shopId": "shop_08634749",
+      "createdAt": "2026-08-29T10:33:10.946Z",
+      "activatedAt": "2026-08-29T10:33:42.334Z",
+      "depositorName": null,
+      "paidAt": null
+    },
+    {
+      "id": "b73c3a2e-8f17-4ab4-9b43-85036548d408",
+      "key": "OREL-1B6B4D-5504DB-55A2",
+      "buyerEmail": "owner@test.com",
+      "plan": "standard",
+      "amount": 99000,
+      "status": "activated",
+      "shopId": "shop_82a00128",
+      "createdAt": "2026-08-29T10:07:20.618Z",
+      "activatedAt": "2026-08-29T10:07:21.407Z",
+      "depositorName": null,
+      "paidAt": null
+    }
+  ],
+  "shops": [
+    {
+      "id": "shop_b85ea125",
+      "slug": "hello",
+      "name": "122",
+      "ownerEmail": "test@test.com",
+      "adminPassword": "1234",
+      "licenseId": "f029d1f9-e4c1-47f2-b182-534932e2389d",
+      "status": "active",
+      "tagline": "Private digital dispensary",
+      "bankName": null,
+      "bankAccount": null,
+      "bankHolder": null,
+      "createdAt": "2026-08-30T04:14:31.821Z"
+    },
+    {
+      "id": "shop_08634749",
+      "slug": "test",
+      "name": "tset",
+      "ownerEmail": "ttt@gmail.com",
+      "adminPassword": "12345",
+      "licenseId": "12c4b17f-94f3-4030-9384-48f81f0b4f1a",
+      "status": "active",
+      "tagline": "123",
+      "createdAt": "2026-08-29T10:33:42.334Z",
+      "bankName": null,
+      "bankAccount": null,
+      "bankHolder": null
+    },
+    {
+      "id": "shop_82a00128",
+      "slug": "atelier",
+      "name": "Atelier",
+      "ownerEmail": "owner@test.com",
+      "adminPassword": "secret",
+      "licenseId": "b73c3a2e-8f17-4ab4-9b43-85036548d408",
+      "status": "active",
+      "tagline": "Private digital dispensary",
+      "createdAt": "2026-08-29T10:07:21.407Z",
+      "bankName": null,
+      "bankAccount": null,
+      "bankHolder": null
+    }
+  ],
+  "products": [
+    {
+      "id": "prod_c19cc6f5",
+      "shopId": "shop_08634749",
+      "slug": "123",
+      "name": "123",
+      "description": "",
+      "price": 33333333,
+      "category": "License",
+      "thumbnail": null,
+      "active": true,
+      "createdAt": "2026-08-29T10:34:07.369Z"
+    }
+  ],
+  "inventories": [
+    {
+      "id": "2dde4cfc-2417-4e5e-9eb0-25d94c700a8e",
+      "shopId": "shop_08634749",
+      "productId": "prod_c19cc6f5",
+      "codeValue": "11",
+      "status": "sold",
+      "orderId": "74c25154-da41-4728-80fa-191cef6189d9",
+      "lockedUntil": null,
+      "createdAt": "2026-08-29T10:34:13.463Z"
+    },
+    {
+      "id": "ef826a8b-4d75-49f6-8196-c771569c7eee",
+      "shopId": "shop_08634749",
+      "productId": "prod_c19cc6f5",
+      "codeValue": "1",
+      "status": "available",
+      "orderId": null,
+      "lockedUntil": null,
+      "createdAt": "2026-08-29T10:34:13.463Z"
+    },
+    {
+      "id": "d54305ca-8d99-47c0-a846-491b452ec272",
+      "shopId": "shop_08634749",
+      "productId": "prod_c19cc6f5",
+      "codeValue": "2",
+      "status": "available",
+      "orderId": null,
+      "lockedUntil": null,
+      "createdAt": "2026-08-29T10:34:13.463Z"
+    },
+    {
+      "id": "2133c531-78ba-4037-acdd-fba46b068040",
+      "shopId": "shop_08634749",
+      "productId": "prod_c19cc6f5",
+      "codeValue": "3",
+      "status": "available",
+      "orderId": null,
+      "lockedUntil": null,
+      "createdAt": "2026-08-29T10:34:13.463Z"
+    },
+    {
+      "id": "f4e8144b-5ea4-40f1-ae83-09ce84c69066",
+      "shopId": "shop_08634749",
+      "productId": "prod_c19cc6f5",
+      "codeValue": "4",
+      "status": "available",
+      "orderId": null,
+      "lockedUntil": null,
+      "createdAt": "2026-08-29T10:34:13.463Z"
+    }
+  ],
+  "orders": [
+    {
+      "id": "74c25154-da41-4728-80fa-191cef6189d9",
+      "shopId": "shop_08634749",
+      "orderUuid": "ORL-MTE8UG9T-74C2",
+      "productId": "prod_c19cc6f5",
+      "buyerEmail": "awdw@dwq.asd",
+      "paymentMethod": "crypto",
+      "status": "dispensed",
+      "amount": 33333333,
+      "dispensedCode": "11",
+      "createdAt": "2026-08-29T10:34:42.017Z",
+      "paidAt": "2026-08-29T10:34:43.583Z",
+      "depositorName": null
+    }
+  ],
+  "logs": [
+    {
+      "id": "bec62f48-87da-4dbc-b49a-0c164aa2d034",
+      "shopId": "shop_b85ea125",
+      "actor": "test@test.com",
+      "action": "shop.activate",
+      "meta": {
+        "shopId": "shop_b85ea125",
+        "slug": "hello"
+      },
+      "createdAt": "2026-08-30T04:14:31.821Z"
+    },
+    {
+      "id": "8c4044d3-b099-405e-91bb-a763f4aa21f6",
+      "shopId": null,
+      "actor": "test@test.com",
+      "action": "license.paid",
+      "meta": {
+        "licenseId": "f029d1f9-e4c1-47f2-b182-534932e2389d",
+        "depositorName": "ddd"
+      },
+      "createdAt": "2026-08-30T04:14:10.263Z"
+    },
+    {
+      "id": "6380c38f-3988-4ec4-92e2-18a44f628c45",
+      "shopId": null,
+      "actor": "test@test.com",
+      "action": "license.pending",
+      "meta": {
+        "licenseId": "f029d1f9-e4c1-47f2-b182-534932e2389d"
+      },
+      "createdAt": "2026-08-30T04:14:04.794Z"
+    },
+    {
+      "id": "561eb78f-aff6-4759-8679-3f6c18cdc9f7",
+      "shopId": "shop_08634749",
+      "actor": "system",
+      "action": "order.dispense",
+      "meta": {
+        "orderId": "74c25154-da41-4728-80fa-191cef6189d9",
+        "productId": "prod_c19cc6f5"
+      },
+      "createdAt": "2026-08-29T10:34:43.583Z"
+    },
+    {
+      "id": "fd5ebab4-bea7-4da5-b25e-ea5fe037a128",
+      "shopId": "shop_08634749",
+      "actor": "system",
+      "action": "inventory.lock",
+      "meta": {
+        "orderId": "74c25154-da41-4728-80fa-191cef6189d9",
+        "inventoryId": "2dde4cfc-2417-4e5e-9eb0-25d94c700a8e",
+        "lockedUntil": "2026-08-29T10:39:42.017Z"
+      },
+      "createdAt": "2026-08-29T10:34:42.017Z"
+    },
+    {
+      "id": "02912de8-f2b5-4403-9299-526c1a2b3860",
+      "shopId": "shop_08634749",
+      "actor": "admin",
+      "action": "inventory.bulk_add",
+      "meta": {
+        "productId": "prod_c19cc6f5",
+        "added": 5,
+        "duplicates": 0
+      },
+      "createdAt": "2026-08-29T10:34:13.463Z"
+    },
+    {
+      "id": "380958c2-a9f5-4cf7-8ce0-3c2363eec490",
+      "shopId": "shop_08634749",
+      "actor": "admin",
+      "action": "product.create",
+      "meta": {
+        "productId": "prod_c19cc6f5",
+        "slug": "123"
+      },
+      "createdAt": "2026-08-29T10:34:07.369Z"
+    },
+    {
+      "id": "53e50fd7-003f-4f16-89d4-e84c60afaf14",
+      "shopId": "shop_08634749",
+      "actor": "ttt@gmail.com",
+      "action": "shop.activate",
+      "meta": {
+        "shopId": "shop_08634749",
+        "slug": "test"
+      },
+      "createdAt": "2026-08-29T10:33:42.334Z"
+    },
+    {
+      "id": "a41f581e-25b4-4621-a7c9-5dc10d0632fd",
+      "shopId": null,
+      "actor": "orel-admin@orel-admin.com",
+      "action": "license.purchase",
+      "meta": {
+        "licenseId": "12c4b17f-94f3-4030-9384-48f81f0b4f1a"
+      },
+      "createdAt": "2026-08-29T10:33:10.946Z"
+    },
+    {
+      "id": "bfb8da31-a88b-4055-8914-8aa891ca3875",
+      "shopId": "shop_82a00128",
+      "actor": "owner@test.com",
+      "action": "shop.activate",
+      "meta": {
+        "shopId": "shop_82a00128",
+        "slug": "atelier"
+      },
+      "createdAt": "2026-08-29T10:07:21.407Z"
+    },
+    {
+      "id": "31b4bfd7-f80f-463e-8457-466277810fd4",
+      "shopId": null,
+      "actor": "owner@test.com",
+      "action": "license.purchase",
+      "meta": {
+        "licenseId": "b73c3a2e-8f17-4ab4-9b43-85036548d408"
+      },
+      "createdAt": "2026-08-29T10:07:20.618Z"
+    }
+  ]
+}

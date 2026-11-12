@@ -1,0 +1,37 @@
+﻿{% extends "_base.html" %}
+{% block heading %}계좌이체 충전{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px;">
+  <div class="card-title">계좌이체 충전 신청</div>
+  <div class="card-sub">입금 계좌: <b>{{ shopinfo['bankaddr'] or '관리자에게 문의' }}</b></div>
+  <div class="form-row">
+    <label>입금자명</label>
+    <input type="text" id="bname" maxlength="20" value="{{ user_info['name'] or '' }}"
+           {% if user_info['name'] %}readonly{% endif %} placeholder="통장에 찍히는 이름">
+  </div>
+  <div class="form-row">
+    <label>충전 금액 (원)</label>
+    <input type="number" id="amount" min="1" step="1" placeholder="10000">
+  </div>
+  <button class="btn block" onclick="req()"><i class="bi bi-send"></i> 신청하기</button>
+  <div class="text-muted mt-2" style="font-size:12.5px;">
+    신청 후 위 계좌로 정확한 금액을 입금해 주세요. 자동 확인이 실패하면 관리자에게 문의바랍니다.
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function req(){
+  const name = document.getElementById('bname').value.trim();
+  const amount = document.getElementById('amount').value.trim();
+  if (!name || !amount){ notify.err('입력값 누락', '입금자명과 금액을 모두 입력해주세요.'); return; }
+  const r = await api('{{ url_for("store.bank") }}', { method:'POST', body: { name, amount }});
+  if (r === 'ok'){
+    await notify.info('신청 완료', '계좌로 입금해주세요.');
+    location.reload();
+  } else {
+    notify.info('알림', r);
+  }
+}
+</script>
+{% endblock %}

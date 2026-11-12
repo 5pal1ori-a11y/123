@@ -1,0 +1,71 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vendix",
+  "main": "worker.ts",
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "vendix"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "VENDIX_KV",
+      "id": "abda54aa8ee04d29b2e32c100b25c3f9"
+    }
+  ],
+  "ai": {
+    "binding": "AI"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "PRESENCE", "class_name": "PresenceRoom" },
+      { "name": "WORLD", "class_name": "WorldRoom" },
+      { "name": "PB_BRIDGE", "class_name": "PushbulletBridge" },
+      { "name": "GIVEAWAY", "class_name": "GiveawayHub" },
+      { "name": "TICKET_GW", "class_name": "TicketGateway" }
+    ]
+  },
+  "migrations": [
+    { "tag": "presence-v1", "new_sqlite_classes": ["PresenceRoom"] },
+    { "tag": "world-v1", "new_sqlite_classes": ["WorldRoom"] },
+    { "tag": "pushbullet-v1", "new_sqlite_classes": ["PushbulletBridge"] },
+    { "tag": "giveaway-v1", "new_sqlite_classes": ["GiveawayHub"] },
+    { "tag": "ticket-gateway-v1", "new_sqlite_classes": ["TicketGateway"] }
+  ],
+  "vars": {
+    "NEXT_PUBLIC_ROOT_DOMAIN": "vendix.team",
+    "NEXT_PUBLIC_APP_URL": "https://vendix.team",
+    "BANK_NAME": "카카오뱅크",
+    "BANK_ACCOUNT": "3333-01-1234567",
+    "BANK_HOLDER": "VENDIX(벤딕스)",
+    "PLATFORM_ADMIN_USERNAME": "admin",
+    "MFA_VERIFY_GUILD_ID": "1432601807216967793",
+    "VERIFY_DISCORD_APPLICATION_ID": "1540972072963149944",
+    "VERIFY_DISCORD_PUBLIC_KEY": "181a3949646085b262718c2f98a1f5caef585c1af9aeb9f39ae3f0c31cc2d285",
+    "VERIFY_DISCORD_OAUTH_REDIRECT_URI": "https://doesmc.xyz/api/verify-bot/oauth/callback"
+  },
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "vendix.team", "custom_domain": true },
+    { "pattern": "www.vendix.team", "custom_domain": true },
+    { "pattern": "verify.vendix.team", "custom_domain": true },
+    { "pattern": "ticket.vendix.team", "custom_domain": true },
+    { "pattern": "security.vendix.team", "custom_domain": true },
+    { "pattern": "manage.vendix.team", "custom_domain": true },
+    { "pattern": "*.vendix.team/*", "zone_name": "vendix.team" },
+    // MFA MARKET 전용 도메인 (/check 는 mc-account-delivery 워커가 처리)
+    { "pattern": "doesmc.xyz", "custom_domain": true },
+    { "pattern": "www.doesmc.xyz", "custom_domain": true },
+    { "pattern": "verify.doesmc.xyz", "custom_domain": true }
+  ]
+}

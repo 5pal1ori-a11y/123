@@ -1,0 +1,18 @@
+{
+  "name": "DOES",
+  "short_name": "DOES",
+  "description": "디지털 자판기 플랫폼",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050508",
+  "theme_color": "#8b5cf6",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/does-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

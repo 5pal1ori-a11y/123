@@ -1,0 +1,96 @@
+{% extends "_base.html" %}
+{% block heading %}계좌이체 충전{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px;">
+  <div class="card-title">계좌이체 충전 신청</div>
+  <div class="card-sub">입금자명과 금액을 입력한 뒤 신청하면 입금 계좌가 안내됩니다.</div>
+
+  {% if pending %}
+  <div class="card" style="margin:0 0 16px; box-shadow:none;">
+    <div class="card-title">진행 중인 신청</div>
+    <p style="margin:0 0 8px;">입금자명 <b>{{ pending['name'] }}</b> · {{ '{:,}'.format(pending['amount']) }}원</p>
+    <p class="text-muted" style="font-size:12.5px; margin:0 0 12px;">
+      {% if auto_ok %}
+      입금이 확인되면 자동으로 잔액에 반영됩니다. 반영이 없으면 관리자에게 문의하세요.
+      {% else %}
+      자동충전이 설정되지 않았습니다. 관리자 승인을 기다려 주세요.
+      {% endif %}
+    </p>
+    <button class="btn ghost sm" type="button"
+            onclick="showDeposit({{ pending['name']|tojson }}, {{ pending['amount'] }})">
+      <i class="bi bi-wallet2"></i> 입금 계좌 보기
+    </button>
+  </div>
+  {% endif %}
+
+  <div class="form-row">
+    <label>입금자명</label>
+    <input type="text" id="bname" maxlength="20" value="{{ user_info['name'] or '' }}"
+           {% if user_info['name'] %}readonly{% endif %} placeholder="통장에 찍히는 이름">
+  </div>
+  <div class="form-row">
+    <label>충전 금액 (원)</label>
+    <input type="number" id="amount" min="1" step="1" placeholder="10000" {% if pending %}disabled{% endif %}>
+  </div>
+  <button class="btn block" onclick="req()" {% if pending %}disabled{% endif %}><i class="bi bi-send"></i> 신청하기</button>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const BANK_ADDR = {{ (shopinfo['bankaddr'] or '')|tojson }};
+
+function esc(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);
+  });
+}
+
+async function copyAddr(){
+  const v = BANK_ADDR || '';
+  if (!v) return;
+  try {
+    await navigator.clipboard.writeText(v);
+    notify.ok('계좌번호가 복사되었습니다.');
+  } catch (e) {
+    notify.err('복사 실패', '계좌번호를 직접 선택해 복사하세요.');
+  }
+}
+
+function showDeposit(name, amount){
+  const acc = BANK_ADDR || '관리자에게 문의';
+  const amt = Number(amount).toLocaleString();
+  return Swal.fire({
+    icon: 'info',
+    title: '입금 안내',
+    html: `
+      <div style="text-align:left; padding:4px 2px 0;">
+        <div class="text-muted" style="font-size:12px; font-weight:600;">입금 계좌</div>
+        <div style="font-size:18px; font-weight:800; margin:4px 0 10px; word-break:break-all; line-height:1.4;">${esc(acc)}</div>
+        <button type="button" class="btn ghost sm" onclick="copyAddr()"><i class="bi bi-clipboard"></i> 계좌 복사</button>
+        <hr>
+        <div class="text-muted" style="font-size:12px;">입금자명</div>
+        <div style="font-weight:700; margin-bottom:8px;">${esc(name)}</div>
+        <div class="text-muted" style="font-size:12px;">입금 금액</div>
+        <div style="font-weight:800; font-size:16px;">${amt}원</div>
+        <p class="text-muted" style="font-size:12.5px; margin:12px 0 0;">입금자명과 금액을 그대로 맞춰 이체해 주세요.</p>
+      </div>`,
+    confirmButtonText: '확인'
+  });
+}
+
+async function req(){
+  const name = document.getElementById('bname').value.trim();
+  const amount = document.getElementById('amount').value.trim();
+  if (!name || !amount){ notify.err('입력값 누락', '입금자명과 금액을 모두 입력해주세요.'); return; }
+  const r = await api('{{ url_for("store.bank") }}', { method:'POST', body: { name, amount }});
+  if (r === 'ok' || (r && r.indexOf('신청이 접수') === 0)){
+    await showDeposit(name, amount);
+    location.reload();
+  } else if (r && r.indexOf('이미 진행 중인') === 0){
+    await showDeposit(name, amount);
+  } else {
+    notify.info('알림', r);
+  }
+}
+</script>
+{% endblock %}

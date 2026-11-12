@@ -11,15 +11,15 @@ import { shopPath, useShopBase } from "@/lib/shop-nav";
 function timeAgo(iso: string) {
   const diff = Math.max(0, Date.now() - new Date(iso).getTime());
   const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return "방금 전";
+  if (m < 60) return `${m}분 전`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return `${h}시간 전`;
   const d = Math.floor(h / 24);
-  if (d < 30) return `${d}d ago`;
+  if (d < 30) return `${d}일 전`;
   const mo = Math.floor(d / 30);
-  if (mo < 12) return `${mo}mo ago`;
-  return `${Math.floor(mo / 12)}y ago`;
+  if (mo < 12) return `${mo}개월 전`;
+  return `${Math.floor(mo / 12)}년 전`;
 }
 
 /** 망토 텍스처에서 앞면(10x16)만 잘라서 픽셀 그대로 보여준다 */
@@ -55,7 +55,7 @@ function CapeIcon({ src, cape }: { src: string; cape: McCapeInfo }) {
 
   return (
     <span
-      title={cape.source === "optifine" ? "OptiFine Cape" : "Minecraft Cape"}
+      title={cape.source === "optifine" ? "옵티파인 망토" : "마인크래프트 망토"}
       className="flex h-[26px] w-[20px] items-center justify-center rounded-[4px] bg-white/[0.06] ring-1 ring-white/10"
     >
       <span className="block h-[22.4px] w-[14px] bg-no-repeat" style={style} />
@@ -143,14 +143,14 @@ export function McAccountCard({
 
         <div className="pointer-events-none absolute left-0 top-0 flex items-center gap-2">
           <span
-            className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-[3px] text-[10px] font-bold uppercase tracking-wide ${
+            className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-[3px] text-[10px] font-bold tracking-wide ${
               soldOut
                 ? "border-red-400/40 bg-red-500/15 text-red-200"
                 : "border-indigo-400/40 bg-indigo-500/15 text-indigo-200"
             }`}
           >
             <span className={`size-1 rounded-full ${soldOut ? "bg-red-300" : "bg-indigo-300"}`} />
-            {soldOut ? "Sold out" : "Available"}
+            {soldOut ? "품절" : "판매중"}
           </span>
           {rating !== null ? (
             <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-amber-300">
@@ -202,8 +202,8 @@ export function McAccountCard({
         <span className="shrink-0 text-[11px] text-neutral-500">{timeAgo(product.createdAt)}</span>
       </div>
       <div className="mt-1 flex items-center justify-between gap-2 text-[11px]">
-        <span className="min-w-0 truncate font-semibold text-neutral-400">Seller {shopName}</span>
-        <span className="shrink-0 text-neutral-500">{sold} sold</span>
+        <span className="min-w-0 truncate font-semibold text-neutral-400">판매자 {shopName}</span>
+        <span className="shrink-0 text-neutral-500">{sold.toLocaleString("ko-KR")}개 판매</span>
       </div>
 
       {/* 망토 (왼쪽 하단) */}
@@ -229,7 +229,7 @@ export function McAccountCard({
           className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[10px] border border-[#243052] bg-[#121a30] text-[13px] font-bold text-indigo-100 transition hover:bg-[#18223d]"
         >
           <ExternalLink className="size-3.5" />
-          View
+          상세보기
         </Link>
         <a
           href={href}

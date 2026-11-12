@@ -7,6 +7,7 @@ import type {
   LoginHistoryEntry,
   MonthlyReportRow,
   PointCharge,
+  ShopReview,
   ShopSettings,
   UserNotification,
   WishlistItem,
@@ -597,4 +598,22 @@ export function getProductSalesCounts(shopId: string) {
     counts.set(pid, (counts.get(pid) ?? 0) + 1);
   }
   return counts;
+}
+
+/** 상점 후기 평균 별점 + 총 판매 수 (마크계정 카드 상단/하단 표시용) */
+export function getShopListingSummary(shopId: string) {
+  const s = store();
+  let sum = 0;
+  let count = 0;
+  for (const r of (Array.isArray(s.reviews) ? s.reviews : []) as ShopReview[]) {
+    if (r.shopId !== shopId || !r.approved) continue;
+    if (!Number.isFinite(r.rating) || r.rating <= 0) continue;
+    sum += r.rating;
+    count += 1;
+  }
+  let sold = 0;
+  for (const o of s.orders) {
+    if (o.shopId === shopId && o.status === "dispensed") sold += 1;
+  }
+  return { rating: count ? Math.round((sum / count) * 10) / 10 : null, reviewCount: count, sold };
 }

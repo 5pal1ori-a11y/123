@@ -502,6 +502,9 @@ export type PointCharge = {
   discordInteractionToken: string | null;
 };
 
+/** 상품 종류: 기타상품 / 마인크래프트 계정 */
+export type ProductKind = "general" | "mc_account";
+
 export type Product = {
   id: string;
   shopId: string;
@@ -533,6 +536,12 @@ export type Product = {
   /** MFA MARKET 재고 캐시 */
   mfaStock?: number | null;
   mfaStockAt?: string | null;
+  /** 상품 종류 (기본: 기타상품) */
+  productKind?: ProductKind;
+  /** 마크계정상품: 계정 닉네임 (관리자 전용 — 공개 목록에서는 제거됨) */
+  mcNickname?: string | null;
+  /** 마크계정상품: 공개용 마스킹 닉네임 (예: BO*******5) */
+  mcMaskedName?: string | null;
   createdAt: string;
 };
 

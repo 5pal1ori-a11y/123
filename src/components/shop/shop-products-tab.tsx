@@ -10,8 +10,16 @@ import { shopPath, useShopBase } from "@/lib/shop-nav";
 import { StockBadge } from "@/components/ui/stock-badge";
 import { WishHeartButton } from "@/components/ui/wish-heart-button";
 import { PanelPrimaryBtn, PanelStats } from "@/components/admin/admin-panel-ui";
+import { McAccountCard } from "./mc-account-card";
 
 export type ProductSort = "default" | "price_asc" | "price_desc" | "popular";
+export type ProductSection = "general" | "mc_account";
+export type ShopListingSummary = { rating: number | null; reviewCount: number; sold: number };
+
+const SECTIONS: { id: ProductSection; label: string }[] = [
+  { id: "general", label: "기타상품" },
+  { id: "mc_account", label: "마인크래프트 계정" },
+];
 
 export function ShopProductsTab({
   products,
@@ -21,6 +29,12 @@ export function ShopProductsTab({
   productCategory,
   productSort,
   productCategories,
+  productSection,
+  sectionCounts,
+  onSectionChange,
+  shopName,
+  salesCounts,
+  shopSummary,
   liveStock,
   wishlistIds,
   tier,
@@ -45,6 +59,12 @@ export function ShopProductsTab({
   productCategory: string;
   productSort: ProductSort;
   productCategories: string[];
+  productSection: ProductSection;
+  sectionCounts: Record<ProductSection, number>;
+  onSectionChange: (v: ProductSection) => void;
+  shopName: string;
+  salesCounts: Record<string, number>;
+  shopSummary: ShopListingSummary | null;
   liveStock: Record<string, { count: number; status: StockStatus }>;
   wishlistIds: Set<string>;
   tier: ShopTier | null;
@@ -104,6 +124,23 @@ export function ShopProductsTab({
       {purchaseError ? <p className="text-sm text-red-400">{purchaseError}</p> : null}
 
       <div className="admin-bento p-4 sm:p-5">
+        <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+          {SECTIONS.map((sec) => (
+            <button
+              key={sec.id}
+              type="button"
+              onClick={() => onSectionChange(sec.id)}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                productSection === sec.id ? "bg-white text-black" : "text-neutral-300 hover:bg-white/[0.06]"
+              }`}
+            >
+              {sec.label}
+              <span className="ml-1.5 text-xs text-neutral-500">
+                {sectionCounts[sec.id]}
+              </span>
+            </button>
+          ))}
+        </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <input
             value={productQuery}
@@ -141,6 +178,31 @@ export function ShopProductsTab({
 
         {filteredProducts.length === 0 ? (
           <p className="py-12 text-center text-sm text-neutral-500">검색 결과가 없어요</p>
+        ) : productSection === "mc_account" ? (
+          <ul className="mt-4 grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredProducts.map((p, idx) => {
+              const ev = eventByProduct.get(p.id);
+              const live = liveStock[p.id];
+              const stockStatus = live?.status ?? p.stockStatus;
+              const { finalPrice, totalDiscountPercent } = calcProductPrice(p, tier, ev ?? null);
+              return (
+                <McAccountCard
+                  key={p.id}
+                  product={p}
+                  index={idx}
+                  shopName={shopName}
+                  priceText={finalPrice.toLocaleString("ko-KR")}
+                  originalPriceText={totalDiscountPercent > 0 ? p.price.toLocaleString("ko-KR") : null}
+                  stockStatus={stockStatus}
+                  sold={shopSummary?.sold ?? salesCounts[p.id] ?? 0}
+                  rating={shopSummary?.rating ?? null}
+                  wishlisted={wishlistIds.has(p.id)}
+                  onToggleWishlist={() => onToggleWishlist(p.id)}
+                  onAddToCart={() => onAddToCart?.(p.id)}
+                />
+              );
+            })}
+          </ul>
         ) : (
           <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filteredProducts.map((p, idx) => {

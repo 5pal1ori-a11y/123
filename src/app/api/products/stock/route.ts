@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { isShop, requireShop } from "@/lib/api";
 import { refreshMfaStockIfStale } from "@/lib/mfa";
 import { initStore, listProducts } from "@/lib/store";
-import { getProductSalesCounts, getProductStockMap } from "@/lib/store-ext";
+import { getProductSalesCounts, getProductStockMap, getShopListingSummary } from "@/lib/store-ext";
 import { resolveStockStatus } from "@/lib/types";
 
 export async function GET(request: Request) {
@@ -29,5 +29,5 @@ export async function GET(request: Request) {
     status: p.stockStatus,
     sales: sales.get(p.id) ?? 0,
   }));
-  return NextResponse.json({ products });
+  return NextResponse.json({ products, summary: getShopListingSummary(shop.id) });
 }

@@ -45,6 +45,12 @@ const createSchema = z.object({
   fulfillment: z.enum(["auto", "manual"]).optional(),
   manualNotice: z.string().max(800).nullable().optional(),
   stockBoardHidden: z.boolean().optional(),
+  productKind: z.enum(["general", "mc_account"]).optional(),
+  mcNickname: z
+    .string()
+    .regex(/^[A-Za-z0-9_]{3,16}$/)
+    .nullable()
+    .optional(),
 });
 
 export async function POST(request: Request) {

@@ -8,6 +8,7 @@ import { shopHeaders } from "@/lib/shop-client";
 import { formatKRW } from "@/lib/utils";
 import type { LicensePlan, ProductWithStock, ShopCategory } from "@/lib/types";
 import { PlanLimitUsageBars } from "./plan-limit-usage";
+import { MC_NICKNAME_RE, maskMcNickname } from "@/lib/mc-account";
 
 type ProductsTab = "list" | "create" | "edit" | "stock" | "categories";
 
@@ -26,6 +27,8 @@ export type NewProductForm = {
   fulfillment: "auto" | "manual";
   manualNotice: string;
   stockBoardHidden: boolean;
+  productKind: "general" | "mc_account";
+  mcNickname: string;
 };
 
 type AdminProductsPanelProps = {
@@ -96,6 +99,8 @@ export function AdminProductsPanel({
     fulfillment: "auto",
     manualNotice: "",
     stockBoardHidden: false,
+    productKind: "general",
+    mcNickname: "",
   });
 
   function startEdit(p: ProductWithStock) {
@@ -116,6 +121,8 @@ export function AdminProductsPanel({
       fulfillment: p.fulfillment === "manual" ? "manual" : "auto",
       manualNotice: p.manualNotice ?? "",
       stockBoardHidden: Boolean(p.stockBoardHidden),
+      productKind: p.productKind === "mc_account" ? "mc_account" : "general",
+      mcNickname: p.mcNickname ?? "",
     });
     setTab("edit");
   }
@@ -157,6 +164,12 @@ export function AdminProductsPanel({
       onMessage("가격을 확인해 주세요.");
       return;
     }
+    const isMc = newProduct.productKind === "mc_account";
+    const mcNickname = newProduct.mcNickname.trim();
+    if (isMc && !MC_NICKNAME_RE.test(mcNickname)) {
+      onMessage("마크 닉네임은 영문·숫자·_ 3~16자로 입력해 주세요.");
+      return;
+    }
     if (demoMode) {
       onMessage("데모에서는 저장되지 않아요.");
       return;
@@ -181,6 +194,8 @@ export function AdminProductsPanel({
       fulfillment: newProduct.fulfillment,
       manualNotice: newProduct.fulfillment === "manual" ? newProduct.manualNotice.trim() || null : null,
       stockBoardHidden: newProduct.stockBoardHidden,
+      productKind: newProduct.productKind,
+      mcNickname: isMc ? mcNickname : null,
     };
     try {
       if (tab === "edit" && editId) {
@@ -228,6 +243,8 @@ export function AdminProductsPanel({
         fulfillment: "auto",
         manualNotice: "",
         stockBoardHidden: false,
+        productKind: newProduct.productKind,
+        mcNickname: "",
       });
       setSlugTouched(false);
       setTab("list");
@@ -355,6 +372,7 @@ export function AdminProductsPanel({
                           {p.mfaProduct ? ` · MFA: ${p.mfaProduct}` : ""}
                           {p.fulfillment === "manual" ? " · 수동지급" : " · 자동지급"}
                           {p.listingKind === "individual" ? " · 개별" : " · 자판기"}
+                          {p.productKind === "mc_account" ? " · 마크계정" : ""}
                         </p>
                       </div>
                       <div className="hidden text-right sm:block">
@@ -407,6 +425,49 @@ export function AdminProductsPanel({
               exit={fadeUp.exit}
               transition={vxTransition}
             >
+              <Field label="상품 종류" hint="마크계정상품은 상점에서 '마인크래프트 계정' 탭에 스킨 카드로 표시">
+                <div className="flex gap-2">
+                  {(
+                    [
+                      { id: "general" as const, label: "기본상품" },
+                      { id: "mc_account" as const, label: "마크계정상품" },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      className={`toss-admin-ghost flex-1 justify-center ${
+                        newProduct.productKind === opt.id ? "is-on border-white/30 bg-white/10 text-white" : ""
+                      }`}
+                      onClick={() => setNewProduct({ ...newProduct, productKind: opt.id })}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+              {newProduct.productKind === "mc_account" ? (
+                <Field
+                  label="마인크래프트 닉네임"
+                  hint="스킨·망토 자동 표시 · 상점에는 BO*******5 처럼 가려져서 보여요"
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      value={newProduct.mcNickname}
+                      onChange={(e) => setNewProduct({ ...newProduct, mcNickname: e.target.value.trim() })}
+                      className="toss-admin-field flex-1 font-mono text-sm"
+                      placeholder="예: Notch"
+                      maxLength={16}
+                      required
+                    />
+                    {newProduct.mcNickname ? (
+                      <span className="shrink-0 font-mono text-xs text-neutral-400">
+                        {maskMcNickname(newProduct.mcNickname)}
+                      </span>
+                    ) : null}
+                  </div>
+                </Field>
+              ) : null}
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="상품명">
                   <input
@@ -483,7 +544,10 @@ export function AdminProductsPanel({
                     placeholder="예: 1"
                   />
                 </Field>
-                <Field label="태그" hint="쉼표로 구분">
+                <Field
+                  label="태그"
+                  hint={newProduct.productKind === "mc_account" ? "첫 태그가 카드 왼쪽 아래 표시 (예: NON)" : "쉼표로 구분"}
+                >
                   <input
                     value={newProduct.tags}
                     onChange={(e) => setNewProduct({ ...newProduct, tags: e.target.value })}
@@ -587,7 +651,10 @@ export function AdminProductsPanel({
                   <option value="SFA" />
                 </datalist>
               </Field>
-              <Field label="이미지 URL">
+              <Field
+                label="이미지 URL"
+                hint={newProduct.productKind === "mc_account" ? "비우면 닉네임 스킨이 자동 표시" : undefined}
+              >
                 <div className="flex gap-3">
                   <input
                     placeholder="https://…"

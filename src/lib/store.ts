@@ -55,6 +55,7 @@ import { hashPassword, makeDeviceKey, verifyPassword } from "@/lib/auth";
 import { calcProductPrice } from "@/lib/pricing";
 import { normDepositorName } from "@/lib/auto-charge-push-parse";
 import { resolveStockStatus } from "@/lib/types";
+import { maskMcNickname } from "@/lib/mc-account";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
 import { clearMfaStockCache, getMfaStockCache, setMfaStockCache } from "@/lib/mfa-cache";
 
@@ -1505,12 +1506,22 @@ export function verifyOrderAccess(order: Order, token: string | null | undefined
   return timingSafeEqual(a, b);
 }
 
+/** 공개용: 마크계정 닉네임은 빼고 마스킹된 이름만 내보낸다 */
+function withPublicStock(product: Product): ProductWithStock {
+  const out = withStock(product);
+  if (out.productKind === "mc_account") {
+    out.mcMaskedName = maskMcNickname(product.mcNickname ?? "");
+  }
+  delete out.mcNickname;
+  return out;
+}
+
 export function listProducts(shopId: string): ProductWithStock[] {
   const store = getStore();
   releaseExpiredLocks(store);
   return store.products
     .filter((p) => p.shopId === shopId && p.active)
-    .map(withStock);
+    .map(withPublicStock);
 }
 
 export function listProductsAdmin(shopId: string): ProductWithStock[] {
@@ -1528,7 +1539,7 @@ export function getProductBySlug(
   const product = store.products.find(
     (p) => p.shopId === shopId && p.active && p.slug.toLowerCase() === key,
   );
-  return product ? withStock(product) : null;
+  return product ? withPublicStock(product) : null;
 }
 
 export function getProductById(id: string): Product | null {
@@ -1553,6 +1564,8 @@ export function createProduct(
     fulfillment?: Product["fulfillment"];
     manualNotice?: string | null;
     stockBoardHidden?: boolean;
+    productKind?: Product["productKind"];
+    mcNickname?: string | null;
   },
 ): Product {
   const store = getStore();
@@ -1594,6 +1607,8 @@ export function createProduct(
     fulfillment: input.fulfillment === "manual" ? "manual" : "auto",
     manualNotice: input.manualNotice?.trim() || null,
     stockBoardHidden: Boolean(input.stockBoardHidden),
+    productKind: input.productKind === "mc_account" ? "mc_account" : "general",
+    mcNickname: input.productKind === "mc_account" ? input.mcNickname?.trim() || null : null,
     createdAt: new Date().toISOString(),
   };
 
@@ -1628,6 +1643,8 @@ export function updateProduct(
       | "manualNotice"
       | "stockBoardHidden"
       | "mfaAutoInactive"
+      | "productKind"
+      | "mcNickname"
     >
   >,
 ): Product {
@@ -1683,6 +1700,12 @@ export function updateProduct(
   }
   if (patch.stockBoardHidden !== undefined) {
     product.stockBoardHidden = Boolean(patch.stockBoardHidden);
+  }
+  if (patch.productKind !== undefined) {
+    product.productKind = patch.productKind === "mc_account" ? "mc_account" : "general";
+  }
+  if (patch.mcNickname !== undefined) {
+    product.mcNickname = patch.mcNickname?.trim() || null;
   }
 
   pushLog("admin", "product.update", { productId: id }, shopId);

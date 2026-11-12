@@ -30,7 +30,12 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { vxTransitionMobile } from "@/lib/motion";
 import { useShopUser } from "./user-context";
 import { ChargePageClient } from "./charge-page-client";
-import { ShopProductsTab, type ProductSort } from "./shop-products-tab";
+import {
+  ShopProductsTab,
+  type ProductSection,
+  type ProductSort,
+  type ShopListingSummary,
+} from "./shop-products-tab";
 import { ShopCartBar, addToCart } from "./shop-cart";
 import { UserHomeTab } from "./user-home-tab";
 import { UserHistoryTab } from "./user-history-tab";
@@ -168,6 +173,8 @@ export function UserDashboard({
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
   const [liveStock, setLiveStock] = useState<Record<string, { count: number; status: StockStatus }>>({});
   const [salesCounts, setSalesCounts] = useState<Record<string, number>>({});
+  const [shopSummary, setShopSummary] = useState<ShopListingSummary | null>(null);
+  const [productSection, setProductSection] = useState<ProductSection>("general");
   const [loginHistory, setLoginHistory] = useState<
     { id: string; ip: string; deviceLabel: string; createdAt: string }[]
   >([]);
@@ -202,14 +209,27 @@ export function UserDashboard({
     return map;
   }, [activeEvents]);
 
-  const productCategories = useMemo(() => {
-    const set = new Set(products.map((p) => p.category).filter(Boolean));
-    return ["all", ...Array.from(set).sort()];
+  const sectionProducts = useMemo(
+    () =>
+      products.filter((p) =>
+        productSection === "mc_account" ? p.productKind === "mc_account" : p.productKind !== "mc_account",
+      ),
+    [products, productSection],
+  );
+
+  const sectionCounts = useMemo(() => {
+    const mc = products.filter((p) => p.productKind === "mc_account").length;
+    return { general: products.length - mc, mc_account: mc };
   }, [products]);
+
+  const productCategories = useMemo(() => {
+    const set = new Set(sectionProducts.map((p) => p.category).filter(Boolean));
+    return ["all", ...Array.from(set).sort()];
+  }, [sectionProducts]);
 
   const filteredProducts = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
-    let list = products.filter((p) => {
+    let list = sectionProducts.filter((p) => {
       if (productCategory !== "all" && p.category !== productCategory) return false;
       if (!q) return true;
       return (
@@ -229,7 +249,7 @@ export function UserDashboard({
       list = [...list].sort((a, b) => (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0));
     }
     return list;
-  }, [products, productQuery, productCategory, productSort, tier, eventByProduct, salesCounts]);
+  }, [sectionProducts, productQuery, productCategory, productSort, tier, eventByProduct, salesCounts]);
 
   const recentOrders = useMemo(() => orders.slice(0, 3), [orders]);
 
@@ -361,7 +381,9 @@ export function UserDashboard({
       if (!res.ok) return;
       const data = (await res.json()) as {
         products?: { id: string; count: number; status: StockStatus; sales: number }[];
+        summary?: ShopListingSummary;
       };
+      if (data.summary) setShopSummary(data.summary);
       if (!data.products) return;
       const stock: typeof liveStock = {};
       const sales: Record<string, number> = {};
@@ -841,6 +863,15 @@ export function UserDashboard({
                     productCategory={productCategory}
                     productSort={productSort}
                     productCategories={productCategories}
+                    productSection={productSection}
+                    sectionCounts={sectionCounts}
+                    onSectionChange={(v) => {
+                      setProductSection(v);
+                      setProductCategory("all");
+                    }}
+                    shopName={shopName}
+                    salesCounts={salesCounts}
+                    shopSummary={shopSummary}
                     liveStock={liveStock}
                     wishlistIds={wishlistIds}
                     tier={tier}

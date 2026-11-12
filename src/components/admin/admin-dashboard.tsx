@@ -1321,6 +1321,7 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
 
           {tab === "users" && (
             <AdminUsersPanel
+              shopSlug={shopSlug}
               users={data.users}
               tiers={data.tiers}
               subAdminCount={subAdminCount}

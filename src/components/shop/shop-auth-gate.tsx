@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useShopUser } from "@/components/shop/user-context";
 import { UserAuthPanel } from "@/components/shop/user-auth-panel";
+import { LoginRequiredNotice } from "@/components/shop/login-required-notice";
 import { VendixLogo } from "@/components/ui/vendix-logo";
 import type { SubscriptionStatus } from "@/lib/types";
 import { formatPlanLabel } from "@/lib/plans";
@@ -146,6 +147,7 @@ export function ShopAuthGate({
                   유예 기간 · {formatDate(graceUntil)}까지 연장 시 부활
                 </div>
               )}
+              <LoginRequiredNotice className="mb-5 text-white" />
               <UserAuthPanel shopSlug={shopSlug} />
             </motion.div>
           </div>

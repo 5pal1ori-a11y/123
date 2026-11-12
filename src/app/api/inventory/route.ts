@@ -9,7 +9,7 @@ import {
   serverError,
   unauthorized,
 } from "@/lib/api";
-import { addInventoryCodes, initStore, listInventories, persistAsync } from "@/lib/store";
+import { addInventoryCodes, deleteInventoryItems, initStore, listInventories, persistAsync } from "@/lib/store";
 import { notifyRestockWatchers } from "@/lib/store-ext";
 import { postRestockLog } from "@/lib/discord/logs";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
@@ -76,6 +76,34 @@ export async function POST(request: Request) {
     }
     await persistAsync();
     return NextResponse.json(result, { status: 201 });
+  } catch (err) {
+    return serverError(err);
+  }
+}
+
+const deleteSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(5000),
+});
+
+export async function DELETE(request: Request) {
+  await initStore();
+  const shop = requireShop(request);
+  if (!isShop(shop)) return shop;
+  if (!isShopAdmin(request, shop)) return unauthorized();
+  const denied = forbidUnlessStaffCan(request, shop, "products");
+  if (denied) return denied;
+
+  try {
+    const parsed = deleteSchema.safeParse(await request.json());
+    if (!parsed.success) return badRequest("삭제할 재고를 선택해 주세요.");
+    const result = deleteInventoryItems(shop.id, parsed.data.ids);
+    if (result.deleted > 0) {
+      scheduleDiscordBackground(
+        import("@/lib/discord/stock-board").then(({ refreshStockBoard }) => refreshStockBoard(shop.id)),
+      );
+    }
+    await persistAsync();
+    return NextResponse.json(result);
   } catch (err) {
     return serverError(err);
   }

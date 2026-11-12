@@ -46,6 +46,7 @@ import { UserReviewsTab } from "./user-reviews-tab";
 import { UserIslandTab } from "./island/user-island-tab";
 import { ShopInquiryChatWidget } from "./shop-inquiry-chat-widget";
 import { UserAuthPanel } from "./user-auth-panel";
+import { LoginRequiredNotice } from "./login-required-notice";
 import { VendixLogo } from "@/components/ui/vendix-logo";
 import type { UserCharge, UserOrder, UserTab } from "./user-dashboard-types";
 import { shopHeaders } from "@/lib/shop-client";
@@ -963,7 +964,7 @@ export function UserDashboard({
 
               {isGuest && LOGIN_TABS.has(tab) ? (
                 <div className="admin-bento mx-auto max-w-md p-6">
-                  <p className="mb-4 text-center text-sm text-neutral-400">이 메뉴는 로그인 후 이용할 수 있어요.</p>
+                  <LoginRequiredNotice className="mb-5" />
                   <UserAuthPanel shopSlug={shopSlug} hideGuest />
                 </div>
               ) : null}
@@ -1116,8 +1117,8 @@ export function UserDashboard({
               <button type="button" className="udx-gate-x" onClick={() => setLoginOpen(false)} aria-label="닫기">
                 <X className="size-4" />
               </button>
-              <h2 id="udx-login-title">로그인이 필요해요</h2>
-              <p>구매·충전·찜·출석은 Discord 로그인 후 이용할 수 있어요.</p>
+              <h2 id="udx-login-title" className="sr-only">로그인이 필요합니다</h2>
+              <LoginRequiredNotice className="w-full" />
               <div className="mt-4 w-full text-left">
                 <UserAuthPanel shopSlug={shopSlug} hideGuest />
               </div>

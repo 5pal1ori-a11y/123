@@ -1980,6 +1980,34 @@ export function addInventoryCodes(
   return { added, duplicates, beforeAvailable, productName: product.name };
 }
 
+/** 재고 삭제 — 판매된 재고는 주문 기록이라 지우지 않는다 */
+export function deleteInventoryItems(
+  shopId: string,
+  ids: string[],
+  actor = "admin",
+): { deleted: number; skippedSold: number; productIds: string[] } {
+  const store = getStore();
+  const want = new Set(ids);
+  let deleted = 0;
+  let skippedSold = 0;
+  const productIds = new Set<string>();
+  store.inventories = store.inventories.filter((i) => {
+    if (i.shopId !== shopId || !want.has(i.id)) return true;
+    if (i.status === "sold") {
+      skippedSold += 1;
+      return true;
+    }
+    deleted += 1;
+    productIds.add(i.productId);
+    return false;
+  });
+  if (deleted > 0) {
+    pushLog(actor, "inventory.delete", { deleted, productIds: [...productIds] }, shopId);
+    persist(store);
+  }
+  return { deleted, skippedSold, productIds: [...productIds] };
+}
+
 export function adminStats(shopId: string) {
   const store = getStore();
   releaseExpiredLocks(store);

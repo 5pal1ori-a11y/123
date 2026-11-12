@@ -9,6 +9,7 @@ import { formatKRW } from "@/lib/utils";
 import type { LicensePlan, ProductWithStock, ShopCategory } from "@/lib/types";
 import { PlanLimitUsageBars } from "./plan-limit-usage";
 import { MC_NICKNAME_RE, maskMcNickname } from "@/lib/mc-account";
+import { AdminStockList } from "./admin-stock-list";
 
 type ProductsTab = "list" | "create" | "edit" | "stock" | "categories";
 
@@ -82,6 +83,7 @@ export function AdminProductsPanel({
   const [search, setSearch] = useState("");
   const [productId, setProductId] = useState("");
   const [codesText, setCodesText] = useState("");
+  const [stockRefresh, setStockRefresh] = useState(0);
   const [categoryName, setCategoryName] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [newProduct, setNewProduct] = useState<NewProductForm>({
@@ -270,9 +272,15 @@ export function AdminProductsPanel({
       headers: shopHeaders(shopSlug),
       body: JSON.stringify({ productId, codes }),
     });
-    onMessage(res.ok ? `재고 ${codes.length}건 추가됨` : "재고 추가 실패");
+    const data = (await res.json().catch(() => ({}))) as { added?: number; duplicates?: number; error?: string };
+    onMessage(
+      res.ok
+        ? `재고 ${data.added ?? codes.length}건 추가됨${data.duplicates ? ` · 중복 ${data.duplicates}건 제외` : ""}`
+        : (data.error ?? "재고 추가 실패"),
+    );
     if (res.ok) {
       setCodesText("");
+      setStockRefresh((n) => n + 1);
       await onReload();
     }
   }
@@ -722,6 +730,14 @@ export function AdminProductsPanel({
               >
                 재고 추가
               </button>
+              <AdminStockList
+                shopSlug={shopSlug}
+                productId={productId}
+                refreshKey={stockRefresh}
+                demoMode={demoMode}
+                onMessage={onMessage}
+                onChanged={onReload}
+              />
             </motion.form>
           )}
 

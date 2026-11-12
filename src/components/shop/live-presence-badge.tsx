@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { shopHeaders } from "@/lib/shop-client";
+import { useShopUser } from "@/components/shop/user-context";
 
 const VISITOR_KEY = "does-visitor-id";
 
@@ -19,6 +21,9 @@ function visitorId() {
 
 export function LivePresenceBadge({ room }: { room: string }) {
   const [count, setCount] = useState<number | null>(null);
+  // 로그인/로그아웃이 바뀌면 다시 접속해서 회원 표시를 갱신한다
+  const { user } = useShopUser();
+  const uid = user?.id ?? "";
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -27,10 +32,29 @@ export function LivePresenceBadge({ room }: { room: string }) {
     let ping: ReturnType<typeof setInterval> | undefined;
     let reconnect: ReturnType<typeof setTimeout> | undefined;
 
-    const connect = () => {
+    // 로그인한 회원이면 서명 토큰을 받아 붙인다 → 관리자 회원목록에 접속중/마지막 접속 표시
+    const fetchToken = async (): Promise<string | null> => {
+      try {
+        const res = await fetch("/api/presence/token", {
+          credentials: "include",
+          headers: shopHeaders(room, false),
+          cache: "no-store",
+        });
+        if (!res.ok) return null;
+        const data = (await res.json()) as { token?: string | null };
+        return data.token ?? null;
+      } catch {
+        return null;
+      }
+    };
+
+    const connect = async () => {
+      if (stopped) return;
+      const token = await fetchToken();
       if (stopped) return;
       const proto = location.protocol === "https:" ? "wss:" : "ws:";
       const qs = new URLSearchParams({ room, v: visitorId() });
+      if (token) qs.set("t", token);
       try {
         ws = new WebSocket(`${proto}//${location.host}/api/presence/ws?${qs}`);
       } catch {
@@ -54,18 +78,18 @@ export function LivePresenceBadge({ room }: { room: string }) {
         if (stopped) return;
         retry += 1;
         if (retry > 6) return;
-        reconnect = setTimeout(connect, Math.min(30_000, 1500 * 2 ** retry));
+        reconnect = setTimeout(() => void connect(), Math.min(30_000, 1500 * 2 ** retry));
       };
     };
 
-    connect();
+    void connect();
     return () => {
       stopped = true;
       clearInterval(ping);
       clearTimeout(reconnect);
       ws?.close();
     };
-  }, [room]);
+  }, [room, uid]);
 
   return (
     <AnimatePresence>

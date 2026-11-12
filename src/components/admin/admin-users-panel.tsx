@@ -1,8 +1,9 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { shopHeaders } from "@/lib/shop-client";
 import type { ShopTier, ShopUser } from "@/lib/types";
 import {
   PanelEmpty,
@@ -16,8 +17,45 @@ import {
 
 type Tab = "list" | "detail";
 type UserRow = Omit<ShopUser, "passwordHash">;
+type Presence = { online: boolean; lastSeenAt: string | null; source: "presence" | "login" | null };
+
+function agoText(iso: string) {
+  const diff = Math.max(0, Date.now() - new Date(iso).getTime());
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "방금 전";
+  if (m < 60) return `${m}분 전`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}시간 전`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}일 전`;
+  return formatDate(iso);
+}
+
+function PresenceTag({ p }: { p: Presence | undefined }) {
+  if (!p) return <span className="text-[11px] text-neutral-600">확인 중…</span>;
+  if (p.online) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400">
+        <span className="size-2 animate-pulse rounded-full bg-emerald-400" />
+        접속중
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-[11px] text-neutral-500"
+      title={p.lastSeenAt ? new Date(p.lastSeenAt).toLocaleString("ko-KR") : undefined}
+    >
+      <span className="size-2 rounded-full bg-neutral-600" />
+      {p.lastSeenAt
+        ? `${p.source === "login" ? "마지막 로그인" : "마지막 접속"} ${agoText(p.lastSeenAt)}`
+        : "접속 기록 없음"}
+    </span>
+  );
+}
 
 export function AdminUsersPanel({
+  shopSlug,
   users,
   tiers,
   subAdminCount,
@@ -25,6 +63,7 @@ export function AdminUsersPanel({
   onUpdate,
   onDelete,
 }: {
+  shopSlug?: string;
   users: UserRow[];
   tiers: ShopTier[];
   subAdminCount: number;
@@ -57,6 +96,36 @@ export function AdminUsersPanel({
 
   const selected = users.find((u) => u.id === selectedId) ?? null;
 
+  // 접속 상태: 30초마다 갱신
+  const [presence, setPresence] = useState<Record<string, Presence>>({});
+  const idsKey = useMemo(() => users.map((u) => u.id).join(","), [users]);
+  useEffect(() => {
+    if (!shopSlug || !idsKey) return;
+    let alive = true;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/admin/presence", {
+          credentials: "include",
+          headers: shopHeaders(shopSlug, false),
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { users?: Record<string, Presence> };
+        if (alive && data.users) setPresence(data.users);
+      } catch {
+        /* ignore */
+      }
+    };
+    void load();
+    const timer = setInterval(load, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [shopSlug, idsKey]);
+
+  const onlineCount = useMemo(() => Object.values(presence).filter((p) => p.online).length, [presence]);
+
   function openUser(userId: string) {
     setSelectedId(userId);
     setPointsDelta("");
@@ -67,6 +136,7 @@ export function AdminUsersPanel({
     <PanelFrame
       stats={[
         { label: "회원", value: users.length },
+        { label: "접속중", value: onlineCount },
         { label: "부관리자", value: subAdminCount },
         { label: "총 포인트", value: pointsSum.toLocaleString() },
       ]}
@@ -112,6 +182,9 @@ export function AdminUsersPanel({
                     <p className="truncate text-xs text-neutral-500">
                       {u.email} · {u.points.toLocaleString()}P
                     </p>
+                    <p className="mt-1">
+                      <PresenceTag p={presence[u.id]} />
+                    </p>
                   </button>
                 </PanelRow>
               ))}
@@ -137,6 +210,9 @@ export function AdminUsersPanel({
                 <p className="font-semibold text-white">{selected.name || "이름 없음"}</p>
                 <p className="mt-1 text-sm text-neutral-500">{selected.email}</p>
                 <p className="mt-2 text-xs text-neutral-600">가입 {formatDate(selected.createdAt)}</p>
+                <p className="mt-1.5">
+                  <PresenceTag p={presence[selected.id]} />
+                </p>
                 <p className="mt-2 text-sm text-neutral-400">
                   포인트{" "}
                   <span className="font-medium text-white">{selected.points.toLocaleString()}P</span>

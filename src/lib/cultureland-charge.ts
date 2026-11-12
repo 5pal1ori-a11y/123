@@ -1,37 +1,20 @@
-import Cultureland, { CulturelandError, Pin } from "cultureland.js";
+/**
+ * 문화상품권 자동충전 — 일시 중단.
+ * `cultureland.js@2.1.2` 패키지가 npm에서 내려가(404) 빌드에 포함할 수 없어서 임시로 막아 둔다.
+ * PIN을 쓰기 전에 오류를 내므로 상품권은 소모되지 않는다.
+ * 패키지를 다시 구하면 이 파일을 git 기록(df0fa74 이전 버전)으로 되돌리면 된다.
+ */
 
 export type CulturelandCredentials = {
   id: string;
   password: string;
 };
 
-function isError<T>(value: T | CulturelandError): value is CulturelandError {
-  return value instanceof CulturelandError;
-}
-
-/** 문화상품권 PIN을 컬쳐랜드 계정으로 충전하고 충전 금액을 반환합니다. */
 export async function redeemCultureGiftPin(
-  credentials: CulturelandCredentials,
-  pinRaw: string,
+  _credentials: CulturelandCredentials,
+  _pinRaw: string,
 ): Promise<{ amount: number; message: string }> {
-  const client = new Cultureland();
-  const login = await client.login(credentials.id.trim(), credentials.password);
-  if (isError(login)) throw new Error(login.message || "컬쳐랜드 로그인 실패");
-
-  const pin = new Pin(pinRaw.trim());
-  const voucher = await client.checkVoucher(pin);
-  if (isError(voucher)) throw new Error(voucher.message || "상품권 조회 실패");
-  if (voucher.balance <= 0) throw new Error("잔액이 없는 상품권입니다.");
-
-  const charged = await client.charge(pin);
-  if (isError(charged)) throw new Error(charged.message || "상품권 충전 실패");
-
-  const amount = Array.isArray(charged)
-    ? charged.reduce((sum, item) => sum + (item.amount ?? 0), 0)
-    : (charged.amount ?? 0);
-
-  if (amount <= 0) throw new Error("충전된 금액이 없습니다.");
-
-  const message = Array.isArray(charged) ? charged[0]?.message : charged.message;
-  return { amount, message: message ?? "충전 완료" };
+  void _credentials;
+  void _pinRaw;
+  throw new Error("문화상품권 자동충전이 일시 중단됐어요. 계좌이체 등 다른 방법으로 충전해 주세요.");
 }

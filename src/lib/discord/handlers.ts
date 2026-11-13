@@ -43,16 +43,14 @@ import {
   listProducts,
   listCategories,
   listTopRandomBoxDraws,
-  getProductById,
   persistAsync,
-  quoteUnitPrice,
   RANDOM_BOX_MAX,
   RANDOM_BOX_TABLE,
   setUserBankDepositorName,
   updateProduct,
   updateShopSettings,
 } from "@/lib/store";
-import { purchaseWithPointsSmart, refreshMfaStockIfStale } from "@/lib/mfa";
+import { refreshMfaStockIfStale } from "@/lib/mfa";
 import { openRandomBoxOnce } from "@/lib/random-box-claim";
 import { RANDOM_BOX_IDLE_GIF_PATH, randomBoxGifPath } from "@/lib/random-box-gif";
 import { redeemWorldCoupon } from "@/lib/world/server";
@@ -674,163 +672,46 @@ export function handleInfo(shopSlug: string, discordId: string) {
   });
 }
 
+/** 구매는 웹에서만 — 디스코드에서는 상품 정보와 웹 구매 링크만 보여준다 */
+function webOnlyBuyPanel(shopSlug: string, product: { name: string; slug: string; price: number; availableCount: number } | null) {
+  const href = product ? shopUrl(shopSlug, `/product/${product.slug}`) : shopUrl(shopSlug, "/dashboard?tab=products");
+  const lines = product
+    ? [
+        `### ${product.name}`,
+        `가격 **${product.price.toLocaleString("ko-KR")}원** · ${product.availableCount > 0 ? `재고 ${product.availableCount.toLocaleString("ko-KR")}개` : "품절"}`,
+      ]
+    : [];
+  return v2Ephemeral([
+    container([
+      textDisplay("## 구매는 웹사이트에서 할 수 있어요"),
+      separator(true, 1),
+      ...(lines.length ? [textDisplay(lines.join("\n"))] : []),
+      textDisplay("-# 결제·지급 안전을 위해 디스코드에서는 구매를 받지 않아요. 아래 버튼으로 바로 이동해 주세요."),
+      actionRow(button({ label: "웹에서 구매하기", url: href, style: ButtonStyle.LINK })),
+    ]),
+  ]);
+}
+
 export function handleBuySelect(shopSlug: string, discordId: string, productId: string) {
+  void discordId;
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점 없음");
-  const linked = requireLinkedUser(shop, discordId);
-  if ("error" in linked) return linked.error;
-  const product = listProducts(shop.id).find((p) => p.id === productId);
-  if (!product) return errorPanel("제품을 찾을 수 없습니다.");
-  if (product.availableCount <= 0) {
-    return errorPanel("재고가 없습니다.", "구매 불가");
-  }
-
-  return showModal({
-    customId: cid(shopSlug, "buy_modal", productId),
-    title: `${product.name} 구매`.slice(0, 45),
-    inputs: [
-      textInput({
-        customId: "quantity",
-        label: "구매할 수량",
-        placeholder: `가격: ${product.price.toLocaleString()}원 | 재고: ${product.availableCount}개 | 보유금액: ${linked.user.points.toLocaleString()}원`,
-        required: true,
-        minLength: 1,
-        maxLength: 5,
-        value: "1",
-      }),
-    ],
-  });
+  const product = listProducts(shop.id).find((p) => p.id === productId) ?? null;
+  return webOnlyBuyPanel(shopSlug, product);
 }
 
 export async function handleBuyConfirm(
   shopSlug: string,
   discordId: string,
   productId: string,
-  quantity = 1,
+  _quantity = 1,
 ) {
+  void discordId;
+  void _quantity;
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점 없음");
-  const linked = requireLinkedUser(shop, discordId);
-  if ("error" in linked) return linked.error;
-
-  const product = listProducts(shop.id).find((p) => p.id === productId);
-  if (!product) return errorPanel("제품을 찾을 수 없습니다.");
-
-  const qty = Math.floor(quantity);
-  if (!Number.isFinite(qty) || qty < 1) {
-    return errorPanel("올바른 수량(1 이상의 숫자)을 입력해주세요.");
-  }
-  if (qty > 20) return errorPanel("한 번에 20개까지 구매할 수 있어요.");
-
-  if (!product.mfaProduct && product.availableCount < qty) {
-    return fieldEmbed({
-      title: "재고 부족",
-      fields: [
-        { name: "요청 수량", value: `${qty}개`, fence: false },
-        { name: "남은 재고", value: `${product.availableCount}개`, fence: false },
-      ],
-    });
-  }
-
-  const need = (quoteUnitPrice(shop.id, linked.user.id, productId) ?? product.price) * qty;
-  if (linked.user.points < need) {
-    return fieldEmbed({
-      title: "잔액 부족",
-      fields: [
-        { name: "필요 금액", value: `${need.toLocaleString()}원`, fence: false },
-        { name: "보유 금액", value: `${linked.user.points.toLocaleString()}원`, fence: false },
-        {
-          name: "부족 금액",
-          value: `${(need - linked.user.points).toLocaleString()}원`,
-          fence: false,
-        },
-      ],
-    });
-  }
-
-  const result = await purchaseWithPointsSmart(shop.id, linked.user.id, productId, {
-    quantity: qty,
-    suppressDiscordNotify: true,
-    buyerDiscordId: linked.user.discordId || discordId,
-  });
-  if (!result.ok) {
-    if (result.error === "포인트 부족") {
-      return fieldEmbed({
-        title: "잔액 부족",
-        fields: [
-          { name: "필요 금액", value: `${need.toLocaleString()}원`, fence: false },
-          { name: "보유 금액", value: `${linked.user.points.toLocaleString()}원`, fence: false },
-        ],
-      });
-    }
-    if (result.error === "품절" || result.error.startsWith("재고")) {
-      return errorPanel(result.error, "구매 불가");
-    }
-    return errorPanel(result.error);
-  }
-  await persistAsync();
-
-  const refreshed = getUserById(linked.user.id);
-  const totalAmount = result.orders.reduce((s, o) => s + o.amount, 0);
-  const codes = result.orders.map((o) => o.dispensedCode).filter(Boolean).join("\n");
-  const productName = product.name;
-  const mfaLinks = result.links ?? [];
-  const remainingStock = product.mfaProduct
-    ? Math.max(0, getProductById(productId)?.mfaStock ?? 0)
-    : Math.max(0, product.availableCount - qty);
-
-  let dmSent = false;
-  if (linked.user.discordId || discordId) {
-    const dm = await sendDiscordDm(
-      linked.user.discordId || discordId,
-      {
-        flags: MessageFlags.IS_COMPONENTS_V2,
-        components: [
-          container([
-            textDisplay("## 구매 완료"),
-            separator(true, 1),
-            textDisplay(`**제품**\n${productName}`),
-            textDisplay(`**수량**\n${qty}개`),
-            textDisplay(`**총 가격**\n${totalAmount.toLocaleString()}원`),
-            separator(true, 1),
-            textDisplay(`**상품 정보**\n\`\`\`\n${(codes || "-").slice(0, 900)}\n\`\`\``),
-            ...(mfaLinks.length
-              ? [textDisplay("-# 아래 버튼을 눌러 16자리 코드를 입력하면 계정 정보를 확인할 수 있어요.")]
-              : []),
-            separator(true, 2),
-            actionRow(
-              ...mfaLinks.slice(0, 4).map((l) => button({ label: l.label, url: l.url, style: ButtonStyle.LINK })),
-              button({
-                customId: cid(shopSlug, "rev_write", productId),
-                label: "후기 작성",
-                style: ButtonStyle.SECONDARY,
-              }),
-            ),
-          ]),
-        ],
-      },
-      shop.id,
-    );
-    dmSent = dm.ok;
-  }
-
-  return fieldEmbed({
-    title: "구매 완료",
-    fields: [
-      { name: "제품", value: productName, fence: false },
-      { name: "수량", value: `${qty}개`, fence: false },
-      { name: "총 가격", value: `${totalAmount.toLocaleString()}원`, fence: false },
-      { name: "남은 잔액", value: `${(refreshed?.points ?? 0).toLocaleString()}원`, fence: false },
-      {
-        name: "상품 정보",
-        value: dmSent
-          ? "DM(개인 메시지)으로 전송되었습니다. 후기도 같이 남겨주세요!"
-          : `\`\`\`\n${(codes || "-").slice(0, 900)}\n\`\`\``,
-        fence: false,
-      },
-      { name: "남은 재고", value: `${remainingStock}개`, fence: false },
-    ],
-  });
+  // 예전에 띄운 수량 모달이 남아 있어도 디스코드에서는 구매하지 않는다
+  return webOnlyBuyPanel(shopSlug, listProducts(shop.id).find((p) => p.id === productId) ?? null);
 }
 
 export function handleCouponModal(shopSlug: string) {

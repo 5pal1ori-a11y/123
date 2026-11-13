@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Compass, Mountain, Play, Store, TreePine, Users } from "lucide-react";
+import { Mountain, Store, TreePine, Users } from "lucide-react";
 import { useShopUser } from "@/components/shop/user-context";
 import { VendixLogo } from "@/components/ui/vendix-logo";
 import { shopPath, useShopBase } from "@/lib/shop-nav";
@@ -119,22 +119,16 @@ export function ShopLanding({ shopName }: { shopName: string }) {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.8, ease }}
-            className="mt-9 flex flex-col items-center gap-3 sm:flex-row"
+            className="mt-9 flex items-center justify-center"
           >
+            {/* 로그인 없이 게스트로 바로 상점에 들어간다 (구매·출석 등은 그때 로그인 안내) */}
             <Link
-              href={shopPath(base, "/main")}
-              className="group relative inline-flex h-14 items-center gap-2.5 overflow-hidden rounded-2xl bg-white px-9 text-[17px] font-bold text-[#0a0a0f] no-underline shadow-[0_18px_50px_-12px_rgba(94,240,230,0.55)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_-12px_rgba(94,240,230,0.7)]"
+              href={shopPath(base, "/dashboard?tab=products")}
+              className="group relative inline-flex h-14 items-center gap-2.5 overflow-hidden rounded-2xl bg-white px-10 text-[17px] font-bold text-[#0a0a0f] no-underline shadow-[0_18px_50px_-12px_rgba(94,240,230,0.55)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_-12px_rgba(94,240,230,0.7)]"
             >
               <span aria-hidden className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-[#5ef0e6]/35 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-              <Play className="relative size-5 fill-current" />
-              <span className="relative">플레이 하기</span>
-            </Link>
-            <Link
-              href={shopPath(base, "/dashboard")}
-              className="inline-flex h-14 items-center gap-2 rounded-2xl border border-white/15 bg-white/[0.05] px-7 text-[15px] font-semibold text-white/85 no-underline backdrop-blur-md transition hover:border-white/30 hover:bg-white/[0.09] hover:text-white"
-            >
-              <Compass className="size-4.5" />
-              상점 둘러보기
+              <Store className="relative size-5" />
+              <span className="relative">상점 가기</span>
             </Link>
           </motion.div>
         </main>

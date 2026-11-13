@@ -39,6 +39,15 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
+      # Google Fonts가 확장자 없는 폰트 URL(/l/font?kit=...)을 주면 Next 15.5 폰트 로더가 터진다.
+      # 그 경우 woff2로 간주하도록 해당 한 줄만 고친다.
+      - name: Patch next/font for extensionless Google font URLs
+        run: |
+          f=node_modules/next/dist/compiled/@next/font/dist/google/loader.js
+          sed -i 's#/\\.(woff|woff2|eot|ttf|otf)\$/.exec(googleFontFileUrl)\[1\]#(/\\.(woff|woff2|eot|ttf|otf)$/.exec(googleFontFileUrl) || [0, "woff2"])[1]#' "$f"
+          grep -n 'exec(googleFontFileUrl)' "$f"
+          grep -q '\[0, "woff2"\]' "$f"
+
       # Next 15.5.24 는 배포 중인 버전과 같다 (지원 기간 종료 경고만 우회)
       - name: Build
         run: npx opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion

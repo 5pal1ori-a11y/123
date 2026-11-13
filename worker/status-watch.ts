@@ -14,7 +14,11 @@ const ORPHAN_MS = 20 * 60_000;
 const REFUSED_BACKOFF_MS = 10 * 60_000;
 const FATAL_CLOSE = new Set([4004, 4010, 4011, 4012, 4013, 4014]);
 
-/** 관리자 온라인 여부를 디스코드 게이트웨이로 지켜보다가, 바뀌면 /api/discord/server-status 로 알린다 */
+/**
+ * DOES 봇으로 게이트웨이에 계속 붙어 있는다.
+ * - 봇이 디스코드에서 항상 '온라인' 으로 보이게 한다
+ * - 관리자 온라인 여부(PRESENCE_UPDATE)를 지켜보다가 바뀌면 /api/discord/server-status 로 알린다
+ */
 export class StatusWatch extends DurableObject<Env> {
   private ws: WebSocket | null = null;
   private config: Config | null = null;
@@ -165,6 +169,7 @@ export class StatusWatch extends DurableObject<Env> {
           token: this.config?.token ?? "",
           intents: INTENTS,
           properties: { os: "linux", browser: "does-status", device: "does-status" },
+          presence: { since: null, activities: [{ name: "DOES", type: 2 }], status: "online", afk: false },
         },
       });
       return;

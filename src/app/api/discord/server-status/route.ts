@@ -25,9 +25,9 @@ export async function POST(request: Request) {
   const settings = getShopSettings(shop.id);
 
   if (parsed.data.op === "config") {
-    const active = (settings.serverStatusPanels ?? []).length > 0;
+    // 패널이 없어도 항상 붙어 있는다 — DOES 봇이 디스코드에서 계속 '온라인' 으로 보이게
     return NextResponse.json({
-      token: active ? (await doesDiscordEnvAsync()).botToken : "",
+      token: (await doesDiscordEnvAsync()).botToken,
       guildId: settings.discordGuildId || MFA_DISCORD_GUILD_ID,
       userIds: [settings.serverStatusUserId || DEFAULT_STATUS_USER_ID],
     });

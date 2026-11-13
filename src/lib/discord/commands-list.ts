@@ -208,6 +208,12 @@ export const VENDIX_DISCORD_COMMANDS = [
     type: 1,
     default_member_permissions: "32",
   },
+  {
+    name: "추천인",
+    description: "추천인 코드 패널을 채널에 올립니다 (관리자)",
+    type: 1,
+    default_member_permissions: "32",
+  },
 ] as const;
 
 /** DOES 봇 서버에만 올리는 명령 (티켓 · 이벤트) */

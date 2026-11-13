@@ -10,7 +10,6 @@ import { formatKRW } from "@/lib/utils";
 const COUNTED = new Set(["dispensed", "paid", "awaiting_fulfillment"]);
 const TOP_N = 10;
 const BAR = 16;
-const MEDAL = ["🥇", "🥈", "🥉"];
 
 type Row = { key: string; label: string; amount: number; count: number };
 
@@ -51,20 +50,20 @@ export function buildLeaderboardBoard(shopId: string) {
   const now = Math.floor(Date.now() / 1000);
 
   const kids: unknown[] = [
-    textDisplay(`## 📊 ${shop?.name ?? "상점"} 실시간 구매 랭킹`),
-    textDisplay(`-# 🔴 LIVE · 구매가 생기면 바로 집계돼요 · 마지막 집계 <t:${now}:R>`),
+    textDisplay(`## ${shop?.name ?? "상점"} 구매 랭킹`),
+    textDisplay(`-# 실시간 집계 · <t:${now}:R> 갱신`),
     separator(true, 1),
-    textDisplay(`집계 인원 **${people.toLocaleString("ko-KR")}명** · 누적 구매 **${formatKRW(total)}**`),
+    textDisplay(`구매자 **${people.toLocaleString("ko-KR")}명** · 누적 **${formatKRW(total)}**`),
     separator(true, 1),
   ];
 
   if (!top.length) {
-    kids.push(textDisplay("아직 집계된 구매가 없어요. 첫 번째 주인공이 되어 보세요!"));
+    kids.push(textDisplay("아직 집계된 구매가 없어요."));
   } else {
     const lines = top.map((r, i) => {
       const share = total > 0 ? r.amount / total : 0;
       const pct = (share * 100).toFixed(1);
-      const rank = MEDAL[i] ?? `\`${String(i + 1).padStart(2, " ")}위\``;
+      const rank = `**${i + 1}위**`;
       return `${rank} ${r.label}  ·  **${formatKRW(r.amount)}**\n\`${bar(share)}\` **${pct}%** · ${r.count}건`;
     });
     // 1~3위와 나머지 사이에 구분선
@@ -76,7 +75,7 @@ export function buildLeaderboardBoard(shopId: string) {
   }
 
   kids.push(separator(true, 1));
-  kids.push(textDisplay("-# 막대와 %는 전체 누적 구매 중 차지하는 비율이에요 · 구매는 웹사이트에서만 할 수 있어요"));
+  kids.push(textDisplay("-# 비율은 전체 누적 구매 금액 기준"));
 
   return {
     flags: MessageFlags.IS_COMPONENTS_V2,

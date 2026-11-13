@@ -36,7 +36,12 @@ export async function GET(request: Request, context: { params: Promise<{ product
 
   const body: McAccountInfo = {
     ok: Boolean(profile?.uuid),
-    capes: (profile?.capes ?? []).map(({ source, baseWidth }) => ({ source, baseWidth })),
+    capes: (profile?.capes ?? []).map(({ source, baseWidth, title, front }) => ({
+      source,
+      baseWidth,
+      ...(title ? { title } : {}),
+      ...(front ? { front } : {}),
+    })),
   };
   return NextResponse.json(body, {
     headers: { "Cache-Control": "public, max-age=600, s-maxage=600" },

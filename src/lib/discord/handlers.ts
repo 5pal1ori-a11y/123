@@ -43,6 +43,7 @@ import {
   listProducts,
   listCategories,
   listTopRandomBoxDraws,
+  getReferralSummary,
   persistAsync,
   RANDOM_BOX_MAX,
   RANDOM_BOX_TABLE,
@@ -441,6 +442,59 @@ function refreshRandomBoxPanel(shopId: string, shopSlug: string, channelId?: str
       shopId,
     ).catch((err) => console.error("[rbox] panel refresh failed", err)),
   );
+}
+
+/** /추천인 — 관리자가 채널에 올리는 안내 패널. 누구나 버튼으로 자기 코드를 본다 */
+export function handleReferralCommand(shopSlug: string, roles: string[], permissions?: string) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return errorPanel("상점을 찾을 수 없어요.");
+  if (!isDiscordAdmin(getShopSettings(shop.id), roles, permissions)) {
+    return errorPanel("추천인 패널은 관리자만 올릴 수 있어요. 채널에 있는 버튼을 눌러 주세요.", "권한 없음");
+  }
+  const panel = v2Public([
+    container([
+      textDisplay("## 추천인 코드"),
+      textDisplay(
+        [
+          "친구가 내 코드로 가입하면, 그 친구가 결제할 때마다 결제 금액의 일부가 내 포인트로 들어와요.",
+          "",
+          "-# 아래 버튼을 누르면 내 코드와 초대 링크가 나에게만 보여요.",
+        ].join("\n"),
+      ),
+      actionRow(button({ customId: cid(shop.slug, "ref_mine"), label: "내 추천인 코드 보기" })),
+    ]),
+  ]);
+  return { ...panel, data: { ...panel.data, allowed_mentions: { parse: [] } } };
+}
+
+export function handleReferralMine(shopSlug: string, discordId: string) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return errorPanel("상점을 찾을 수 없어요.");
+  const linked = requireLinkedUser(shop, discordId);
+  if ("error" in linked) return linked.error;
+  const summary = getReferralSummary(shop.id, linked.user.id);
+  if (!summary?.code) return errorPanel("추천인 코드를 만들지 못했어요. 잠시 후 다시 눌러 주세요.");
+  scheduleDiscordBackground(persistAsync());
+  const link = shopUrl(shop.slug, `/dashboard?tab=account&ref=${encodeURIComponent(summary.code)}`);
+  return v2Ephemeral([
+    container([
+      textDisplay("### 내 추천인 코드"),
+      textDisplay(`# \`${summary.code}\``),
+      separator(true, 1),
+      textDisplay(
+        [
+          `초대한 친구 **${summary.invitedCount.toLocaleString("ko-KR")}명**`,
+          `받은 보상 **${formatKRW(summary.earned)}**`,
+          `보상 비율 친구 결제액의 **${summary.ratePercent}%**`,
+          summary.referredBy ? `-# 나를 초대한 사람: ${summary.referredBy.name}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      ),
+      textDisplay(`초대 링크\n${link}`),
+      actionRow(button({ label: "초대 링크 열기", url: link, style: ButtonStyle.LINK })),
+    ]),
+  ]);
 }
 
 function randomBoxResultKids(discordId: string, amount: number) {

@@ -22,6 +22,7 @@ import {
   MessageSquare,
   MessagesSquare,
   Package,
+  Gem,
   PanelLeftClose,
   RefreshCw,
   ScrollText,
@@ -59,6 +60,7 @@ import { AdminBannersPanel } from "./admin-banners-panel";
 import { AdminNotificationsPanel, AdminStaffPanel } from "./admin-staff-panel";
 import { AdminTiersPanel } from "./admin-tiers-panel";
 import { AdminUsersPanel } from "./admin-users-panel";
+import { AdminMcProductsPanel } from "./admin-mc-products-panel";
 import { AdminNoticesPanel } from "./admin-notices-panel";
 import { AdminReviewsPanel } from "./admin-reviews-panel";
 import { AdminBugsPanel } from "./admin-bugs-panel";
@@ -107,6 +109,7 @@ type Tab =
   | "billing"
   | "bot"
   | "products"
+  | "mcProducts"
   | "events"
   | "world"
   | "chat"
@@ -200,6 +203,7 @@ const NAV: { id: Tab; label: string; icon: typeof Store }[] = [
   { id: "main", label: "개요", icon: LayoutDashboard },
   { id: "orders", label: "주문", icon: ClipboardList },
   { id: "products", label: "상품", icon: Package },
+  { id: "mcProducts", label: "마크 상품", icon: Gem },
   { id: "billing", label: "결제 · 충전", icon: Wallet },
   { id: "users", label: "고객", icon: Users },
   { id: "inquiries", label: "문의", icon: MessageSquare },
@@ -221,7 +225,7 @@ const NAV: { id: Tab; label: string; icon: typeof Store }[] = [
 ];
 
 const NAV_GROUPS: { label: string; ids: Tab[] }[] = [
-  { label: "판매", ids: ["main", "orders", "products", "billing"] },
+  { label: "판매", ids: ["main", "orders", "products", "mcProducts", "billing"] },
   { label: "고객", ids: ["users", "inquiries", "tiers", "reviews"] },
   { label: "성장", ids: ["coupons", "events", "world", "chat"] },
   { label: "마케팅", ids: ["banners"] },
@@ -239,6 +243,7 @@ const NAV_BY_ID = Object.fromEntries(NAV.map((item) => [item.id, item])) as Reco
 const TAB_PERM: Partial<Record<Tab, StaffPermission | "owner">> = {
   orders: "orders",
   products: "products",
+  mcProducts: "products",
   billing: "billing",
   users: "users",
   inquiries: "inquiries",
@@ -1200,6 +1205,19 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
               }
               onRenameCategory={async (categoryId, name) =>
                 runAction({ action: "category-rename", categoryId, name }, "카테고리 이름을 바꿨어요")
+              }
+            />
+          )}
+
+          {tab === "mcProducts" && (
+            <AdminMcProductsPanel
+              shopSlug={shopSlug}
+              products={data.products}
+              categories={data.categories}
+              onReload={load}
+              onMessage={pushToast}
+              onDeleteProduct={(productId, name) =>
+                void removeItem("상품 삭제", `${name}을(를) 삭제할까요?`, { action: "product-delete", productId }, "상품 삭제됨")
               }
             />
           )}

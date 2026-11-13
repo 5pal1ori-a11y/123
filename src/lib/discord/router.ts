@@ -48,6 +48,8 @@ import {
   handleVendingCommand,
   handleRandomBoxCommand,
   handleRandomBoxOpen,
+  handleReferralCommand,
+  handleReferralMine,
   handleProductAutocomplete,
   handleStockBoardAdd,
   handleStockBoardRemove,
@@ -199,6 +201,9 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
     }
     if (name === "랜덤박스") {
       return handleRandomBoxCommand(shop.slug, actor.roles, perms);
+    }
+    if (name === "추천인") {
+      return handleReferralCommand(shop.slug, actor.roles, perms);
     }
     if (name === "웹패널") {
       return handleWebPanelCommand(shop.slug, actor.roles, perms);
@@ -491,6 +496,7 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       if (!channelId) return plainEphemeral("채널을 선택해 주세요.");
       return handleEmbedChannel(embedCtx(interaction, shop.slug, actor), channelId);
     }
+    if (action === "ref_mine") return handleReferralMine(shop.slug, actor.id);
     if (action === "rbox_open") {
       return handleRandomBoxOpen(shop.slug, actor.id, interaction.channel_id, interaction.message?.id);
     }

@@ -2,12 +2,48 @@
  * 마크계정 상품: 닉네임 → UUID / 스킨 렌더 / 망토 텍스처 조회 (서버 전용).
  * 닉네임은 클라이언트에 노출하지 않고, 이미지도 이 서버를 거쳐서 내려준다.
  */
-import type { McCapeInfo, McCapeSource } from "@/lib/mc-account";
+import { CAPE_ORDER, type McCapeInfo, type McCapeSource } from "@/lib/mc-account";
 
 const UA = "VendixShop/1.0 (+minecraft account listing)";
 const TTL_MS = 30 * 60 * 1000;
 
 type ResolvedCape = McCapeInfo & { url: string };
+
+type CapesMeCatalog = { type: string; title: string; order?: number; hidden?: boolean }[];
+let capesCatalog: { at: number; byType: Map<string, { title: string; order: number }> } | null = null;
+
+/** capes.me 망토 목록 (이름·기본 순서) — 하루 캐시 */
+async function capeCatalog() {
+  if (capesCatalog && Date.now() - capesCatalog.at < 24 * 3600 * 1000) return capesCatalog.byType;
+  const list = await getJson<CapesMeCatalog>("https://capes.me/api/capes");
+  const byType = new Map<string, { title: string; order: number }>();
+  for (const c of list ?? []) byType.set(c.type, { title: c.title, order: c.order ?? 999 });
+  if (byType.size) capesCatalog = { at: Date.now(), byType };
+  return byType;
+}
+
+/** capes.me 로 계정이 가진 Mojang 망토 전체 (착용 안 한 것 포함) */
+async function ownedCapes(name: string): Promise<ResolvedCape[] | null> {
+  const data = await getJson<{ capes?: { type: string; removed?: boolean }[] }>(
+    `https://capes.me/api/user/${encodeURIComponent(name)}`,
+  );
+  if (!data || !Array.isArray(data.capes)) return null;
+  const catalog = await capeCatalog();
+  const rank = (type: string) => {
+    const i = CAPE_ORDER.indexOf(type);
+    return i >= 0 ? i : 100 + (catalog.get(type)?.order ?? 900);
+  };
+  return data.capes
+    .filter((c) => c && typeof c.type === "string" && !c.removed)
+    .sort((a, b) => rank(a.type) - rank(b.type))
+    .map((c) => ({
+      source: "minecraft" as const,
+      baseWidth: 10,
+      front: true,
+      title: catalog.get(c.type)?.title ?? c.type,
+      url: `https://capes.me/images/capes/${encodeURIComponent(c.type)}.png`,
+    }));
+}
 export type ResolvedProfile = {
   /** UUID를 못 찾으면 null — 그래도 닉네임으로 스킨 렌더는 시도한다 */
   uuid: string | null;
@@ -30,7 +66,7 @@ type PlayerDb = {
 /** playerdb.co — Mojang API가 Cloudflare 워커 IP를 막을 때도 동작하는 공개 미러 */
 async function lookupPlayerDb(name: string) {
   const data = await getJson<PlayerDb>(`https://playerdb.co/api/player/minecraft/${encodeURIComponent(name)}`);
-  const p = data?.success ? data.data?.player : undefined;
+  const p = data?.data?.player;
   const id = (p?.raw_id || p?.id || "").replace(/-/g, "");
   if (!id) return null;
   return { id, name: p?.username || name, properties: p?.properties ?? [] };
@@ -130,16 +166,22 @@ export async function resolveMcProfile(nickname: string): Promise<ResolvedProfil
   const uuid = profile?.id ?? null;
   const realName = profile?.name ?? name;
 
-  let mojang = capeFromProperties(pdb?.properties);
-  if (!mojang && uuid) mojang = await mojangCapeUrl(uuid);
-  const optifine = await optifineCapeUrl(realName);
+  const [owned, optifine] = await Promise.all([ownedCapes(realName), optifineCapeUrl(realName)]);
 
   const capes: ResolvedCape[] = [];
-  const push = (source: McCapeSource, url: string | null, baseWidth: number) => {
-    if (url) capes.push({ source, url, baseWidth });
+  const push = (source: McCapeSource, url: string | null, baseWidth: number, title?: string) => {
+    if (url) capes.push({ source, url, baseWidth, ...(title ? { title } : {}) });
   };
-  push("minecraft", mojang, 64);
-  push("optifine", optifine, 46);
+  if (owned) {
+    // capes.me: 보유한 Mojang 망토 전체 (정해 둔 순서)
+    capes.push(...owned);
+  } else {
+    // capes.me 가 안 되면 지금 착용 중인 망토 하나만
+    let mojang = capeFromProperties(pdb?.properties);
+    if (!mojang && uuid) mojang = await mojangCapeUrl(uuid);
+    push("minecraft", mojang, 64, "Minecraft Cape");
+  }
+  push("optifine", optifine, 46, "OptiFine");
   const value: ResolvedProfile = { uuid, name: realName, capes };
   // UUID를 못 찾은 결과는 짧게만 캐시 (일시 장애일 수 있음)
   cache.set(key, { at: uuid ? Date.now() : Date.now() - TTL_MS + 2 * 60 * 1000, value });

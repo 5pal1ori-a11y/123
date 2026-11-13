@@ -17,6 +17,7 @@ import {
 import type { ProductWithStock } from "@/lib/types";
 import { formatKRW } from "@/lib/utils";
 import { productDiscountPercent } from "@/lib/pricing";
+import { McCapeChips, McSkinHero, useMcAccountInfo } from "@/components/catalog/mc-account-extras";
 import { StockBadge } from "@/components/ui/stock-badge";
 import { WishHeartButton } from "@/components/ui/wish-heart-button";
 import { shopHeaders } from "@/lib/shop-client";
@@ -61,6 +62,9 @@ export function ProductDetailView({
   }, [shopSlug]);
 
   const soldOut = product.stockStatus === "sold_out";
+  const isMc = product.productKind === "mc_account";
+  const title = isMc && product.mcMaskedName ? product.mcMaskedName : product.name;
+  const mcInfo = useMcAccountInfo(product.id, product.mcVersion, isMc);
   const maxQty = Math.min(Math.max(product.availableCount, 1), 99);
   const discount = Math.max(0, Math.min(90, eventDiscountPercent + productDiscountPercent(product)));
   const finalPrice = discount > 0 ? Math.round(product.price * (1 - discount / 100)) : product.price;
@@ -176,7 +180,9 @@ export function ProductDetailView({
         animate={fadeUp.animate}
         transition={vxTransition}
       >
-        {imageUrl ? (
+        {isMc && !imageUrl ? (
+          <McSkinHero productId={product.id} version={product.mcVersion} alt={title} />
+        ) : imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imageUrl} alt={product.name} referrerPolicy="no-referrer" className="product-detail-image" />
         ) : (
@@ -198,7 +204,7 @@ export function ProductDetailView({
               {product.category || "상품"}
               {product.fulfillment === "manual" ? " · 수동지급" : ""}
             </p>
-            <h1 className="product-detail-title">{product.name}</h1>
+            <h1 className="product-detail-title">{title}</h1>
           </div>
           <WishHeartButton active={wishlisted} onToggle={() => void toggleWish()} />
         </div>
@@ -212,6 +218,7 @@ export function ProductDetailView({
           ) : null}
           <p className="product-detail-price">{formatKRW(finalPrice)}</p>
         </div>
+        {isMc ? <McCapeChips productId={product.id} version={product.mcVersion} info={mcInfo} /> : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <StockBadge status={product.stockStatus} />

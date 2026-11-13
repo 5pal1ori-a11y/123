@@ -40,6 +40,21 @@ function CapeIcon({ src, cape }: { src: string; cape: McCapeInfo }) {
 
   if (failed) return null;
 
+  const label = cape.title || (cape.source === "optifine" ? "OptiFine" : "Minecraft Cape");
+
+  // capes.me 이미지는 이미 앞면만 그려져 있어 그대로 줄여서 보여준다
+  if (cape.front) {
+    return (
+      <span
+        title={label}
+        className="flex h-[26px] w-[20px] items-center justify-center rounded-[4px] bg-[rgba(255,255,255,0.06)] ring-1 ring-[rgba(255,255,255,0.1)]"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt={label} className="h-[22.4px] w-[14px]" style={{ imageRendering: "pixelated" }} />
+      </span>
+    );
+  }
+
   const W = 14; // 표시 폭(px) — 앞면 10px 기준
   let style: React.CSSProperties = {};
   if (size) {
@@ -55,7 +70,7 @@ function CapeIcon({ src, cape }: { src: string; cape: McCapeInfo }) {
 
   return (
     <span
-      title={cape.source === "optifine" ? "옵티파인 망토" : "마인크래프트 망토"}
+      title={label}
       className="flex h-[26px] w-[20px] items-center justify-center rounded-[4px] bg-[rgba(255,255,255,0.06)] ring-1 ring-[rgba(255,255,255,0.1)]"
     >
       <span className="block h-[22.4px] w-[14px] bg-no-repeat" style={style} />

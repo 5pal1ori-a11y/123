@@ -9,10 +9,44 @@ const TTL_MS = 30 * 60 * 1000;
 
 type ResolvedCape = McCapeInfo & { url: string };
 export type ResolvedProfile = {
-  uuid: string;
+  /** UUID를 못 찾으면 null — 그래도 닉네임으로 스킨 렌더는 시도한다 */
+  uuid: string | null;
   name: string;
   capes: ResolvedCape[];
 };
+
+type PlayerDb = {
+  success?: boolean;
+  data?: {
+    player?: {
+      raw_id?: string;
+      id?: string;
+      username?: string;
+      properties?: { name: string; value: string }[];
+    };
+  };
+};
+
+/** playerdb.co — Mojang API가 Cloudflare 워커 IP를 막을 때도 동작하는 공개 미러 */
+async function lookupPlayerDb(name: string) {
+  const data = await getJson<PlayerDb>(`https://playerdb.co/api/player/minecraft/${encodeURIComponent(name)}`);
+  const p = data?.success ? data.data?.player : undefined;
+  const id = (p?.raw_id || p?.id || "").replace(/-/g, "");
+  if (!id) return null;
+  return { id, name: p?.username || name, properties: p?.properties ?? [] };
+}
+
+function capeFromProperties(props: { name: string; value: string }[] | undefined): string | null {
+  const prop = props?.find((p) => p.name === "textures");
+  if (!prop) return null;
+  try {
+    const decoded = JSON.parse(decodeBase64(prop.value)) as { textures?: { CAPE?: { url?: string } } };
+    const url = decoded.textures?.CAPE?.url;
+    return url ? url.replace(/^http:\/\//, "https://") : null;
+  } catch {
+    return null;
+  }
+}
 
 const cache = new Map<string, { at: number; value: ResolvedProfile | null }>();
 
@@ -89,31 +123,37 @@ export async function resolveMcProfile(nickname: string): Promise<ResolvedProfil
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
 
-  const profile = await lookupUuid(nickname.trim());
-  let value: ResolvedProfile | null = null;
-  if (profile) {
-    const [mojang, optifine] = await Promise.all([
-      mojangCapeUrl(profile.id),
-      optifineCapeUrl(profile.name),
-    ]);
-    const capes: ResolvedCape[] = [];
-    const push = (source: McCapeSource, url: string | null, baseWidth: number) => {
-      if (url) capes.push({ source, url, baseWidth });
-    };
-    push("minecraft", mojang, 64);
-    push("optifine", optifine, 46);
-    value = { uuid: profile.id, name: profile.name, capes };
-  }
-  cache.set(key, { at: Date.now(), value });
+  const name = nickname.trim();
+  // 1) playerdb (UUID + 텍스처를 한 번에) → 2) Mojang 직접
+  const pdb = await lookupPlayerDb(name);
+  const profile = pdb ?? (await lookupUuid(name));
+  const uuid = profile?.id ?? null;
+  const realName = profile?.name ?? name;
+
+  let mojang = capeFromProperties(pdb?.properties);
+  if (!mojang && uuid) mojang = await mojangCapeUrl(uuid);
+  const optifine = await optifineCapeUrl(realName);
+
+  const capes: ResolvedCape[] = [];
+  const push = (source: McCapeSource, url: string | null, baseWidth: number) => {
+    if (url) capes.push({ source, url, baseWidth });
+  };
+  push("minecraft", mojang, 64);
+  push("optifine", optifine, 46);
+  const value: ResolvedProfile = { uuid, name: realName, capes };
+  // UUID를 못 찾은 결과는 짧게만 캐시 (일시 장애일 수 있음)
+  cache.set(key, { at: uuid ? Date.now() : Date.now() - TTL_MS + 2 * 60 * 1000, value });
   return value;
 }
 
-/** 3D 상반신 렌더 후보 (위에서부터 순서대로 시도) */
-export function skinRenderUrls(uuid: string): string[] {
+/** 3D 상반신 렌더 후보 (위에서부터 순서대로 시도). UUID가 없으면 닉네임으로 요청한다 */
+export function skinRenderUrls(id: string): string[] {
+  const k = encodeURIComponent(id);
   return [
-    `https://starlightskins.lunareclipse.studio/render/default/${uuid}/bust`,
-    `https://visage.surgeplay.com/bust/512/${uuid}`,
-    `https://mc-heads.net/body/${uuid}/512`,
+    `https://starlightskins.lunareclipse.studio/render/default/${k}/bust`,
+    `https://visage.surgeplay.com/bust/512/${k}`,
+    `https://mc-heads.net/body/${k}/512`,
+    `https://minotar.net/armor/body/${k}/300.png`,
   ];
 }
 

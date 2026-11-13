@@ -56,7 +56,7 @@ function CapeIcon({ src, cape }: { src: string; cape: McCapeInfo }) {
   return (
     <span
       title={cape.source === "optifine" ? "옵티파인 망토" : "마인크래프트 망토"}
-      className="flex h-[26px] w-[20px] items-center justify-center rounded-[4px] bg-white/[0.06] ring-1 ring-white/10"
+      className="flex h-[26px] w-[20px] items-center justify-center rounded-[4px] bg-[rgba(255,255,255,0.06)] ring-1 ring-[rgba(255,255,255,0.1)]"
     >
       <span className="block h-[22.4px] w-[14px] bg-no-repeat" style={style} />
     </span>
@@ -118,7 +118,7 @@ export function McAccountCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.24), duration: 0.32 }}
-      className={`mc-card flex flex-col rounded-[14px] border border-[#1c2436] bg-[#0b1020] p-3 ${
+      className={`mc-card mf-dark flex flex-col rounded-[14px] border border-[#1c2436] bg-[#0b1020] p-3 ${
         soldOut ? "opacity-60" : ""
       }`}
     >
@@ -137,7 +137,7 @@ export function McAccountCard({
               onError={() => setSkinFailed(true)}
             />
           ) : (
-            <User className="mb-16 size-16 text-white/10" />
+            <User className="mb-16 size-16 text-[rgba(255,255,255,0.1)]" />
           )}
         </Link>
 
@@ -145,16 +145,16 @@ export function McAccountCard({
           <span
             className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-[3px] text-[10px] font-bold tracking-wide ${
               soldOut
-                ? "border-red-400/40 bg-red-500/15 text-red-200"
-                : "border-indigo-400/40 bg-indigo-500/15 text-indigo-200"
+                ? "border-[rgba(248,113,113,0.4)] bg-[rgba(239,68,68,0.15)] text-[#fecaca]"
+                : "border-[rgba(129,140,248,0.4)] bg-[rgba(99,102,241,0.15)] text-[#c7d2fe]"
             }`}
           >
-            <span className={`size-1 rounded-full ${soldOut ? "bg-red-300" : "bg-indigo-300"}`} />
+            <span className={`size-1 rounded-full ${soldOut ? "bg-[#fca5a5]" : "bg-[#a5b4fc]"}`} />
             {soldOut ? "품절" : "판매중"}
           </span>
           {rating !== null ? (
-            <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-amber-300">
-              <Star className="size-3 fill-amber-300 text-amber-300" />
+            <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#fcd34d]">
+              <Star className="size-3 fill-[#fcd34d] text-[#fcd34d]" />
               {rating.toFixed(1)}
             </span>
           ) : null}
@@ -164,46 +164,46 @@ export function McAccountCard({
           <Link
             href={href}
             aria-label="상세 정보"
-            className="flex size-[30px] items-center justify-center rounded-lg border border-white/10 bg-black/50 backdrop-blur"
+            className="flex size-[30px] items-center justify-center rounded-lg border border-[rgba(255,255,255,0.1)] bg-[rgba(0,0,0,0.5)] backdrop-blur"
           >
-            <BarChart3 className="size-3.5 text-cyan-400" />
+            <BarChart3 className="size-3.5 text-[#22d3ee]" />
           </Link>
           <button
             type="button"
             aria-label="찜하기"
             aria-pressed={wishlisted}
             onClick={onToggleWishlist}
-            className="flex size-[30px] items-center justify-center rounded-lg border border-white/10 bg-black/50 backdrop-blur"
+            className="flex size-[30px] items-center justify-center rounded-lg border border-[rgba(255,255,255,0.1)] bg-[rgba(0,0,0,0.5)] backdrop-blur"
           >
-            <Heart className={`size-3.5 ${wishlisted ? "fill-rose-500 text-rose-500" : "text-white"}`} />
+            <Heart className={`size-3.5 ${wishlisted ? "fill-[#f43f5e] text-[#f43f5e]" : "text-[#ffffff]"}`} />
           </button>
         </div>
 
         {tag ? (
-          <span className="pointer-events-none absolute bottom-1 left-0 text-[11px] font-extrabold uppercase text-neutral-400">
+          <span className="pointer-events-none absolute bottom-1 left-0 text-[11px] font-extrabold uppercase text-[#a3a3a3]">
             {tag}
           </span>
         ) : null}
 
-        <span className="pointer-events-none absolute bottom-0 right-0 inline-flex items-baseline gap-0.5 rounded-lg bg-white px-2 py-1 shadow-lg">
+        <span className="pointer-events-none absolute bottom-0 right-0 inline-flex items-baseline gap-0.5 rounded-lg bg-[#ffffff] px-2 py-1 shadow-lg">
           {originalPriceText ? (
-            <span className="mr-1 text-[10px] font-semibold text-neutral-400 line-through">{originalPriceText}</span>
+            <span className="mr-1 text-[10px] font-semibold text-[#a3a3a3] line-through">{originalPriceText}</span>
           ) : null}
-          <span className="text-[11px] font-bold text-neutral-400">₩</span>
-          <span className="text-[15px] font-extrabold leading-none text-black">{priceText}</span>
+          <span className="text-[11px] font-bold text-[#a3a3a3]">₩</span>
+          <span className="text-[15px] font-extrabold leading-none text-[#000000]">{priceText}</span>
         </span>
       </div>
 
       {/* 정보 */}
       <div className="mt-4 flex items-baseline justify-between gap-2">
-        <Link href={href} className="min-w-0 truncate text-[15px] font-extrabold tracking-wide text-white">
+        <Link href={href} className="min-w-0 truncate text-[15px] font-extrabold tracking-wide text-[#ffffff]">
           {title}
         </Link>
-        <span className="shrink-0 text-[11px] text-neutral-500">{timeAgo(product.createdAt)}</span>
+        <span className="shrink-0 text-[11px] text-[#737373]">{timeAgo(product.createdAt)}</span>
       </div>
       <div className="mt-1 flex items-center justify-between gap-2 text-[11px]">
-        <span className="min-w-0 truncate font-semibold text-neutral-400">판매자 {shopName}</span>
-        <span className="shrink-0 text-neutral-500">{sold.toLocaleString("ko-KR")}개 판매</span>
+        <span className="min-w-0 truncate font-semibold text-[#a3a3a3]">판매자 {shopName}</span>
+        <span className="shrink-0 text-[#737373]">{sold.toLocaleString("ko-KR")}개 판매</span>
       </div>
 
       {/* 망토 (왼쪽 하단) */}
@@ -216,7 +216,7 @@ export function McAccountCard({
           />
         ))}
         {moreCapes > 0 ? (
-          <span className="flex h-[26px] min-w-[22px] items-center justify-center rounded-[4px] bg-indigo-500/25 px-1 text-[10px] font-bold text-indigo-200">
+          <span className="flex h-[26px] min-w-[22px] items-center justify-center rounded-[4px] bg-[rgba(99,102,241,0.25)] px-1 text-[10px] font-bold text-[#c7d2fe]">
             +{moreCapes}
           </span>
         ) : null}
@@ -226,7 +226,7 @@ export function McAccountCard({
       <div className="mt-3 flex gap-2">
         <Link
           href={href}
-          className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[10px] border border-[#243052] bg-[#121a30] text-[13px] font-bold text-indigo-100 transition hover:bg-[#18223d]"
+          className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[10px] border border-[#243052] bg-[#121a30] text-[13px] font-bold text-[#e0e7ff] transition hover:bg-[#18223d]"
         >
           <ExternalLink className="size-3.5" />
           상세보기
@@ -236,7 +236,7 @@ export function McAccountCard({
           target="_blank"
           rel="noopener noreferrer"
           aria-label="새 탭에서 열기"
-          className="flex size-10 items-center justify-center rounded-[10px] border border-white/10 bg-white/[0.03] text-neutral-300 transition hover:bg-white/[0.07]"
+          className="flex size-10 items-center justify-center rounded-[10px] border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] text-[#d4d4d4] transition hover:bg-[rgba(255,255,255,0.07)]"
         >
           <ExternalLink className="size-3.5" />
         </a>
@@ -245,7 +245,7 @@ export function McAccountCard({
           disabled={soldOut}
           aria-label="장바구니 담기"
           onClick={onAddToCart}
-          className="flex size-10 items-center justify-center rounded-[10px] border border-white/10 bg-white/[0.03] text-neutral-300 transition hover:bg-white/[0.07] disabled:opacity-35"
+          className="flex size-10 items-center justify-center rounded-[10px] border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] text-[#d4d4d4] transition hover:bg-[rgba(255,255,255,0.07)] disabled:opacity-35"
         >
           <ShoppingCart className="size-3.5" />
         </button>

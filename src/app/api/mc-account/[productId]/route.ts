@@ -22,8 +22,7 @@ export async function GET(request: Request, context: { params: Promise<{ product
   const asset = url.searchParams.get("asset");
 
   if (asset === "skin") {
-    if (!profile) return new NextResponse(null, { status: 404 });
-    const img = await fetchImage(skinRenderUrls(profile.uuid));
+    const img = await fetchImage(skinRenderUrls(profile?.uuid ?? product.mcNickname));
     return img ?? new NextResponse(null, { status: 502 });
   }
 
@@ -36,7 +35,7 @@ export async function GET(request: Request, context: { params: Promise<{ product
   }
 
   const body: McAccountInfo = {
-    ok: Boolean(profile),
+    ok: Boolean(profile?.uuid),
     capes: (profile?.capes ?? []).map(({ source, baseWidth }) => ({ source, baseWidth })),
   };
   return NextResponse.json(body, {

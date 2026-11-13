@@ -7,6 +7,8 @@ type Status = "online" | "idle" | "dnd" | "offline";
 const GATEWAY = "https://gateway.discord.gg/?v=10&encoding=json";
 /** GUILDS | GUILD_PRESENCES (Developer Portal 에서 Presence Intent 를 켜야 한다) */
 const INTENTS = (1 << 0) | (1 << 8);
+/** Presence Intent 가 꺼져 있으면(4014) GUILDS 만으로 붙어 '온라인' 표시만 유지한다 */
+const INTENTS_BASIC = 1 << 0;
 const ALARM_MS = 30_000;
 /** 이 주기로 대상의 현재 상태를 다시 물어본다 (이벤트를 놓쳐도 맞춰진다) */
 const RESYNC_MS = 5 * 60_000;
@@ -30,6 +32,7 @@ export class StatusWatch extends DurableObject<Env> {
   private refusedUntil = 0;
   private lastResync = 0;
   private statuses = new Map<string, Status>();
+  private presenceDenied = false;
 
   async fetch(request: Request) {
     const body = (await request.json().catch(() => ({}))) as Partial<Config> & { stop?: boolean };
@@ -62,7 +65,14 @@ export class StatusWatch extends DurableObject<Env> {
       return;
     }
     await this.ensureConnected();
-    if (this.ws && Date.now() - this.lastResync > RESYNC_MS) this.requestPresences();
+    if (this.ws && !this.presenceDenied && Date.now() - this.lastResync > RESYNC_MS) this.requestPresences();
+    // 한 시간에 한 번은 Presence Intent 가 켜졌는지 다시 시도
+    if (this.presenceDenied && Date.now() - this.lastResync > 60 * 60_000) {
+      this.lastResync = Date.now();
+      this.presenceDenied = false;
+      this.close();
+      await this.ensureConnected();
+    }
     await this.ctx.storage.setAlarm(Date.now() + ALARM_MS);
   }
 
@@ -120,7 +130,12 @@ export class StatusWatch extends DurableObject<Env> {
       ws.addEventListener("close", (ev) => {
         if (this.ws !== ws) return;
         this.close();
-        if (FATAL_CLOSE.has(ev.code)) {
+        if (ev.code === 4014 && !this.presenceDenied) {
+          // Presence Intent 꺼짐 → 상태 감시는 못 하지만 봇 온라인 표시는 유지
+          this.presenceDenied = true;
+          console.log("status watch: presence intent disabled, reconnecting without it");
+          this.ctx.waitUntil(new Promise((r) => setTimeout(r, 2_000)).then(() => this.ensureConnected()));
+        } else if (FATAL_CLOSE.has(ev.code)) {
           this.refusedUntil = Date.now() + REFUSED_BACKOFF_MS;
           // 4014: Presence Intent 가 꺼져 있음
           console.log("status watch closed (fatal)", ev.code, ev.reason);
@@ -167,7 +182,7 @@ export class StatusWatch extends DurableObject<Env> {
         op: 2,
         d: {
           token: this.config?.token ?? "",
-          intents: INTENTS,
+          intents: this.presenceDenied ? INTENTS_BASIC : INTENTS,
           properties: { os: "linux", browser: "does-status", device: "does-status" },
           presence: { since: null, activities: [{ name: "DOES", type: 2 }], status: "online", afk: false },
         },
@@ -190,7 +205,7 @@ export class StatusWatch extends DurableObject<Env> {
     if (frame.op !== 0) return;
 
     if (frame.t === "READY") {
-      this.requestPresences();
+      if (!this.presenceDenied) this.requestPresences();
       return;
     }
     if (frame.t === "GUILD_MEMBERS_CHUNK") {

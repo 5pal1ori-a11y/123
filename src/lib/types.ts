@@ -125,6 +125,10 @@ export type ShopSettings = {
   discordRandomBoxLogChannelId: string | null;
   discordStockChannelId: string | null;
   discordStockMessageId: string | null;
+  /** /서버상황 — 온라인 여부를 지켜볼 디스코드 사용자 ID, 올라가 있는 패널들, 마지막 상태 */
+  serverStatusUserId?: string | null;
+  serverStatusPanels?: { channelId: string; messageId: string }[];
+  serverStatusLast?: { status: "online" | "idle" | "dnd" | "offline"; since: string } | null;
   /** 실시간 구매 랭킹(집계판) 채널 · 고쳐 쓰는 메시지 */
   discordLeaderboardChannelId?: string | null;
   discordLeaderboardMessageId?: string | null;

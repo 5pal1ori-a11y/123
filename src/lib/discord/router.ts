@@ -49,6 +49,7 @@ import {
   handleRandomBoxCommand,
   handleRandomBoxOpen,
   handleReferralCommand,
+  handleServerStatusCommand,
   handleReferralMine,
   handleProductAutocomplete,
   handleStockBoardAdd,
@@ -201,6 +202,17 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
     }
     if (name === "랜덤박스") {
       return handleRandomBoxCommand(shop.slug, actor.roles, perms);
+    }
+    if (name === "서버상황") {
+      const target = interaction.data?.options?.find((o) => o.name === "대상")?.value;
+      return handleServerStatusCommand(
+        shop.slug,
+        actor.roles,
+        perms,
+        interaction.channel_id,
+        interaction.guild_id,
+        typeof target === "string" ? target : null,
+      );
     }
     if (name === "추천인") {
       return handleReferralCommand(shop.slug, actor.roles, perms);

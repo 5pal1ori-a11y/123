@@ -209,6 +209,20 @@ export const VENDIX_DISCORD_COMMANDS = [
     default_member_permissions: "32",
   },
   {
+    name: "서버상황",
+    description: "관리자 온라인/오프라인 패널을 채널에 올립니다 (관리자)",
+    type: 1,
+    default_member_permissions: "32",
+    options: [
+      {
+        name: "대상",
+        description: "상태를 보여줄 관리자 (비우면 기본 관리자)",
+        type: 6,
+        required: false,
+      },
+    ],
+  },
+  {
     name: "추천인",
     description: "추천인 코드 패널을 채널에 올립니다 (관리자)",
     type: 1,

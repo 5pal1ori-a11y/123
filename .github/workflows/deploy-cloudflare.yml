@@ -52,5 +52,9 @@ jobs:
       - name: Build
         run: npx opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion
 
+      # opennextjs-cloudflare deploy 는 배포 전에 원격 미리보기 세션을 여는데, 그게 가끔 실패한다 (10013).
+      # 이 프로젝트는 캐시 채우기·스큐 보호를 안 써서 마지막 단계인 wrangler deploy 만 하면 된다.
       - name: Deploy
-        run: npx opennextjs-cloudflare deploy
+        env:
+          OPEN_NEXT_DEPLOY: "true"
+        run: npx wrangler deploy

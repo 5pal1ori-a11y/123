@@ -30,6 +30,7 @@ export type NewProductForm = {
   stockBoardHidden: boolean;
   productKind: "general" | "mc_account";
   mcNickname: string;
+  discountPercent: string;
 };
 
 type AdminProductsPanelProps = {
@@ -103,6 +104,7 @@ export function AdminProductsPanel({
     stockBoardHidden: false,
     productKind: "general",
     mcNickname: "",
+    discountPercent: "",
   });
 
   function startEdit(p: ProductWithStock) {
@@ -125,6 +127,7 @@ export function AdminProductsPanel({
       stockBoardHidden: Boolean(p.stockBoardHidden),
       productKind: p.productKind === "mc_account" ? "mc_account" : "general",
       mcNickname: p.mcNickname ?? "",
+      discountPercent: p.discountPercent ? String(p.discountPercent) : "",
     });
     setTab("edit");
   }
@@ -166,6 +169,11 @@ export function AdminProductsPanel({
       onMessage("가격을 확인해 주세요.");
       return;
     }
+    const discount = newProduct.discountPercent.trim() ? Number(newProduct.discountPercent) : 0;
+    if (!Number.isInteger(discount) || discount < 0 || discount > 90) {
+      onMessage("할인율은 0~90 사이 정수로 입력해 주세요.");
+      return;
+    }
     const isMc = newProduct.productKind === "mc_account";
     const mcNickname = newProduct.mcNickname.trim();
     if (isMc && !MC_NICKNAME_RE.test(mcNickname)) {
@@ -198,6 +206,7 @@ export function AdminProductsPanel({
       stockBoardHidden: newProduct.stockBoardHidden,
       productKind: newProduct.productKind,
       mcNickname: isMc ? mcNickname : null,
+      discountPercent: newProduct.discountPercent.trim() ? Number(newProduct.discountPercent) : null,
     };
     try {
       if (tab === "edit" && editId) {
@@ -247,6 +256,7 @@ export function AdminProductsPanel({
         stockBoardHidden: false,
         productKind: newProduct.productKind,
         mcNickname: "",
+        discountPercent: "",
       });
       setSlugTouched(false);
       setTab("list");
@@ -381,6 +391,7 @@ export function AdminProductsPanel({
                           {p.fulfillment === "manual" ? " · 수동지급" : " · 자동지급"}
                           {p.listingKind === "individual" ? " · 개별" : " · 자판기"}
                           {p.productKind === "mc_account" ? " · 마크계정" : ""}
+                          {p.discountPercent ? ` · ${p.discountPercent}% 할인` : ""}
                         </p>
                       </div>
                       <div className="hidden text-right sm:block">
@@ -506,15 +517,37 @@ export function AdminProductsPanel({
                 </Field>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="가격 (원)">
-                  <input
-                    type="number"
-                    min={0}
-                    value={newProduct.price}
-                    onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-                    className="toss-admin-field"
-                    required
-                  />
+                <Field
+                  label="가격 (원)"
+                  hint={
+                    newProduct.discountPercent && Number(newProduct.price) > 0
+                      ? `할인가 ${Math.round(Number(newProduct.price) * (1 - Math.min(90, Number(newProduct.discountPercent) || 0) / 100)).toLocaleString("ko-KR")}원`
+                      : undefined
+                  }
+                >
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      value={newProduct.price}
+                      onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                      className="toss-admin-field min-w-0 flex-1"
+                      required
+                    />
+                    <div className="relative w-28 shrink-0">
+                      <input
+                        type="number"
+                        min={0}
+                        max={90}
+                        value={newProduct.discountPercent}
+                        onChange={(e) => setNewProduct({ ...newProduct, discountPercent: e.target.value })}
+                        className="toss-admin-field pr-14"
+                        placeholder="0"
+                        aria-label="할인율"
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500">% 할인</span>
+                    </div>
+                  </div>
                 </Field>
                 <Field label="카테고리">
                   <select

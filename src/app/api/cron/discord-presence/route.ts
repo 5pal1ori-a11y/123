@@ -75,7 +75,18 @@ export async function GET(request: Request) {
     console.error("[does-leaderboard]", err);
     return { ok: false as const, error: String(err) };
   });
-  return NextResponse.json({ presence: result, verify, security, manage, mfa, doesSync, doesLeaderboard });
+  // 실시간 구매 랭킹 집계판 (채널을 정한 상점만)
+  const rankBoards = await import("@/lib/discord/leaderboard-board")
+    .then(async ({ refreshLeaderboardBoard }) => {
+      const { getStoreForRead, getShopSettings } = await import("@/lib/store");
+      const ids = getStoreForRead()
+        .shops.map((s) => s.id)
+        .filter((id) => getShopSettings(id).discordLeaderboardChannelId);
+      const results = await Promise.all(ids.map((id) => refreshLeaderboardBoard(id).catch(() => ({ ok: false }))));
+      return { shops: ids.length, ok: results.filter((r) => r.ok).length };
+    })
+    .catch((err) => ({ error: String(err) }));
+  return NextResponse.json({ presence: result, verify, security, manage, mfa, doesSync, doesLeaderboard, rankBoards });
 }
 
 export async function POST(request: Request) {

@@ -1,7 +1,7 @@
 import { formatKRW } from "@/lib/utils";
 import { getShopBank } from "@/lib/bank";
 import { shopUrl } from "@/lib/domain";
-import { postChannelMessage } from "@/lib/discord/rest";
+import { editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
 import {
   actionRow,
@@ -387,7 +387,13 @@ export function handleRandomBoxCommand(shopSlug: string, roles: string[], permis
     return errorPanel("랜덤박스 패널은 관리자만 올릴 수 있어요. 채널에 있는 **박스 열기** 버튼을 눌러 주세요.", "권한 없음");
   }
 
-  const top = listTopRandomBoxDraws(shop.id, 7, 3);
+  const panel = v2Public(randomBoxPanelComponents(shop.id, shop.slug));
+  return { ...panel, data: { ...panel.data, allowed_mentions: { parse: [] } } };
+}
+
+/** 랜덤박스 패널 본문 — 처음 올릴 때와, 누가 열 때마다 TOP 3 를 고쳐 쓸 때 같이 쓴다 */
+function randomBoxPanelComponents(shopId: string, shopSlug: string) {
+  const top = listTopRandomBoxDraws(shopId, 7, 3);
   const topLines = top.length
     ? top
         .map((d, i) => {
@@ -398,7 +404,7 @@ export function handleRandomBoxCommand(shopSlug: string, roles: string[], permis
         .join("\n")
     : "아직 당첨 기록이 없어요. 첫 번째 주인공이 되어 보세요!";
 
-  const panel = v2Public([
+  return [
       container([
         textDisplay("## 랜덤박스"),
         mediaGallery([`${appOrigin()}${RANDOM_BOX_IDLE_GIF_PATH}`]),
@@ -414,10 +420,27 @@ export function handleRandomBoxCommand(shopSlug: string, roles: string[], permis
         ),
         separator(true, 1),
         textDisplay(`### 최근 7일 최고 당첨 TOP 3\n${topLines}`),
-        actionRow(button({ customId: cid(shop.slug, "rbox_open"), label: "박스 열기" })),
+        textDisplay(`-# 마지막 갱신 <t:${Math.floor(Date.now() / 1000)}:R>`),
+        actionRow(button({ customId: cid(shopSlug, "rbox_open"), label: "박스 열기" })),
       ]),
-    ]);
-  return { ...panel, data: { ...panel.data, allowed_mentions: { parse: [] } } };
+    ];
+}
+
+/** 박스를 연 뒤 그 패널 메시지의 TOP 3 를 최신으로 고친다 (실패해도 무시) */
+function refreshRandomBoxPanel(shopId: string, shopSlug: string, channelId?: string, messageId?: string) {
+  if (!channelId || !messageId) return;
+  scheduleDiscordBackground(
+    editChannelMessage(
+      channelId,
+      messageId,
+      {
+        flags: MessageFlags.IS_COMPONENTS_V2,
+        components: randomBoxPanelComponents(shopId, shopSlug),
+        allowed_mentions: { parse: [] },
+      },
+      shopId,
+    ).catch((err) => console.error("[rbox] panel refresh failed", err)),
+  );
 }
 
 function randomBoxResultKids(discordId: string, amount: number) {
@@ -433,7 +456,12 @@ function randomBoxResultKids(discordId: string, amount: number) {
   ];
 }
 
-export async function handleRandomBoxOpen(shopSlug: string, discordId: string, channelId?: string) {
+export async function handleRandomBoxOpen(
+  shopSlug: string,
+  discordId: string,
+  channelId?: string,
+  panelMessageId?: string,
+) {
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점을 찾을 수 없어요.");
   const linked = requireLinkedUser(shop, discordId);
@@ -451,6 +479,7 @@ export async function handleRandomBoxOpen(shopSlug: string, discordId: string, c
     ]);
   }
 
+  refreshRandomBoxPanel(shop.id, shop.slug, channelId, panelMessageId);
   const balanceLine = `-# 현재 잔액 ${formatKRW(result.balance)}`;
   if (channelId) {
     const posted = await postChannelMessage(

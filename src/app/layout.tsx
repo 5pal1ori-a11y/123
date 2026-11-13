@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Do_Hyeon, Geist, Inter, JetBrains_Mono, Noto_Sans_KR, Space_Grotesk } from "next/font/google";
 import { PwaRegister } from "@/components/pwa-register";
-import { BetaNotice } from "@/components/ui/beta-notice";
 import "./globals.css";
 import "./does-features.css";
 import "./does-world.css";
@@ -77,7 +76,6 @@ export default function RootLayout({
           }}
         />
         {children}
-        <BetaNotice />
         <PwaRegister />
       </body>
     </html>

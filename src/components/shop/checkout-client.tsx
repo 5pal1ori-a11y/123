@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Copy, Loader2, MessageSquarePlus, ShoppingBag } from "lucide-react";
 import type { ProductWithStock } from "@/lib/types";
 import { formatKRW } from "@/lib/utils";
+import { productDiscountPercent } from "@/lib/pricing";
 import { shopHeaders } from "@/lib/shop-client";
 import { shopPath, useShopBase } from "@/lib/shop-nav";
 import { useShopUser } from "@/components/shop/user-context";
@@ -64,7 +65,7 @@ export function CheckoutClient({
   const [copied, setCopied] = useState(false);
   const [agree, setAgree] = useState(false);
 
-  const discount = Math.max(0, Math.min(99, eventDiscountPercent));
+  const discount = Math.max(0, Math.min(90, eventDiscountPercent + productDiscountPercent(product)));
   const unit = discount > 0 ? Math.round(product.price * (1 - discount / 100)) : product.price;
   const total = unit * qty;
   const soldOut = product.stockStatus === "sold_out" || product.availableCount < qty;

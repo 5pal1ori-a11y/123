@@ -191,6 +191,8 @@ function defaultSettings(shopId: string): ShopSettings {
     discordRandomBoxLogChannelId: null,
     discordStockChannelId: null,
     discordStockMessageId: null,
+    discordLeaderboardChannelId: null,
+    discordLeaderboardMessageId: null,
     spendRoles: [],
     discordAdminRoleId: null,
     discordBotToken: null,
@@ -1506,11 +1508,19 @@ export function verifyOrderAccess(order: Order, token: string | null | undefined
   return timingSafeEqual(a, b);
 }
 
+function clampDiscount(v: number | null | undefined) {
+  const d = Math.floor(Number(v ?? 0));
+  return Number.isFinite(d) && d > 0 ? Math.min(90, d) : null;
+}
+
 /** 공개용: 마크계정 닉네임은 빼고 마스킹된 이름만 내보낸다 */
 function withPublicStock(product: Product): ProductWithStock {
   const out = withStock(product);
   if (out.productKind === "mc_account") {
     out.mcMaskedName = maskMcNickname(product.mcNickname ?? "");
+    out.mcVersion = product.mcNickname
+      ? createHmac("sha256", "mc-skin-version").update(product.mcNickname.toLowerCase()).digest("hex").slice(0, 10)
+      : null;
   }
   delete out.mcNickname;
   return out;
@@ -1566,6 +1576,7 @@ export function createProduct(
     stockBoardHidden?: boolean;
     productKind?: Product["productKind"];
     mcNickname?: string | null;
+    discountPercent?: number | null;
   },
 ): Product {
   const store = getStore();
@@ -1607,6 +1618,7 @@ export function createProduct(
     fulfillment: input.fulfillment === "manual" ? "manual" : "auto",
     manualNotice: input.manualNotice?.trim() || null,
     stockBoardHidden: Boolean(input.stockBoardHidden),
+    discountPercent: clampDiscount(input.discountPercent),
     productKind: input.productKind === "mc_account" ? "mc_account" : "general",
     mcNickname: input.productKind === "mc_account" ? input.mcNickname?.trim() || null : null,
     createdAt: new Date().toISOString(),
@@ -1645,6 +1657,7 @@ export function updateProduct(
       | "mfaAutoInactive"
       | "productKind"
       | "mcNickname"
+      | "discountPercent"
     >
   >,
 ): Product {
@@ -1700,6 +1713,9 @@ export function updateProduct(
   }
   if (patch.stockBoardHidden !== undefined) {
     product.stockBoardHidden = Boolean(patch.stockBoardHidden);
+  }
+  if (patch.discountPercent !== undefined) {
+    product.discountPercent = clampDiscount(patch.discountPercent);
   }
   if (patch.productKind !== undefined) {
     product.productKind = patch.productKind === "mc_account" ? "mc_account" : "general";
@@ -3183,6 +3199,8 @@ export function getShopSettings(shopId: string): ShopSettings {
   if (settings.discordRandomBoxLogChannelId === undefined) settings.discordRandomBoxLogChannelId = null;
   if (settings.discordStockChannelId === undefined) settings.discordStockChannelId = null;
   if (settings.discordStockMessageId === undefined) settings.discordStockMessageId = null;
+  if (settings.discordLeaderboardChannelId === undefined) settings.discordLeaderboardChannelId = null;
+  if (settings.discordLeaderboardMessageId === undefined) settings.discordLeaderboardMessageId = null;
   if (!Array.isArray(settings.spendRoles)) settings.spendRoles = [];
   if (settings.discordAdminRoleId === undefined) settings.discordAdminRoleId = null;
   if (settings.discordBotToken === undefined) settings.discordBotToken = null;
@@ -4298,6 +4316,9 @@ export function purchaseWithPoints(
   );
   scheduleDiscordBackground(
     import("@/lib/discord/does-leaderboard").then(({ pushDoesLeaderboard }) => pushDoesLeaderboard(shopId)),
+  );
+  scheduleDiscordBackground(
+    import("@/lib/discord/leaderboard-board").then(({ refreshLeaderboardBoard }) => refreshLeaderboardBoard(shopId)),
   );
 
   if (!opts?.suppressDiscordNotify && user.discordId) {

@@ -193,6 +193,7 @@ export function ShopProductsTab({
                   shopName={shopName}
                   priceText={finalPrice.toLocaleString("ko-KR")}
                   originalPriceText={totalDiscountPercent > 0 ? p.price.toLocaleString("ko-KR") : null}
+                  discountPercent={totalDiscountPercent}
                   stockStatus={stockStatus}
                   sold={shopSummary?.sold ?? salesCounts[p.id] ?? 0}
                   rating={shopSummary?.rating ?? null}

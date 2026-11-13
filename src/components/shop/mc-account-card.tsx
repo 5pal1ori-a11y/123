@@ -69,6 +69,7 @@ export function McAccountCard({
   shopName,
   priceText,
   originalPriceText,
+  discountPercent = 0,
   stockStatus,
   sold,
   rating,
@@ -81,6 +82,7 @@ export function McAccountCard({
   shopName: string;
   priceText: string;
   originalPriceText?: string | null;
+  discountPercent?: number;
   stockStatus: StockStatus;
   sold: number;
   rating: number | null;
@@ -93,19 +95,20 @@ export function McAccountCard({
   const soldOut = stockStatus === "sold_out";
   const [info, setInfo] = useState<McAccountInfo | null>(null);
   const [skinFailed, setSkinFailed] = useState(false);
+  const ver = encodeURIComponent(product.mcVersion ?? "0");
 
   useEffect(() => {
     let alive = true;
-    fetch(`/api/mc-account/${encodeURIComponent(product.id)}`)
+    fetch(`/api/mc-account/${encodeURIComponent(product.id)}?v=${ver}`)
       .then((r) => (r.ok ? (r.json() as Promise<McAccountInfo>) : null))
       .then((d) => alive && setInfo(d))
       .catch(() => {});
     return () => {
       alive = false;
     };
-  }, [product.id]);
+  }, [product.id, ver]);
 
-  const skinSrc = product.thumbnail?.trim() || `/api/mc-account/${encodeURIComponent(product.id)}?asset=skin`;
+  const skinSrc = product.thumbnail?.trim() || `/api/mc-account/${encodeURIComponent(product.id)}?asset=skin&v=${ver}`;
   const capes = info?.capes ?? [];
   const shownCapes = capes.slice(0, 6);
   const moreCapes = capes.length - shownCapes.length;
@@ -123,8 +126,8 @@ export function McAccountCard({
       }`}
     >
       {/* 스킨 영역 */}
-      <div className="relative h-[210px] overflow-hidden rounded-[10px]">
-        <Link href={href} className="absolute inset-0 flex items-end justify-center">
+      <div className="relative h-[210px] rounded-[10px]">
+        <Link href={href} className="absolute inset-0 flex items-end justify-center overflow-hidden rounded-[10px]">
           {!skinFailed ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -141,9 +144,9 @@ export function McAccountCard({
           )}
         </Link>
 
-        <div className="pointer-events-none absolute left-0 top-0 flex items-center gap-2">
+        <div className="pointer-events-none absolute left-0 top-0 flex max-w-[calc(100%-72px)] items-center gap-2">
           <span
-            className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-[3px] text-[10px] font-bold tracking-wide ${
+            className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2 py-1 text-[11px] font-bold leading-none ${
               soldOut
                 ? "border-[rgba(248,113,113,0.4)] bg-[rgba(239,68,68,0.15)] text-[#fecaca]"
                 : "border-[rgba(129,140,248,0.4)] bg-[rgba(99,102,241,0.15)] text-[#c7d2fe]"
@@ -153,7 +156,7 @@ export function McAccountCard({
             {soldOut ? "품절" : "판매중"}
           </span>
           {rating !== null ? (
-            <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#fcd34d]">
+            <span className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[11px] font-bold text-[#fcd34d]">
               <Star className="size-3 fill-[#fcd34d] text-[#fcd34d]" />
               {rating.toFixed(1)}
             </span>
@@ -185,6 +188,11 @@ export function McAccountCard({
           </span>
         ) : null}
 
+        {discountPercent > 0 ? (
+          <span className="pointer-events-none absolute bottom-[42px] right-0 rounded-md bg-[#ef4444] px-1.5 py-1 text-[11px] font-extrabold leading-none text-[#ffffff] shadow">
+            -{discountPercent}%
+          </span>
+        ) : null}
         <span className="pointer-events-none absolute bottom-0 right-0 inline-flex items-baseline gap-0.5 rounded-lg bg-[#ffffff] px-2 py-1 shadow-lg">
           {originalPriceText ? (
             <span className="mr-1 text-[10px] font-semibold text-[#a3a3a3] line-through">{originalPriceText}</span>
@@ -212,7 +220,7 @@ export function McAccountCard({
           <CapeIcon
             key={`${c.source}-${i}`}
             cape={c}
-            src={`/api/mc-account/${encodeURIComponent(product.id)}?asset=cape&i=${i}`}
+            src={`/api/mc-account/${encodeURIComponent(product.id)}?asset=cape&i=${i}&v=${ver}`}
           />
         ))}
         {moreCapes > 0 ? (

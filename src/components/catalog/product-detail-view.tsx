@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { ProductWithStock } from "@/lib/types";
 import { formatKRW } from "@/lib/utils";
+import { productDiscountPercent } from "@/lib/pricing";
 import { StockBadge } from "@/components/ui/stock-badge";
 import { WishHeartButton } from "@/components/ui/wish-heart-button";
 import { shopHeaders } from "@/lib/shop-client";
@@ -61,7 +62,7 @@ export function ProductDetailView({
 
   const soldOut = product.stockStatus === "sold_out";
   const maxQty = Math.min(Math.max(product.availableCount, 1), 99);
-  const discount = Math.max(0, Math.min(99, eventDiscountPercent));
+  const discount = Math.max(0, Math.min(90, eventDiscountPercent + productDiscountPercent(product)));
   const finalPrice = discount > 0 ? Math.round(product.price * (1 - discount / 100)) : product.price;
   const total = finalPrice * quantity;
 

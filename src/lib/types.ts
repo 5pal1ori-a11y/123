@@ -125,6 +125,9 @@ export type ShopSettings = {
   discordRandomBoxLogChannelId: string | null;
   discordStockChannelId: string | null;
   discordStockMessageId: string | null;
+  /** 실시간 구매 랭킹(집계판) 채널 · 고쳐 쓰는 메시지 */
+  discordLeaderboardChannelId?: string | null;
+  discordLeaderboardMessageId?: string | null;
   spendRoles: SpendRoleRule[];
   discordAdminRoleId: string | null;
   /** 상점 전용 Discord Application (Pro+) */
@@ -536,12 +539,16 @@ export type Product = {
   /** MFA MARKET 재고 캐시 */
   mfaStock?: number | null;
   mfaStockAt?: string | null;
+  /** 상품 자체 할인율 % (0~90, 없으면 0) — 목록에 원가 취소선 + 할인가로 표시 */
+  discountPercent?: number | null;
   /** 상품 종류 (기본: 기타상품) */
   productKind?: ProductKind;
   /** 마크계정상품: 계정 닉네임 (관리자 전용 — 공개 목록에서는 제거됨) */
   mcNickname?: string | null;
   /** 마크계정상품: 공개용 마스킹 닉네임 (예: BO*******5) */
   mcMaskedName?: string | null;
+  /** 마크계정상품: 닉네임이 바뀌면 달라지는 짧은 값 — 스킨·망토 이미지 캐시를 새로 받게 한다 */
+  mcVersion?: string | null;
   createdAt: string;
 };
 

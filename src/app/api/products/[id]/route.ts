@@ -62,6 +62,7 @@ const patchSchema = z.object({
   manualNotice: z.string().max(800).nullable().optional(),
   stockBoardHidden: z.boolean().optional(),
   productKind: z.enum(["general", "mc_account"]).optional(),
+  discountPercent: z.number().int().min(0).max(90).nullable().optional(),
   mcNickname: z
     .string()
     .regex(/^[A-Za-z0-9_]{3,16}$/)

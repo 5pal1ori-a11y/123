@@ -491,7 +491,9 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       if (!channelId) return plainEphemeral("채널을 선택해 주세요.");
       return handleEmbedChannel(embedCtx(interaction, shop.slug, actor), channelId);
     }
-    if (action === "rbox_open") return handleRandomBoxOpen(shop.slug, actor.id, interaction.channel_id);
+    if (action === "rbox_open") {
+      return handleRandomBoxOpen(shop.slug, actor.id, interaction.channel_id, interaction.message?.id);
+    }
     if (action === "menu_notices") return handleNotices(shop.slug);
     if (action === "menu_products") return handleProductsList(shop.slug, "browse");
     if (action === "menu_buy") {

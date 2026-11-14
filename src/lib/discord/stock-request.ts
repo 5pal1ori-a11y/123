@@ -11,7 +11,6 @@ import {
   mediaGallery,
   modalFieldValue,
   plainEphemeral,
-  separator,
   showModal,
   stringSelect,
   textDisplay,
@@ -72,23 +71,14 @@ export function handleStockRequestCommand(
   const options = requestOptions(shop.id);
   const kids: unknown[] = [
     mediaGallery([`${appOrigin()}${BANNER_PATHS.stockRequest}`]),
-    textDisplay(
-      [
-        "### 🛒 찾는 상품이 품절이거나 목록에 없나요?",
-        "아래 목록에서 고르면 바로 요청이 접수돼요.",
-        "목록에 없는 상품은 **직접 적어서 요청**을 눌러 주세요.",
-      ].join("\n"),
-    ),
+    textDisplay("**품절이거나 목록에 없는 상품**은 아래에서 골라 요청해 주세요. 없으면 **직접 적어서 요청**을 눌러 주세요."),
   ];
   if (options.length) {
     kids.push(actionRow(stringSelect({ customId: cid(shop.slug, "sr_pick"), placeholder: "요청할 상품을 골라 주세요", options })));
   }
   kids.push(
     actionRow(button({ customId: cid(shop.slug, "sr_custom"), label: "직접 적어서 요청", emoji: "📝" })),
-    separator(true, 1),
-    textDisplay(
-      `-# 요청이 많은 상품부터 입고를 검토해요 · 요청 내용은 판매자만 봐요\n-# 구매·결제 문의는 티켓을 열어 주세요`,
-    ),
+    textDisplay("-# 요청이 많은 상품부터 입고를 검토해요"),
   );
   const panel = v2Public([container(kids)]);
   return { ...panel, data: { ...panel.data, allowed_mentions: { parse: [] } } };

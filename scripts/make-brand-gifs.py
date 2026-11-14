@@ -1,4 +1,4 @@
-"""브랜드 배너 GIF 생성기 (960x300, 어두운 배경 + 흰 픽셀 제목 + 보라 밑줄 — /추천인 배너와 같은 스타일)
+"""브랜드 배너 GIF 생성기 (960x190, 어두운 배경 + 흰 픽셀 제목 + 보라 밑줄 — /추천인 배너와 같은 스타일)
 사용: GIF_FONT_DIR=<Galmuri11.ttf, NotoSansKR.ttf 가 있는 폴더> python3 scripts/make-brand-gifs.py public/brand
 """
 import math
@@ -8,7 +8,7 @@ import sys
 from PIL import Image, ImageDraw, ImageFont
 
 FONT_DIR = os.environ.get("GIF_FONT_DIR", ".")
-W, H = 960, 300
+W, H = 960, 190
 N = 36
 DELAY = 70
 
@@ -25,7 +25,7 @@ def noto(size, weight):
     return f
 
 
-SUBF = noto(29, 400)
+SUBF = noto(25, 400)
 PILLF = noto(28, 600)
 
 
@@ -115,8 +115,8 @@ def background(d, f):
 
 def glow(img, cx, cy, f):
     d = ImageDraw.Draw(img)
-    pulse = int(round(math.sin(f / N * math.pi * 2) * 3))
-    for r, c in ((112 + pulse, (31, 27, 50)), (84 + pulse // 2, (47, 30, 80))):
+    pulse = int(round(math.sin(f / N * math.pi * 2) * 2))
+    for r, c in ((86 + pulse, (31, 27, 50)), (64 + pulse // 2, (47, 30, 80))):
         d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=c)
 
 
@@ -129,27 +129,27 @@ def coin(d, x, y):
 
 
 def gift(d, f, cx, base, open_lid=False):
-    s = 8
+    s = 5
     ph = (f / N) * 2 % 1
-    hop = abs(math.sin(ph * math.pi)) * 10
+    hop = abs(math.sin(ph * math.pi)) * 7
     gx = cx - 8 * s
     by = int(base - 16 * s - hop)
     pixels(d, gx, by + 7 * s, GIFT_BODY, GIFT_PAL, s)
-    lid = 4 * s + int(abs(math.sin(ph * math.pi)) * 6) if open_lid else int(abs(math.sin(ph * math.pi)) * 8)
+    lid = 4 * s + int(abs(math.sin(ph * math.pi)) * 4) if open_lid else int(abs(math.sin(ph * math.pi)) * 5)
     pixels(d, gx, by - lid, GIFT_LID, GIFT_PAL, s)
 
 
 def envelope(d, f, cx, base):
-    s = 7
-    bob = int(round(math.sin(f / N * math.pi * 2) * 6))
-    ex, ey = cx - 10 * s, base - 12 * s + bob
+    s = 5
+    bob = int(round(math.sin(f / N * math.pi * 2) * 4))
+    ex, ey = cx - 10 * s, base - 11 * s + bob
     pixels(d, ex, ey, ENVELOPE, ENV_PAL, s)
     on = (f // 5) % 2 == 0
-    rect(d, ex + 20 * s - 24, ey - 24, 40, 40, (36, 22, 40))
-    rect(d, ex + 20 * s - 20, ey - 20, 32, 32, (255, 96, 110) if on else (232, 64, 84))
+    rect(d, ex + 20 * s - 18, ey - 18, 30, 30, (36, 22, 40))
+    rect(d, ex + 20 * s - 15, ey - 15, 24, 24, (255, 96, 110) if on else (232, 64, 84))
 
 
-def fit_scale(title, scale, limit=640):
+def fit_scale(title, scale, limit=700):
     for sc in range(scale, 3, -1):
         total = 0
         for ch in title:
@@ -159,31 +159,31 @@ def fit_scale(title, scale, limit=640):
     return 4
 
 
-def render(path, icon, title, sub, scale=10):
+def render(path, icon, title, sub, scale=6):
     frames = []
     for f in range(N):
         img = Image.new("RGBA", (W, H), BG + (255,))
         d = ImageDraw.Draw(img)
         background(d, f)
-        glow(img, 150, 150, f)
+        glow(img, 112, 95, f)
         d = ImageDraw.Draw(img)
         icon(d, f)
-        x = 292
+        x = 232
         sc = fit_scale(title, scale)
         for idx, ch in enumerate(title):
             if ch == " ":
                 x += 3 * sc
                 continue
             g = pixel_text(ch, (255, 255, 255), sc, (44, 34, 70))
-            y = 62 + int(round(math.sin(f / N * math.pi * 2 - idx * 0.9) * 3))
+            y = 26 + int(round(math.sin(f / N * math.pi * 2 - idx * 0.9) * 2))
             img.alpha_composite(g, (x, y))
             x += g.width + 8
         d = ImageDraw.Draw(img)
-        d.text((292, 182), sub, font=SUBF, fill=(206, 206, 222))
+        d.text((234, 100), sub, font=SUBF, fill=(206, 206, 222))
         t = min(1, f / 12)
-        w = int(120 * (1 - (1 - t) ** 3))
-        rect(d, 292, 234, w, 6, (168, 85, 247))
-        rect(d, 292, 238, w, 3, (126, 34, 206))
+        w = int(100 * (1 - (1 - t) ** 3))
+        rect(d, 234, 146, w, 5, (168, 85, 247))
+        rect(d, 234, 149, w, 3, (126, 34, 206))
         frames.append(img.convert("RGB"))
     strip = Image.new("RGB", (W, H * 6))
     for i, k in enumerate(range(0, N, N // 6)):
@@ -198,30 +198,30 @@ def render(path, icon, title, sub, scale=10):
 
 
 def icon_giveaway(d, f):
-    gift(d, f, 150, 214)
-    coin(d, 78 + (f % 6 < 3) * 2, 76)
-    coin(d, 206, 56 + int(math.sin(f / 5) * 3))
-    sparkle(d, 118, 52, f % 8 < 4)
+    gift(d, f, 112, 138)
+    coin(d, 62 + (f % 6 < 3) * 2, 44)
+    coin(d, 150, 34 + int(math.sin(f / 5) * 2))
+    sparkle(d, 90, 28, f % 8 < 4)
 
 
 def icon_end(d, f):
-    gift(d, f, 150, 214, open_lid=True)
-    for i in range(12):
-        x = 70 + int(random.Random(i).random() * 160)
-        y = int((random.Random(i + 40).random() * 190 + f * 6) % 220) + 30
+    gift(d, f, 112, 138, open_lid=True)
+    for i in range(10):
+        x = 56 + int(random.Random(i).random() * 112)
+        y = int((random.Random(i + 40).random() * 120 + f * 4) % 140) + 16
         c = CONF[i % 4]
         if (i + f) % 2:
-            rect(d, x, y, 4, 8, c)
+            rect(d, x, y, 3, 6, c)
         else:
-            rect(d, x, y, 8, 4, c)
-    sparkle(d, 118, 46, f % 8 < 4)
+            rect(d, x, y, 6, 3, c)
+    sparkle(d, 90, 24, f % 8 < 4)
 
 
 def icon_stock(d, f):
-    envelope(d, f, 150, 210)
-    coin(d, 84, 70 + int(math.sin(f / 5) * 3))
-    coin(d, 214, 96)
-    sparkle(d, 140, 44, f % 8 < 4)
+    envelope(d, f, 112, 134)
+    coin(d, 62, 44 + int(math.sin(f / 5) * 2))
+    coin(d, 156, 62)
+    sparkle(d, 104, 24, f % 8 < 4)
 
 
 out = sys.argv[1] if len(sys.argv) > 1 else "."

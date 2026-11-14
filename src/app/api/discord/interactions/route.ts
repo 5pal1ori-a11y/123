@@ -182,16 +182,18 @@ function shouldDeferUpdate(interaction: DiscordInteraction) {
 function deferredEphemeral(interaction: DiscordInteraction) {
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
     // /자판기 is public Components V2
-    if (interaction.data?.name === "자판기" || interaction.data?.name === "랜덤박스" || interaction.data?.name === "island") return false;
+    const publicCommands = ["자판기", "랜덤박스", "island", "추천인", "재고요청"];
+    if (publicCommands.includes(interaction.data?.name ?? "")) return false;
   }
   if (interaction.type === InteractionType.MODAL_SUBMIT) {
     const action = parseCid(interaction.data?.custom_id ?? "")?.action;
     // /버튼 모달 제출 → 공개 패널
-    if (action === "btn_modal") return false;
+    if (action === "btn_modal" || action === "sr_modal") return false;
   }
   if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
     const action = parseCid(interaction.data?.custom_id ?? "")?.action;
-    if (action === "refresh") return false;
+    // 재고 요청 접수 안내는 채널 모두에게 보인다
+    if (action === "refresh" || action === "sr_pick") return false;
   }
   return true;
 }

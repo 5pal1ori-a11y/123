@@ -11,7 +11,6 @@ import {
   container,
   MessageFlags,
   mediaGallery,
-  separator,
   stringSelect,
   textDisplay,
 } from "@/lib/discord/components";
@@ -55,7 +54,6 @@ type Hy = {
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 const ratio = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) / 100 : a);
-const f = (n: number | string) => (typeof n === "number" ? n.toLocaleString("ko-KR") : n);
 
 const RANKS: Record<string, string> = {
   VIP: "VIP", VIP_PLUS: "VIP+", MVP: "MVP", MVP_PLUS: "MVP+", SUPERSTAR: "MVP++",
@@ -120,66 +118,52 @@ export async function fetchHypixelDetail(uuid: string): Promise<Hy> {
   return out;
 }
 
-function grid(cells: [string, string | number][]) {
-  const lines: string[] = [];
-  for (let i = 0; i < cells.length; i += 3) {
-    lines.push(
-      cells
-        .slice(i, i + 3)
-        .map(([k, v]) => `${k} **${f(v)}**`)
-        .join("  ·  "),
-    );
-  }
-  return lines.join("\n");
-}
-
-function statsText(tab: ListingTab, hy: Hy) {
-  if (!hy) return "하이픽셀 기록이 없거나 불러오지 못했어요";
+/** 스탯 이미지용: 영문 라벨과 값 목록 */
+export function statCells(tab: ListingTab, hy: Hy): [string, string | number][] {
+  if (!hy) return [];
   if (tab === "bedwars") {
     const b = hy.bedwars as Record<string, number>;
-    return grid([
-      ["별", `${b.stars}✫`], ["승", b.wins!], ["패", b.losses!],
-      ["WLR", ratio(b.wins!, b.losses!)], ["파이널 킬", b.finalKills!], ["파이널 데스", b.finalDeaths!],
-      ["FKDR", ratio(b.finalKills!, b.finalDeaths!)], ["킬", b.kills!], ["데스", b.deaths!],
-      ["KDR", ratio(b.kills!, b.deaths!)], ["침대 파괴", b.bedsBroken!], ["침대 잃음", b.bedsLost!],
-      ["BBLR", ratio(b.bedsBroken!, b.bedsLost!)],
-    ]);
+    return [
+      ["Wins", b.wins!], ["Losses", b.losses!], ["WLR", ratio(b.wins!, b.losses!)],
+      ["Final Kills", b.finalKills!], ["Final Deaths", b.finalDeaths!], ["FKDR", ratio(b.finalKills!, b.finalDeaths!)],
+      ["Kills", b.kills!], ["Deaths", b.deaths!], ["KDR", ratio(b.kills!, b.deaths!)],
+      ["Beds Broken", b.bedsBroken!], ["Beds Lost", b.bedsLost!], ["BBLR", ratio(b.bedsBroken!, b.bedsLost!)],
+    ];
   }
   if (tab === "skywars") {
-    const s = hy.skywars as Record<string, number | string>;
-    return grid([
-      ["레벨", s.level!], ["승", s.wins!], ["패", s.losses!],
-      ["WLR", ratio(Number(s.wins), Number(s.losses))], ["킬", s.kills!], ["데스", s.deaths!],
-      ["KDR", ratio(Number(s.kills), Number(s.deaths))], ["어시스트", s.assists!], ["코인", s.coins!],
-    ]);
+    const w = hy.skywars as Record<string, number | string>;
+    return [
+      ["Wins", w.wins!], ["Losses", w.losses!], ["WLR", ratio(Number(w.wins), Number(w.losses))],
+      ["Kills", w.kills!], ["Deaths", w.deaths!], ["KDR", ratio(Number(w.kills), Number(w.deaths))],
+      ["Assists", w.assists!], ["Coins", w.coins!], ["Souls", w.souls!],
+    ];
   }
   const d = hy.duels as Record<string, number>;
-  return grid([
-    ["승", d.wins!], ["패", d.losses!], ["WLR", ratio(d.wins!, d.losses!)],
-    ["킬", d.kills!], ["데스", d.deaths!], ["KDR", ratio(d.kills!, d.deaths!)],
-    ["최고 연승", d.bestStreak!],
-  ]);
+  return [
+    ["Wins", d.wins!], ["Losses", d.losses!], ["WLR", ratio(d.wins!, d.losses!)],
+    ["Kills", d.kills!], ["Deaths", d.deaths!], ["KDR", ratio(d.kills!, d.deaths!)],
+    ["Best Streak", d.bestStreak!],
+  ];
+}
+
+/** 이미지 헤더용 한 줄 요약 */
+export function levelLine(tab: ListingTab, hy: Hy) {
+  if (!hy) return "";
+  if (tab === "bedwars") return `Level: [${(hy.bedwars as Record<string, number>).stars}*]`;
+  if (tab === "skywars") return `Level: [${(hy.skywars as Record<string, number | string>).level}]`;
+  return `Hypixel Lv.${Math.floor(hy.level)}`;
 }
 
 export function listingPanel(slug: string, l: Listing, hy: Hy, tab: ListingTab) {
   const masked = maskMcNickname(l.name);
-  const rank = hy?.rank ? `[${hy.rank}] ` : "";
-  const header = `## [${l.prefix}] ${masked}`;
+  const hour = Math.floor(Date.now() / 3_600_000);
   const kids: unknown[] = [
-    mediaGallery([`${appOrigin()}/api/discord/skin/${l.uuid}.png`]),
+    mediaGallery([`${appOrigin()}/api/discord/stats/${l.id}-${tab}-${hour}.png`]),
     textDisplay(
       [
-        header,
-        `**${l.price.toLocaleString("ko-KR")}원**`,
+        `## [${l.prefix}] ${masked}`,
+        `**${l.price.toLocaleString("ko-KR")}원**${hy?.rank ? `  ·  하이픽셀 [${hy.rank}]` : ""}`,
         l.capes.length ? `망토 ${l.capes.join(" · ")}` : "망토 없음",
-      ].join("\n"),
-    ),
-    separator(true, 1),
-    textDisplay(
-      [
-        hy ? `-# 하이픽셀 ${rank}Lv.${Math.floor(hy.level)}` : "-# 하이픽셀",
-        `### ${LISTING_TABS.find((t) => t.id === tab)?.label}`,
-        statsText(tab, hy),
       ].join("\n"),
     ),
     actionRow(

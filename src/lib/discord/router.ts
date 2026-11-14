@@ -202,6 +202,11 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       );
       return handleVendingCommand(shop.slug, actor.id);
     }
+    if (name === "재고요청") {
+      const ch = interaction.data?.options?.find((o) => o.name === "받을채널")?.value;
+      const { handleStockRequestCommand } = await import("@/lib/discord/stock-request");
+      return handleStockRequestCommand(shop.slug, actor.roles, perms, typeof ch === "string" ? ch : null);
+    }
     if (name === "랜덤박스") {
       return handleRandomBoxCommand(shop.slug, actor.roles, perms);
     }
@@ -416,6 +421,11 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       return handleBuyConfirm(shop.slug, actor.id, productId, Math.floor(quantity));
     }
 
+    if (parsed.action === "sr_modal") {
+      const { handleStockRequestModal } = await import("@/lib/discord/stock-request");
+      return handleStockRequestModal(shop.slug, actor.id, interaction);
+    }
+
     if (parsed.action === "coupon_modal") {
       return handleCouponSubmit(shop.slug, actor.id, modalFieldValue(interaction, "code"));
     }
@@ -512,6 +522,14 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const channelId = values[0];
       if (!channelId) return plainEphemeral("채널을 선택해 주세요.");
       return handleEmbedChannel(embedCtx(interaction, shop.slug, actor), channelId);
+    }
+    if (action === "sr_pick") {
+      const { handleStockRequestPick } = await import("@/lib/discord/stock-request");
+      return handleStockRequestPick(shop.slug, actor.id, values[0]);
+    }
+    if (action === "sr_custom") {
+      const { handleStockRequestCustomModal } = await import("@/lib/discord/stock-request");
+      return handleStockRequestCustomModal(shop.slug);
     }
     if (action === "ref_mine") return handleReferralMine(shop.slug, actor.id);
     if (action === "acct_tab") return handleAccountTab(shop.slug, payload, interaction.data?.values?.[0]);

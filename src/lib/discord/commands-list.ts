@@ -203,6 +203,20 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "재고요청",
+    description: "재고 요청 패널을 채널에 올립니다 (관리자)",
+    type: 1,
+    options: [
+      {
+        name: "받을채널",
+        description: "손님 요청을 받을 채널 (한 번 지정하면 기억해요)",
+        type: 7,
+        channel_types: [0, 5],
+        required: false,
+      },
+    ],
+  },
+  {
     name: "랜덤박스",
     description: "랜덤박스 패널을 채널에 올립니다 (관리자)",
     type: 1,

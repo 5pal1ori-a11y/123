@@ -252,47 +252,95 @@ export function CapeGallery({ stock }: { stock?: CapeStock }) {
       {list.length === 0 ? <p className="py-16 text-center text-neutral-500">검색 결과가 없어요</p> : null}
 
       {open ? (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 p-4" onClick={() => setOpen(null)}>
-          <div className="w-full max-w-[560px] overflow-hidden rounded-3xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 pt-4">
-              <h2 className="text-[20px] font-extrabold text-neutral-900">{open.title}</h2>
-              <button type="button" onClick={() => setOpen(null)} className="grid size-9 place-items-center rounded-full hover:bg-neutral-100" aria-label="닫기">
-                <X className="size-5 text-neutral-600" />
-              </button>
-            </div>
-            <div className="mx-5 mt-3 flex gap-1 rounded-xl bg-neutral-100 p-1">
-              {MODES.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setMode(m.id)}
-                  style={mode === m.id ? { background: "#ffffff", color: "#111111" } : { color: "#737373" }}
-                  className={`flex-1 rounded-lg py-2 text-[14px] font-bold transition ${mode === m.id ? "shadow" : ""}`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            <div style={{ background: "radial-gradient(circle at 50% 25%, #4d7c5a 0%, #1b3325 60%, #0f1c15 100%)" }} className="mt-3">
-              <CapeViewer capeHash={open.hash} mode={mode} skin={skin} className="h-[420px] w-full cursor-grab" />
-            </div>
-            <p className="px-5 py-3 text-[13px] text-neutral-500">
-              드래그해서 돌려 보세요. {skin ? `${skin.name} 스킨으로 보는 중` : "닉네임을 넣으면 내 스킨으로 볼 수 있어요"}
-            </p>
-            {stock ? (
-              (() => {
-                const st = stock[open.type];
-                return st && st.count > 0 && st.href ? (
-                  <Link href={st.href} className="mx-5 mb-5 flex h-12 items-center justify-center rounded-xl bg-neutral-900 text-[15px] font-bold text-white">
-                    {formatKRW(st.price)} · 구매하기
-                  </Link>
-                ) : (
-                  <p className="mx-5 mb-5 flex h-12 items-center justify-center rounded-xl bg-neutral-200 text-[15px] font-bold text-neutral-500">
-                    재고없음
+        <div className="fixed inset-0 z-[300] flex items-start justify-center overflow-y-auto bg-black/60 p-3 sm:items-center sm:p-6" onClick={() => setOpen(null)}>
+          <div className="relative w-full max-w-[1040px] rounded-3xl bg-white p-4 shadow-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={() => setOpen(null)} className="absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-full hover:bg-neutral-100" aria-label="닫기">
+              <X className="size-5 text-neutral-600" />
+            </button>
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* 왼쪽: 3D 보기 + Cape/Player/Elytra + 닉네임 */}
+              <div>
+                <div style={{ background: "radial-gradient(circle at 50% 25%, #4d7c5a 0%, #1b3325 60%, #0f1c15 100%)" }} className="overflow-hidden rounded-2xl">
+                  <CapeViewer capeHash={open.hash} mode={mode} skin={skin} className="h-[380px] w-full cursor-grab sm:h-[420px]" />
+                </div>
+                <div className="mt-3 flex justify-center gap-2">
+                  {MODES.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setMode(m.id)}
+                      style={mode === m.id ? { background: "#059669", color: "#ffffff", borderColor: "#059669" } : { background: "#ffffff", color: "#171717", borderColor: "#d4d4d4" }}
+                      className="rounded-full border px-5 py-1.5 text-[14px] font-bold transition"
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <form onSubmit={applyNick} className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                  <p className="text-[14px] font-extrabold text-neutral-900">내 스킨으로 미리보기</p>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      value={nick}
+                      onChange={(e) => setNick(e.target.value)}
+                      placeholder="닉네임(IGN)을 넣어 주세요"
+                      maxLength={16}
+                      className="h-11 min-w-0 flex-1 rounded-full border border-neutral-200 bg-white px-4 text-[14px] text-neutral-900 outline-none focus:border-emerald-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={busy || !nick.trim()}
+                      style={{ background: "#059669", color: "#ffffff" }}
+                      className="h-11 rounded-full px-5 text-[14px] font-bold disabled:opacity-50"
+                    >
+                      {busy ? "…" : "적용"}
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-[12px] text-neutral-500">
+                    {skin ? `${skin.name} 스킨으로 보는 중 · 저장돼요` : "넣으면 바로 그 스킨에 망토를 입혀 줘요"}
                   </p>
-                );
-              })()
-            ) : null}
+                </form>
+              </div>
+
+              {/* 오른쪽: 상품 정보 + 구매하기 */}
+              <div className="flex flex-col justify-center pr-2 pt-6 md:pt-0">
+                <h2 className="text-[30px] font-extrabold leading-tight tracking-tight text-neutral-900">{open.title} 망토 코드</h2>
+                {stock ? (
+                  (() => {
+                    const st = stock[open.type];
+                    const has = !!st && st.count > 0 && !!st.href;
+                    return (
+                      <>
+                        <p className="mt-3 text-[34px] font-extrabold text-neutral-900">{st && st.price > 0 ? formatKRW(st.price) : "—"}</p>
+                        <p className="mt-1">
+                          <span
+                            className="inline-block rounded-full px-3 py-1 text-[12px] font-bold"
+                            style={has ? { background: "#d1fae5", color: "#047857" } : { background: "#e5e5e5", color: "#737373" }}
+                          >
+                            {has ? `● 재고 ${st!.count}개` : "● 재고없음"}
+                          </span>
+                        </p>
+                        {has ? (
+                          <Link
+                            href={st!.href!}
+                            style={{ background: "#059669", color: "#ffffff" }}
+                            className="mt-6 flex h-14 items-center justify-center rounded-full text-[17px] font-extrabold"
+                          >
+                            구매하기 →
+                          </Link>
+                        ) : (
+                          <p className="mt-6 flex h-14 items-center justify-center rounded-full bg-neutral-200 text-[17px] font-extrabold text-neutral-500">
+                            재고없음
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()
+                ) : null}
+                <p className="mt-6 border-t border-neutral-200 pt-4 text-[12px] text-neutral-500">
+                  망토는 리딤 코드로 지급돼요. 드래그해서 돌려 보세요.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}

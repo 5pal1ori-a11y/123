@@ -271,9 +271,9 @@ void koWidth;
 export const BANNER_PATHS = {
   freshMfa: "/api/discord/banner/fresh-mfa-1.gif",
   capes: "/api/discord/banner/capes-1.gif",
-  giveaway: "/api/discord/banner/giveaway-2.gif",
-  giveawayEnd: "/api/discord/banner/giveaway-end-2.gif",
-  stockRequest: "/api/discord/banner/stock-request-1.gif",
+  giveaway: "/brand/giveaway.gif",
+  giveawayEnd: "/brand/giveaway-end.gif",
+  stockRequest: "/brand/stock-request.gif",
 } as const;
 
 export const BANNER_FILES: Record<string, () => Uint8Array> = {

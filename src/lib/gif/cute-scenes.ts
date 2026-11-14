@@ -196,62 +196,85 @@ const COIN_X = 40;
 
 export function checkinGif(amount: number, jackpot: boolean) {
   const scene = newScene();
-  addFrame(scene, 20, (cv) => {
-    backdrop(cv);
-    kidAt(cv, "idle");
-  });
-  const fall = [-6, 6, 20, 34, GROUND - 8];
-  fall.forEach((cy, k) => {
-    addFrame(scene, 4, (cv) => {
+  const COIN_Y = GROUND - 8;
+
+  // 1) 아이가 서 있고, 위에서 반짝이 하나가 깜빡
+  for (let k = 0; k < 3; k++) {
+    addFrame(scene, 9, (cv) => {
       backdrop(cv);
-      groundShadow(cv, COIN_X, 2 + (cy + 8) / 10);
+      if (k === 1) sparkle(cv, COIN_X, 6, true, P.COIN);
+      kidAt(cv, k === 2 ? "blink" : "idle");
+    });
+  }
+
+  // 2) 동전이 돌면서 떨어짐 (꼬리 반짝이)
+  const fall = [-6, 2, 11, 21, 32, 43, COIN_Y];
+  fall.forEach((cy, k) => {
+    addFrame(scene, 3, (cv) => {
+      backdrop(cv);
+      groundShadow(cv, COIN_X, 2 + (cy + 8) / 9);
+      if (k > 0) sparkle(cv, COIN_X + (k % 2 ? -5 : 5), cy - 9, false, P.COIN_L);
       coin(cv, COIN_X, cy, 2, k);
-      kidAt(cv, "worry");
+      kidAt(cv, k < 5 ? "worry" : "idle");
     });
   });
-  addFrame(scene, 5, (cv) => {
+
+  // 3) 착지: 먼지 → 두 번 튕김
+  addFrame(scene, 4, (cv) => {
     backdrop(cv);
-    groundShadow(cv, COIN_X, 8);
-    coin(cv, COIN_X, GROUND - 8, 2);
-    dust(cv, COIN_X - 11, GROUND - 2, 2);
-    dust(cv, COIN_X + 11, GROUND - 2, 2);
+    groundShadow(cv, COIN_X, 9);
+    coin(cv, COIN_X, COIN_Y, 2, 0);
+    dust(cv, COIN_X - 12, GROUND - 2, 2);
+    dust(cv, COIN_X + 12, GROUND - 2, 2);
     kidAt(cv, "idle");
   });
-  addFrame(scene, 5, (cv) => {
-    backdrop(cv);
-    groundShadow(cv, COIN_X, 6);
-    coin(cv, COIN_X, GROUND - 12, 2, 1);
-    kidAt(cv, "happy", 0);
+  [12, 4, 0].forEach((lift, k) => {
+    addFrame(scene, 4, (cv) => {
+      backdrop(cv);
+      groundShadow(cv, COIN_X, 8 - lift / 3);
+      coin(cv, COIN_X, COIN_Y - lift, 2, k + 1);
+      if (k === 0) {
+        dust(cv, COIN_X - 15, GROUND - 3, 1);
+        dust(cv, COIN_X + 15, GROUND - 3, 1);
+      }
+      kidAt(cv, "happy", k);
+    });
   });
 
+  // 4) 결과: 숫자가 위에서 쿵 내려오고, 동전 주위로 반짝이가 퍼짐
   const text = signedAmount("+", amount, "원");
+  const drop = [-9, -1, 6, 2, 3];
+  const ringColors = [P.COIN, P.HEART, P.CAP, P.COIN_L];
+  const ring = (cv: Canvas, step: number) => {
+    const r = 5 + step * 3;
+    for (let q = 0; q < 8; q++) {
+      const ang = (q / 8) * Math.PI * 2 + step * 0.3;
+      const x = Math.round(COIN_X + Math.cos(ang) * r * 1.4);
+      const y = Math.round(COIN_Y - 3 + Math.sin(ang) * r * 0.8);
+      if (x > 1 && x < 94 && y > 8 && y < GROUND - 2) sparkle(cv, x, y, step < 2, ringColors[q % 4]!);
+    }
+  };
   const glints: [number, number][] = jackpot
-    ? [
-        [24, 30],
-        [56, 26],
-        [14, 44],
-        [62, 44],
-        [88, 22],
-      ]
-    : [
-        [26, 32],
-        [54, 28],
-        [60, 44],
-      ];
-  const result = (cv: Canvas, n: number, step: number) => {
+    ? [[24, 30], [56, 26], [14, 44], [62, 44], [88, 22]]
+    : [[26, 32], [54, 28], [60, 44]];
+  const result = (cv: Canvas, n: number, step: number, textTop: number, burst: number) => {
     backdrop(cv);
     if (jackpot) {
-      [8, 22, 58, 90].forEach((x, p) => coin(cv, x, 22 + ((n * 6 + p * 11) % 24), 1, n + p));
-      confetti(cv, n, 9, 20);
+      [8, 22, 58, 90].forEach((x, q) => coin(cv, x, 22 + ((n * 6 + q * 11) % 24), 1, n + q));
+      confetti(cv, n, 9, 22);
+    } else if (n % 2 === 0) {
+      confetti(cv, n, 5, 7);
     }
     groundShadow(cv, COIN_X, 8);
-    coin(cv, COIN_X, GROUND - 8, 2);
+    coin(cv, COIN_X, COIN_Y, 2, n);
+    if (burst >= 0) ring(cv, burst);
     kidAt(cv, "happy", step);
-    drawText(cv, text, 3, "gold");
+    drawText(cv, text, textTop, "gold");
     sparkles(cv, n, glints);
   };
-  for (let k = 0; k < 8; k++) addFrame(scene, 14, (cv, n) => result(cv, n, k));
-  addFrame(scene, HOLD, (cv, n) => result(cv, n, -1));
+  drop.forEach((top, k) => addFrame(scene, 6, (cv, n) => result(cv, n, k, top, k)));
+  for (let k = 0; k < 10; k++) addFrame(scene, 12, (cv, n) => result(cv, n, k, 3, -1));
+  addFrame(scene, HOLD, (cv, n) => result(cv, n, -1, 3, -1));
   return encodeScene(scene);
 }
 

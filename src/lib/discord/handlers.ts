@@ -403,7 +403,7 @@ function randomBoxPanelComponents(shopId: string, shopSlug: string) {
           return `${i + 1}위 ${who} **${formatKRW(d.amount)}** · <t:${when}:R>`;
         })
         .join("\n")
-    : "아직 당첨 기록이 없어요. 첫 번째 주인공이 되어 보세요!";
+    : "아직 기록이 없어요";
 
   return [
       container([
@@ -411,17 +411,14 @@ function randomBoxPanelComponents(shopId: string, shopSlug: string) {
         mediaGallery([`${appOrigin()}/brand/randombox.gif`]),
         textDisplay(
           [
-            `하루에 한번 열 수 있어요. 최대 **${RANDOM_BOX_MAX.toLocaleString("ko-KR")}포인트**가 드랍되니 행운을 빌어요!`,
-            "",
-            "연속출석 **7일, 30일, 90일**에는 특별한 선물이 기다리고 있어요!",
-            "",
-            `-# 확률 ${randomBoxOddsLine()}`,
-            "-# 상점 계정과 연동한 회원만 열 수 있어요.",
+            "### 하루 한 번 열 수 있어요",
+            `최대 **${RANDOM_BOX_MAX.toLocaleString("ko-KR")}P**까지 나와요`,
+            "-# 연속 출석 7 · 30 · 90일에는 특별 선물 · 계정 연동 필요",
           ].join("\n"),
         ),
         separator(true, 1),
-        textDisplay(`### 최근 7일 최고 당첨 TOP 3\n${topLines}`),
-        textDisplay(`-# 마지막 갱신 <t:${Math.floor(Date.now() / 1000)}:R>`),
+        textDisplay(`### 이번 주 TOP 3\n${topLines}`),
+        textDisplay(`-# 확률 ${randomBoxOddsLine()}`),
         actionRow(button({ customId: cid(shopSlug, "rbox_open"), label: "박스 열기" })),
       ]),
     ];

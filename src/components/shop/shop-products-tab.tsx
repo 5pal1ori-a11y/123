@@ -205,7 +205,7 @@ export function ShopProductsTab({
             })}
           </ul>
         ) : (
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <ul className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filteredProducts.map((p, idx) => {
               const ev = eventByProduct.get(p.id);
               const live = liveStock[p.id];
@@ -243,11 +243,11 @@ export function ShopProductsTab({
                     ) : null}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <span className="font-semibold text-white hover:text-accent">{p.name}</span>
+                        <span className="text-[17px] font-bold leading-snug text-white hover:text-accent">{p.name}</span>
                         <StockBadge status={stockStatus} />
                       </div>
                     </div>
-                    <p className="mt-1 text-[11px] text-neutral-500">
+                    <p className="mt-1.5 text-[13px] text-neutral-500">
                       {p.category ? `${p.category} · ` : ""}
                       {p.fulfillment === "manual" ? "수동지급 · " : ""}
                       재고 {p.fulfillment === "manual" ? "판매중" : `${stockCount}개`}
@@ -270,13 +270,13 @@ export function ShopProductsTab({
                       </div>
                     ) : null}
                     {p.description ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-neutral-500">{p.description}</p>
+                      <p className="mt-1.5 line-clamp-3 text-[14px] leading-relaxed text-neutral-500">{p.description}</p>
                     ) : null}
                     <div className="mt-2 flex items-baseline gap-2">
                       {totalDiscountPercent > 0 ? (
-                        <span className="text-xs text-neutral-500 line-through">{formatKRW(p.price)}</span>
+                        <span className="text-sm text-neutral-500 line-through">{formatKRW(p.price)}</span>
                       ) : null}
-                      <p className="text-sm font-bold text-white">{formatKRW(finalPrice)}</p>
+                      <p className="text-lg font-extrabold text-white">{formatKRW(finalPrice)}</p>
                     </div>
                   </Link>
                   <div className="mt-3 flex items-center gap-2">

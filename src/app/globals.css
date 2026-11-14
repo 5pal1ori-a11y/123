@@ -3754,7 +3754,7 @@ html.mfa-light ::selection {
 .udx-main {
   position: relative;
   z-index: 1;
-  width: min(1180px, 100% - clamp(24px, 5vw, 64px));
+  width: min(1560px, 100% - clamp(24px, 5vw, 64px));
   margin: 0 auto;
   padding: 28px 0 40px;
 }

@@ -54,7 +54,7 @@ import {
 } from "@/lib/store";
 import { refreshMfaStockIfStale } from "@/lib/mfa";
 import { openRandomBoxOnce } from "@/lib/random-box-claim";
-import { randomBoxGifPath } from "@/lib/random-box-gif";
+import { RANDOM_BOX_IDLE_GIF_PATH, randomBoxGifPath } from "@/lib/random-box-gif";
 import { redeemWorldCoupon } from "@/lib/world/server";
 
 function productReviewSummary(shopId: string, productId: string) {
@@ -408,11 +408,11 @@ function randomBoxPanelComponents(shopId: string, shopSlug: string) {
 
   return [
       container([
-        textDisplay("## 랜덤박스"),
-        mediaGallery([`${appOrigin()}/brand/randombox.gif`]),
+        textDisplay("## 다이아 캐기"),
+        mediaGallery([`${appOrigin()}${RANDOM_BOX_IDLE_GIF_PATH}`]),
         textDisplay(
           [
-            "### 하루 한 번 열 수 있어요",
+            "### 하루 한 번 캘 수 있어요",
             `최대 **${RANDOM_BOX_MAX.toLocaleString("ko-KR")}P**까지 나와요`,
             "-# 연속 출석 7 · 30 · 90일에는 특별 선물 · 계정 연동 필요",
           ].join("\n"),
@@ -420,7 +420,7 @@ function randomBoxPanelComponents(shopId: string, shopSlug: string) {
         separator(true, 1),
         textDisplay(`### 이번 주 TOP 3\n${topLines}`),
         textDisplay(`-# 확률 ${randomBoxOddsLine()}`),
-        actionRow(button({ customId: cid(shopSlug, "rbox_open"), label: "박스 열기" })),
+        actionRow(button({ customId: cid(shopSlug, "rbox_open"), label: "다이아 캐기" })),
       ]),
     ];
 }
@@ -588,8 +588,8 @@ export async function handleRandomBoxOpen(
   if (result.already) {
     return v2Ephemeral([
       container([
-        textDisplay(`## 오늘은 이미 열었어요\n오늘 결과: **${result.amount > 0 ? formatKRW(result.amount) : "꽝"}**`),
-        textDisplay("-# 내일 0시(한국 시간)에 다시 열 수 있어요"),
+        textDisplay(`## 오늘은 이미 캤어요\n오늘 결과: **${result.amount > 0 ? formatKRW(result.amount) : "꽝"}**`),
+        textDisplay("-# 내일 0시(한국 시간)에 다시 캘 수 있어요"),
       ]),
     ]);
   }

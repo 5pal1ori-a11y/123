@@ -940,8 +940,15 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
           <header className="admin-topbar sticky top-0 z-10 flex h-12 shrink-0 items-center gap-3 border-b px-4 sm:px-5">
             <button
               type="button"
-              className="admin-icon-btn lg:hidden"
-              onClick={() => setNavOpen(true)}
+              className="admin-icon-btn"
+              onClick={() => {
+                // PC 에서는 사이드바를 접고 펴고, 모바일에서는 메뉴를 연다
+                if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+                  setCollapsed((v) => !v);
+                } else {
+                  setNavOpen(true);
+                }
+              }}
               aria-label="메뉴 열기"
             >
               <Menu className="size-5" />

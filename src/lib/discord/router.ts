@@ -202,6 +202,14 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       );
       return handleVendingCommand(shop.slug, actor.id);
     }
+    if (name === "템플릿") {
+      const o = (n: string) => {
+        const v = interaction.data?.options?.find((x) => x.name === n)?.value;
+        return typeof v === "string" ? v : undefined;
+      };
+      const { handleTemplateCommand } = await import("@/lib/discord/template-panels");
+      return handleTemplateCommand(shop.slug, actor.roles, perms, { kind: o("종류"), link1: o("링크1"), link2: o("링크2") });
+    }
     if (name === "재고요청") {
       const ch = interaction.data?.options?.find((o) => o.name === "받을채널")?.value;
       const { handleStockRequestCommand } = await import("@/lib/discord/stock-request");

@@ -203,6 +203,25 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "템플릿",
+    description: "이용약관 · 업체소개 같은 안내 패널을 채널에 올립니다 (관리자)",
+    type: 1,
+    options: [
+      {
+        name: "종류",
+        description: "올릴 패널",
+        type: 3,
+        required: true,
+        choices: [
+          { name: "이용약관", value: "terms" },
+          { name: "업체소개", value: "intro" },
+        ],
+      },
+      { name: "링크1", description: "이용약관 주소 (업체소개는 사이트 주소) — 비우면 기본값", type: 3, required: false },
+      { name: "링크2", description: "개인정보처리방침 주소 — 비우면 기본값", type: 3, required: false },
+    ],
+  },
+  {
     name: "재고요청",
     description: "재고 요청 패널을 채널에 올립니다 (관리자)",
     type: 1,

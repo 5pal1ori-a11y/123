@@ -1,4 +1,4 @@
-"""브랜드 배너 GIF 생성기 (960x360, 어두운 우주 배경 픽셀아트 — /랜덤박스 배너와 같은 스타일)
+"""브랜드 배너 GIF 생성기 (960x300, 어두운 배경 + 흰 픽셀 제목 + 보라 밑줄 — /추천인 배너와 같은 스타일)
 사용: GIF_FONT_DIR=<Galmuri11.ttf, NotoSansKR.ttf 가 있는 폴더> python3 scripts/make-brand-gifs.py public/brand
 """
 import math
@@ -8,11 +8,11 @@ import sys
 from PIL import Image, ImageDraw, ImageFont
 
 FONT_DIR = os.environ.get("GIF_FONT_DIR", ".")
-W, H = 960, 360
+W, H = 960, 300
 N = 36
 DELAY = 70
 
-BG = (18, 16, 28)
+BG = (16, 20, 28)
 PIX = ImageFont.truetype(os.path.join(FONT_DIR, "Galmuri11.ttf"), 12)
 
 
@@ -108,98 +108,82 @@ CONF = [(255, 214, 80), (244, 114, 182), (120, 190, 255), (130, 230, 150)]
 
 def background(d, f):
     rect(d, 0, 0, W, H, BG)
-    for i, (x, y, c, ph) in enumerate(STARS):
-        if (f + ph) % 18 < 12:
-            rect(d, x, y, 3, 3, c)
-    # 좌하단 장식은 두지 않고 별만
+    for yy in range(14, H, 30):
+        for xx in range(14, W, 30):
+            rect(d, xx, yy, 2, 2, (26, 32, 44))
 
 
 def glow(img, cx, cy, f):
     d = ImageDraw.Draw(img)
-    pulse = int(round(math.sin(f / N * math.pi * 2) * 4))
-    for r, c in ((162 + pulse, (34, 22, 48)), (112 + pulse // 2, (66, 28, 66)), (78, (96, 36, 84))):
+    pulse = int(round(math.sin(f / N * math.pi * 2) * 3))
+    for r, c in ((112 + pulse, (31, 27, 50)), (84 + pulse // 2, (47, 30, 80))):
         d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=c)
 
 
 def sparkle(d, x, y, big=False):
-    s = 4 if big else 3
-    pixels(d, x, y, SPARK, {"w": (255, 246, 214)}, s)
+    pixels(d, x, y, SPARK, {"w": (255, 246, 214)}, 4 if big else 3)
 
 
 def coin(d, x, y):
-    pixels(d, x, y, COIN, COIN_PAL, 4)
+    pixels(d, x, y, COIN, COIN_PAL, 3)
 
 
 def gift(d, f, cx, base, open_lid=False):
-    s = 10
+    s = 8
     ph = (f / N) * 2 % 1
-    hop = abs(math.sin(ph * math.pi)) * 12
+    hop = abs(math.sin(ph * math.pi)) * 10
     gx = cx - 8 * s
     by = int(base - 16 * s - hop)
     pixels(d, gx, by + 7 * s, GIFT_BODY, GIFT_PAL, s)
-    lid = 4 * s + int(abs(math.sin(ph * math.pi)) * 8) if open_lid else int(abs(math.sin(ph * math.pi)) * 10)
+    lid = 4 * s + int(abs(math.sin(ph * math.pi)) * 6) if open_lid else int(abs(math.sin(ph * math.pi)) * 8)
     pixels(d, gx, by - lid, GIFT_LID, GIFT_PAL, s)
 
 
 def envelope(d, f, cx, base):
-    s = 8
-    bob = int(round(math.sin(f / N * math.pi * 2) * 7))
-    ex, ey = cx - 10 * s, base - 14 * s + bob
+    s = 7
+    bob = int(round(math.sin(f / N * math.pi * 2) * 6))
+    ex, ey = cx - 10 * s, base - 12 * s + bob
     pixels(d, ex, ey, ENVELOPE, ENV_PAL, s)
     on = (f // 5) % 2 == 0
-    rect(d, ex + 20 * s - 26, ey - 26, 44, 44, (36, 22, 40))
-    rect(d, ex + 20 * s - 22, ey - 22, 36, 36, (255, 96, 110) if on else (232, 64, 84))
+    rect(d, ex + 20 * s - 24, ey - 24, 40, 40, (36, 22, 40))
+    rect(d, ex + 20 * s - 20, ey - 20, 32, 32, (255, 96, 110) if on else (232, 64, 84))
 
 
-def pill_yellow(d, x, y, text):
-    w = int(d.textlength(text, font=PILLF)) + 48
-    d.rounded_rectangle([x, y, x + w, y + 52], radius=12, fill=(255, 214, 80))
-    d.text((x + 24, y + 8), text, font=PILLF, fill=(40, 30, 20))
-    return x + w
-
-
-def pill_line(d, x, y, text):
-    w = int(d.textlength(text, font=PILLF)) + 62
-    d.rounded_rectangle([x, y, x + w, y + 52], radius=12, outline=(236, 72, 153), width=3)
-    d.text((x + 22, y + 8), text, font=PILLF, fill=(250, 150, 200))
-    d.rectangle([x + w - 24, y + 24, x + w - 20, y + 28], fill=(250, 150, 200))
-
-
-def fit_scale(title, scale, limit=470):
-    """제목이 오른쪽 끝을 넘지 않는 가장 큰 배율"""
+def fit_scale(title, scale, limit=640):
     for sc in range(scale, 3, -1):
         total = 0
         for ch in title:
-            total += 3 * sc if ch == " " else pixel_text(ch, (255, 255, 255), sc, (0, 0, 0)).width + 10
+            total += 3 * sc if ch == " " else pixel_text(ch, (255, 255, 255), sc, (0, 0, 0)).width + 8
         if total <= limit:
             return sc
     return 4
 
 
-def render(path, icon, title, sub, pill_a, pill_b, scale=9):
+def render(path, icon, title, sub, scale=10):
     frames = []
     for f in range(N):
         img = Image.new("RGBA", (W, H), BG + (255,))
         d = ImageDraw.Draw(img)
         background(d, f)
-        glow(img, 230, 190, f)
+        glow(img, 150, 150, f)
         d = ImageDraw.Draw(img)
         icon(d, f)
-        # 제목: 한 글자씩 살짝 출렁
-        x = 458
+        x = 292
         sc = fit_scale(title, scale)
         for idx, ch in enumerate(title):
             if ch == " ":
                 x += 3 * sc
                 continue
-            g = pixel_text(ch, (255, 255, 255), sc, (176, 50, 130))
-            y = 52 + int(round(math.sin(f / N * math.pi * 2 - idx * 0.9) * 4))
+            g = pixel_text(ch, (255, 255, 255), sc, (44, 34, 70))
+            y = 62 + int(round(math.sin(f / N * math.pi * 2 - idx * 0.9) * 3))
             img.alpha_composite(g, (x, y))
-            x += g.width + 10
+            x += g.width + 8
         d = ImageDraw.Draw(img)
-        d.text((460, 196), sub, font=SUBF, fill=(214, 208, 240))
-        e = pill_yellow(d, 460, 246, pill_a)
-        pill_line(d, e + 16, 246, pill_b)
+        d.text((292, 182), sub, font=SUBF, fill=(206, 206, 222))
+        t = min(1, f / 12)
+        w = int(120 * (1 - (1 - t) ** 3))
+        rect(d, 292, 234, w, 6, (168, 85, 247))
+        rect(d, 292, 238, w, 3, (126, 34, 206))
         frames.append(img.convert("RGB"))
     strip = Image.new("RGB", (W, H * 6))
     for i, k in enumerate(range(0, N, N // 6)):
@@ -207,38 +191,40 @@ def render(path, icon, title, sub, pill_a, pill_b, scale=9):
             strip.paste(frames[k], (0, H * i))
     pal = strip.quantize(colors=160, method=Image.Quantize.MEDIANCUT)
     q = [fr.quantize(palette=pal, dither=Image.Dither.NONE) for fr in frames]
-    q[0].save(path, save_all=True, append_images=q[1:], duration=[DELAY] * N, loop=0, optimize=True, disposal=1)
+    dur = [DELAY] * N
+    dur[-1] = 900
+    q[0].save(path, save_all=True, append_images=q[1:], duration=dur, loop=0, optimize=True, disposal=1)
     print("saved", path, os.path.getsize(path) // 1024, "KB")
 
 
 def icon_giveaway(d, f):
-    gift(d, f, 230, 322)
-    coin(d, 166 + (f % 6 < 3) * 2, 100)
-    coin(d, 262, 38 + int(math.sin(f / 5) * 4))
-    sparkle(d, 200, 66, f % 8 < 4)
+    gift(d, f, 150, 214)
+    coin(d, 78 + (f % 6 < 3) * 2, 76)
+    coin(d, 206, 56 + int(math.sin(f / 5) * 3))
+    sparkle(d, 118, 52, f % 8 < 4)
 
 
 def icon_end(d, f):
-    gift(d, f, 230, 322, open_lid=True)
-    for i in range(14):
-        x = 120 + int(random.Random(i).random() * 220)
-        y = int((random.Random(i + 40).random() * 240 + f * 7) % 300) + 20
+    gift(d, f, 150, 214, open_lid=True)
+    for i in range(12):
+        x = 70 + int(random.Random(i).random() * 160)
+        y = int((random.Random(i + 40).random() * 190 + f * 6) % 220) + 30
         c = CONF[i % 4]
         if (i + f) % 2:
-            rect(d, x, y, 5, 10, c)
+            rect(d, x, y, 4, 8, c)
         else:
-            rect(d, x, y, 10, 5, c)
-    sparkle(d, 200, 66, f % 8 < 4)
+            rect(d, x, y, 8, 4, c)
+    sparkle(d, 118, 46, f % 8 < 4)
 
 
 def icon_stock(d, f):
-    envelope(d, f, 230, 290)
-    coin(d, 150, 84 + int(math.sin(f / 5) * 4))
-    coin(d, 296, 120)
-    sparkle(d, 216, 52, f % 8 < 4)
+    envelope(d, f, 150, 210)
+    coin(d, 84, 70 + int(math.sin(f / 5) * 3))
+    coin(d, 214, 96)
+    sparkle(d, 140, 44, f % 8 < 4)
 
 
 out = sys.argv[1] if len(sys.argv) > 1 else "."
-render(os.path.join(out, "giveaway.gif"), icon_giveaway, "경품 추첨", "버튼 한 번으로 참여하세요", "누구나 참여", "마감 시 자동 추첨", scale=9)
-render(os.path.join(out, "giveaway-end.gif"), icon_end, "당첨 발표!", "당첨을 축하드려요", "축하합니다", "주최자에게 문의", scale=9)
-render(os.path.join(out, "stock-request.gif"), icon_stock, "재고 요청", "찾는 상품이 없으면 남겨 주세요", "품절 · 미입고", "입고 검토 중", scale=9)
+render(os.path.join(out, "giveaway.gif"), icon_giveaway, "경품 추첨", "버튼 한 번으로 참여하세요 · 마감 시 자동 추첨")
+render(os.path.join(out, "giveaway-end.gif"), icon_end, "당첨 발표!", "당첨자를 축하드려요 · 주최자에게 문의해 주세요")
+render(os.path.join(out, "stock-request.gif"), icon_stock, "재고 요청", "찾는 상품이 없으면 버튼 한 번으로 남겨 주세요")

@@ -4,7 +4,6 @@
  */
 import {
   actionRow,
-  button,
   cid,
   container,
   errorPanel,
@@ -36,7 +35,7 @@ function publicNotice(userId: string, name: string, note?: string) {
     container([
       textDisplay(`📥 <@${userId}> 님이 **${name.slice(0, 100)}** 재고를 요청했어요`),
       ...(note ? [textDisplay(`> ${note.slice(0, 300)}`)] : []),
-      textDisplay("-# 요청이 많은 상품부터 입고를 검토해요"),
+      textDisplay("-# 재고 요청순이 많은 제품부터 처리합니다."),
     ]),
   ]);
   return { ...panel, data: { ...panel.data, allowed_mentions: { parse: [] } } };
@@ -71,14 +70,13 @@ export function handleStockRequestCommand(
   const options = requestOptions(shop.id);
   const kids: unknown[] = [
     mediaGallery([`${appOrigin()}${BANNER_PATHS.stockRequest}`]),
-    textDisplay("**품절이거나 목록에 없는 상품**은 아래에서 골라 요청해 주세요. 없으면 **직접 적어서 요청**을 눌러 주세요."),
+    textDisplay("> 현재 **품절인** 상품을 요청해주세요!"),
   ];
   if (options.length) {
     kids.push(actionRow(stringSelect({ customId: cid(shop.slug, "sr_pick"), placeholder: "요청할 상품을 골라 주세요", options })));
   }
   kids.push(
-    actionRow(button({ customId: cid(shop.slug, "sr_custom"), label: "직접 적어서 요청", emoji: "📝" })),
-    textDisplay("-# 요청이 많은 상품부터 입고를 검토해요"),
+    textDisplay("-# 재고 요청순이 많은 제품부터 처리합니다."),
   );
   const panel = v2Public([container(kids)]);
   return { ...panel, data: { ...panel.data, allowed_mentions: { parse: [] } } };

@@ -153,9 +153,7 @@ export function McAccountCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.24), duration: 0.32 }}
-      className={`mc-card mf-dark flex flex-col rounded-[14px] border border-[#1c2436] bg-[#0b1020] p-3 ${
-        soldOut ? "opacity-60" : ""
-      }`}
+      className="mc-card mf-dark flex flex-col rounded-[14px] border border-[#1c2436] bg-[#0b1020] p-3"
     >
       {/* 스킨 영역 */}
       <div className="relative h-[210px] rounded-[10px]">
@@ -168,7 +166,10 @@ export function McAccountCard({
               loading="lazy"
               referrerPolicy="no-referrer"
               className="h-full w-full object-contain object-bottom"
-              style={{ imageRendering: "pixelated" }}
+              style={{
+                imageRendering: "pixelated",
+                ...(soldOut ? { filter: "grayscale(1) brightness(0.55)" } : null),
+              }}
               onError={() => setSkinFailed(true)}
             />
           ) : (
@@ -185,7 +186,7 @@ export function McAccountCard({
             }`}
           >
             <span className={`size-1 rounded-full ${soldOut ? "bg-[#fca5a5]" : "bg-[#a5b4fc]"}`} />
-            {soldOut ? "품절" : "판매중"}
+            {soldOut ? "SOLD" : "판매중"}
           </span>
           {rating !== null ? (
             <span className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[11px] font-bold text-[#fcd34d]">
@@ -239,7 +240,11 @@ export function McAccountCard({
             <span className="mr-1 text-[10px] font-semibold text-[#a3a3a3] line-through">{originalPriceText}</span>
           ) : null}
           <span className="text-[11px] font-bold text-[#a3a3a3]">₩</span>
-          <span className="text-[15px] font-extrabold leading-none text-[#000000]">{priceText}</span>
+          <span
+            className={`text-[15px] font-extrabold leading-none text-[#000000] ${soldOut ? "line-through opacity-60" : ""}`}
+          >
+            {priceText}
+          </span>
         </span>
       </div>
 
@@ -264,6 +269,7 @@ export function McAccountCard({
             src={`/api/mc-account/${encodeURIComponent(product.id)}?asset=cape&i=${i}&v=${ver}`}
           />
         ))}
+        {soldOut ? <span className="ml-auto text-[11px] font-extrabold tracking-wide text-[#737373]">SOLD</span> : null}
         {moreCapes > 0 ? (
           <span className="flex h-[26px] min-w-[22px] items-center justify-center rounded-[4px] bg-[rgba(99,102,241,0.25)] px-1 text-[10px] font-bold text-[#c7d2fe]">
             +{moreCapes}

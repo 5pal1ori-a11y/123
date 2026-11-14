@@ -1576,6 +1576,7 @@ export function createProduct(
     stockBoardHidden?: boolean;
     productKind?: Product["productKind"];
     mcNickname?: string | null;
+    capeType?: string | null;
     discountPercent?: number | null;
   },
 ): Product {
@@ -1619,7 +1620,8 @@ export function createProduct(
     manualNotice: input.manualNotice?.trim() || null,
     stockBoardHidden: Boolean(input.stockBoardHidden),
     discountPercent: clampDiscount(input.discountPercent),
-    productKind: input.productKind === "mc_account" ? "mc_account" : "general",
+    productKind: input.productKind === "mc_account" ? "mc_account" : input.productKind === "mc_cape" ? "mc_cape" : "general",
+    capeType: input.productKind === "mc_cape" ? input.capeType?.trim() || null : null,
     mcNickname: input.productKind === "mc_account" ? input.mcNickname?.trim() || null : null,
     createdAt: new Date().toISOString(),
   };
@@ -1657,6 +1659,7 @@ export function updateProduct(
       | "mfaAutoInactive"
       | "productKind"
       | "mcNickname"
+      | "capeType"
       | "discountPercent"
     >
   >,
@@ -1718,7 +1721,11 @@ export function updateProduct(
     product.discountPercent = clampDiscount(patch.discountPercent);
   }
   if (patch.productKind !== undefined) {
-    product.productKind = patch.productKind === "mc_account" ? "mc_account" : "general";
+    product.productKind =
+      patch.productKind === "mc_account" ? "mc_account" : patch.productKind === "mc_cape" ? "mc_cape" : "general";
+  }
+  if (patch.capeType !== undefined) {
+    product.capeType = patch.capeType?.trim() || null;
   }
   if (patch.mcNickname !== undefined) {
     product.mcNickname = patch.mcNickname?.trim() || null;

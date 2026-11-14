@@ -24,7 +24,6 @@ export type UserCharge = {
 };
 
 export type UserTab =
-  | "capes"
   | "main"
   | "products"
   | "charge"

@@ -513,7 +513,7 @@ export type PointCharge = {
 };
 
 /** 상품 종류: 기타상품 / 마인크래프트 계정 */
-export type ProductKind = "general" | "mc_account";
+export type ProductKind = "general" | "mc_account" | "mc_cape";
 
 export type Product = {
   id: string;
@@ -551,6 +551,8 @@ export type Product = {
   /** 상품 종류 (기본: 기타상품) */
   productKind?: ProductKind;
   /** 마크계정상품: 계정 닉네임 (관리자 전용 — 공개 목록에서는 제거됨) */
+  /** 망토상품: 망토 종류 (예: aurora) */
+  capeType?: string | null;
   mcNickname?: string | null;
   /** 마크계정상품: 공개용 마스킹 닉네임 (예: BO*******5) */
   mcMaskedName?: string | null;

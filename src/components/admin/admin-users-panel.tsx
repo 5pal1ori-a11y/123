@@ -86,16 +86,6 @@ export function AdminUsersPanel({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pointsDelta, setPointsDelta] = useState("");
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter(
-      (u) => u.email.toLowerCase().includes(q) || u.name.toLowerCase().includes(q),
-    );
-  }, [users, search]);
-
-  const selected = users.find((u) => u.id === selectedId) ?? null;
-
   // 접속 상태: 30초마다 갱신
   const [presence, setPresence] = useState<Record<string, Presence>>({});
   const idsKey = useMemo(() => users.map((u) => u.id).join(","), [users]);
@@ -123,6 +113,22 @@ export function AdminUsersPanel({
       clearInterval(timer);
     };
   }, [shopSlug, idsKey]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const base = q
+      ? users.filter((u) => u.email.toLowerCase().includes(q) || u.name.toLowerCase().includes(q))
+      : users;
+    // 접속중 → 최근 접속순 (기록 없는 회원은 맨 뒤)
+    const seen = (id: string) => {
+      const p = presence[id];
+      if (p?.online) return Number.MAX_SAFE_INTEGER;
+      return p?.lastSeenAt ? new Date(p.lastSeenAt).getTime() : 0;
+    };
+    return [...base].sort((a, b) => seen(b.id) - seen(a.id));
+  }, [users, search, presence]);
+
+  const selected = users.find((u) => u.id === selectedId) ?? null;
 
   const onlineCount = useMemo(() => Object.values(presence).filter((p) => p.online).length, [presence]);
 

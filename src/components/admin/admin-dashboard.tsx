@@ -23,6 +23,7 @@ import {
   MessagesSquare,
   Package,
   Gem,
+  Shirt,
   PanelLeftClose,
   RefreshCw,
   ScrollText,
@@ -61,6 +62,7 @@ import { AdminNotificationsPanel, AdminStaffPanel } from "./admin-staff-panel";
 import { AdminTiersPanel } from "./admin-tiers-panel";
 import { AdminUsersPanel } from "./admin-users-panel";
 import { AdminMcProductsPanel } from "./admin-mc-products-panel";
+import { AdminCapeProductsPanel } from "./admin-cape-products-panel";
 import { AdminNoticesPanel } from "./admin-notices-panel";
 import { AdminReviewsPanel } from "./admin-reviews-panel";
 import { AdminBugsPanel } from "./admin-bugs-panel";
@@ -110,6 +112,7 @@ type Tab =
   | "bot"
   | "products"
   | "mcProducts"
+  | "capeProducts"
   | "events"
   | "world"
   | "chat"
@@ -204,6 +207,7 @@ const NAV: { id: Tab; label: string; icon: typeof Store }[] = [
   { id: "orders", label: "주문", icon: ClipboardList },
   { id: "products", label: "상품", icon: Package },
   { id: "mcProducts", label: "마크 상품", icon: Gem },
+  { id: "capeProducts", label: "망토 상품", icon: Shirt },
   { id: "billing", label: "결제 · 충전", icon: Wallet },
   { id: "users", label: "고객", icon: Users },
   { id: "inquiries", label: "문의", icon: MessageSquare },
@@ -225,7 +229,7 @@ const NAV: { id: Tab; label: string; icon: typeof Store }[] = [
 ];
 
 const NAV_GROUPS: { label: string; ids: Tab[] }[] = [
-  { label: "판매", ids: ["main", "orders", "products", "mcProducts", "billing"] },
+  { label: "판매", ids: ["main", "orders", "products", "mcProducts", "capeProducts", "billing"] },
   { label: "고객", ids: ["users", "inquiries", "tiers", "reviews"] },
   { label: "성장", ids: ["coupons", "events", "world", "chat"] },
   { label: "마케팅", ids: ["banners"] },
@@ -244,6 +248,7 @@ const TAB_PERM: Partial<Record<Tab, StaffPermission | "owner">> = {
   orders: "orders",
   products: "products",
   mcProducts: "products",
+  capeProducts: "products",
   billing: "billing",
   users: "users",
   inquiries: "inquiries",
@@ -1226,6 +1231,15 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
               onDeleteProduct={(productId, name) =>
                 void removeItem("상품 삭제", `${name}을(를) 삭제할까요?`, { action: "product-delete", productId }, "상품 삭제됨")
               }
+            />
+          )}
+
+          {tab === "capeProducts" && (
+            <AdminCapeProductsPanel
+              shopSlug={shopSlug}
+              products={data.products}
+              onReload={load}
+              onMessage={pushToast}
             />
           )}
 

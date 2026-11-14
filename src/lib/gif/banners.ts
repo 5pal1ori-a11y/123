@@ -3,6 +3,7 @@ import {
   backdrop,
   drawInk,
   drawText,
+  giftBox,
   encodeScene,
   groundShadow,
   hash,
@@ -149,13 +150,67 @@ export function capesBanner() {
   return encodeScene(scene);
 }
 
+
+/* ───────────── GIVEAWAY ───────────── */
+
+const GW_GROUND = 42;
+
+/** 진행 중: 선물상자가 통통 튀고 별이 반짝 */
+export function giveawayBanner() {
+  const scene = newScene(SIZE);
+  for (let f = 0; f < LOOP_FRAMES; f++) {
+    addFrame(scene, 12, (cv) => {
+      backdrop(cv, GW_GROUND);
+      groundShadow(cv, 24, 11, GW_GROUND);
+      const hop = [0, 2, 4, 5, 4, 2, 0, 0][f]!;
+      giftBox(cv, 24, GW_GROUND - hop, { squash: hop === 0 && f === 7 ? 2 : 0 });
+      drawText(cv, "GIVEAWAY", 8, "gold", 2, 100);
+      drawInk(cv, "JOIN WITH ONE CLICK", 53, 28, P.INK);
+      cv.rect(53, 38, 22, 2, P.T_GREEN);
+      if (f % 2 === 0) sparkle(cv, 150, 8, f % 4 === 0, P.COIN);
+      else sparkle(cv, 46, 12, false, P.HEART);
+      if (f % 3 === 1) sparkle(cv, 142, 36, true, P.CAP);
+    });
+  }
+  return encodeScene(scene);
+}
+
+/** 종료: 상자가 열리고 색종이가 날린다 */
+export function giveawayEndBanner() {
+  const scene = newScene(SIZE);
+  const colors = [P.COIN, P.HEART, P.CAP, P.LEAF];
+  for (let f = 0; f < LOOP_FRAMES; f++) {
+    addFrame(scene, 12, (cv) => {
+      backdrop(cv, GW_GROUND);
+      groundShadow(cv, 24, 11, GW_GROUND);
+      giftBox(cv, 24, GW_GROUND, { lid: { dx: 0, dy: -4 - ((f % 4) % 3) * 2 - 6 } });
+      drawText(cv, "WINNER!", 8, "gold", 2, 100);
+      drawInk(cv, "GIVEAWAY ENDED", 53, 28, P.INK);
+      cv.rect(53, 38, 22, 2, P.T_GREEN);
+      for (let i = 0; i < 14; i++) {
+        const x = Math.round(hash(i, 1, 7) * 156);
+        const y = Math.round((hash(i, 2, 7) * 44 + f * 5) % 44);
+        const c = colors[i % colors.length]!;
+        if ((i + f) % 2) cv.rect(x, y, 1, 2, c);
+        else cv.rect(x, y, 2, 1, c);
+      }
+      if (f % 2 === 0) sparkle(cv, 150, 8, f % 4 === 0, P.COIN);
+    });
+  }
+  return encodeScene(scene);
+}
+
 /** 그림이 바뀌면 숫자를 올린다 — 디스코드가 주소별로 이미지를 오래 캐시함 */
 export const BANNER_PATHS = {
   freshMfa: "/api/discord/banner/fresh-mfa-1.gif",
   capes: "/api/discord/banner/capes-1.gif",
+  giveaway: "/api/discord/banner/giveaway-1.gif",
+  giveawayEnd: "/api/discord/banner/giveaway-end-1.gif",
 } as const;
 
 export const BANNER_FILES: Record<string, () => Uint8Array> = {
   "fresh-mfa-1.gif": freshMfaBanner,
   "capes-1.gif": capesBanner,
+  "giveaway-1.gif": giveawayBanner,
+  "giveaway-end-1.gif": giveawayEndBanner,
 };

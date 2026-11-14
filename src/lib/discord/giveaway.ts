@@ -2,12 +2,16 @@ import {
   actionRow,
   button,
   cid,
+  container,
+  MessageFlags,
+  mediaGallery,
   plainEphemeral,
   separator,
   textDisplay,
   v2Message,
   type DiscordInteraction,
 } from "@/lib/discord/components";
+import { BANNER_PATHS } from "@/lib/gif/banners";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
 import { getShopBySlug, getShopSettings } from "@/lib/store";
@@ -33,38 +37,50 @@ async function hub(op: string, body: Record<string, unknown>) {
 
 function giveawayMessage(g: Giveaway) {
   const end = Math.floor(g.endsAt / 1000);
-  const kids: unknown[] = [textDisplay(g.ended ? "## 🎉 이벤트 종료" : "## 🎉 이벤트"), textDisplay(`### ${g.prize}`)];
+  const origin = (process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://vendix.team").replace(/\/$/, "");
+  const banner = `${origin}${g.ended ? BANNER_PATHS.giveawayEnd : BANNER_PATHS.giveaway}`;
+  const winners = g.ended
+    ? g.winnerIds.length
+      ? g.winnerIds.map((id) => `<@${id}>`).join(" ")
+      : "참여자가 없어 당첨자가 없어요"
+    : "추첨 전";
+  const kids: unknown[] = [
+    mediaGallery([banner]),
+    textDisplay(`-# ${g.ended ? "종료된" : "진행 중인"} Giveaway`),
+    textDisplay(`## 🎁 ${g.prize}`),
+  ];
   if (g.description) kids.push(textDisplay(g.description));
   kids.push(
     separator(true, 1),
     textDisplay(
       [
-        `**당첨자 수** ${g.winners}명`,
+        `**당첨 인원** ${g.winners}명`,
         `**참여자** ${g.entrants.length}명`,
-        g.ended ? `**종료** <t:${end}:F>` : `**마감** <t:${end}:F> (<t:${end}:R>)`,
+        `**마감** <t:${end}:F>${g.ended ? "" : ` (<t:${end}:R>)`}`,
+        `**당첨자** ${winners}`,
         `**주최** <@${g.hostId}>`,
       ].join("\n"),
     ),
-  );
-  if (g.ended) {
-    kids.push(
-      separator(true, 1),
-      textDisplay(
-        g.winnerIds.length ? `**당첨자**\n${g.winnerIds.map((id) => `<@${id}>`).join(" ")}` : "참여자가 없어 당첨자가 없어요.",
-      ),
-    );
-  }
-  kids.push(
+    separator(true, 1),
+    textDisplay(
+      g.ended
+        ? "-# 당첨자는 이 채널에서 멘션으로 발표돼요 · 스태프는 DM으로 결제·계정 정보를 요구하지 않아요"
+        : "-# 버튼을 다시 누르면 참여를 취소할 수 있어요 · 마감 시각에 자동으로 추첨해요",
+    ),
     actionRow(
       button({
-        label: g.ended ? "종료된 이벤트" : "참여하기",
+        label: g.ended ? "종료됨" : "참여하기",
         emoji: "🎉",
         customId: cid(g.shopSlug, "gw_join", g.id),
         disabled: g.ended,
       }),
     ),
   );
-  return { ...v2Message(kids), allowed_mentions: { parse: [] as string[] } };
+  return {
+    flags: MessageFlags.IS_COMPONENTS_V2,
+    components: [container(kids, g.ended ? 0x57f287 : 0xfee75c)],
+    allowed_mentions: { parse: [] as string[] },
+  };
 }
 
 function giveawayId() {

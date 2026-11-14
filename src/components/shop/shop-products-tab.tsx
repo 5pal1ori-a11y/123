@@ -11,14 +11,16 @@ import { StockBadge } from "@/components/ui/stock-badge";
 import { WishHeartButton } from "@/components/ui/wish-heart-button";
 import { PanelPrimaryBtn, PanelStats } from "@/components/admin/admin-panel-ui";
 import { McAccountCard } from "./mc-account-card";
+import { CapeGallery, type CapeStock } from "@/components/capes/cape-gallery";
 
 export type ProductSort = "default" | "price_asc" | "price_desc" | "popular";
-export type ProductSection = "general" | "mc_account";
+export type ProductSection = "general" | "mc_account" | "mc_cape";
 export type ShopListingSummary = { rating: number | null; reviewCount: number; sold: number };
 
 const SECTIONS: { id: ProductSection; label: string }[] = [
   { id: "general", label: "기타상품" },
   { id: "mc_account", label: "마인크래프트 계정" },
+  { id: "mc_cape", label: "마인크래프트 망토" },
 ];
 
 export function ShopProductsTab({
@@ -83,6 +85,16 @@ export function ShopProductsTab({
   onAddToCart?: (productId: string) => void;
 }) {
   const base = useShopBase();
+  const isSoldOut = (p: ProductWithStock) => (liveStock[p.id]?.status ?? p.stockStatus) === "sold_out";
+  const onSaleMc = filteredProducts.filter((p) => !isSoldOut(p));
+  const soldMc = filteredProducts.filter(isSoldOut);
+  const capeStock: CapeStock = {};
+  for (const p of products) {
+    if (p.productKind !== "mc_cape" || !p.capeType) continue;
+    const live = liveStock[p.id];
+    const count = live?.count ?? p.availableCount;
+    capeStock[p.capeType] = { count, price: calcProductPrice(p, tier, eventByProduct.get(p.id) ?? null).finalPrice, href: shopPath(base, `/product/${p.slug}`) };
+  }
 
   return (
     <div className="space-y-5">
@@ -124,14 +136,7 @@ export function ShopProductsTab({
       {purchaseError ? <p className="text-sm text-red-400">{purchaseError}</p> : null}
 
       <div className="admin-bento p-4 sm:p-5">
-        <Link
-          href={shopPath(base, "/dashboard?tab=capes")}
-          className="mb-3 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/[0.07]"
-        >
-          <span>망토 갤러리 · 커서로 돌려보고 Player / Elytra 로 입혀보기</span>
-          <span className="text-neutral-400">보기 →</span>
-        </Link>
-        <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+        <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
           {SECTIONS.map((sec) => (
             <button
               key={sec.id}
@@ -148,6 +153,10 @@ export function ShopProductsTab({
             </button>
           ))}
         </div>
+        {productSection === "mc_cape" ? (
+          <CapeGallery stock={capeStock} />
+        ) : (
+        <>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <input
             value={productQuery}
@@ -186,31 +195,52 @@ export function ShopProductsTab({
         {filteredProducts.length === 0 ? (
           <p className="py-12 text-center text-sm text-neutral-500">검색 결과가 없어요</p>
         ) : productSection === "mc_account" ? (
-          <ul className="mt-4 grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredProducts.map((p, idx) => {
-              const ev = eventByProduct.get(p.id);
-              const live = liveStock[p.id];
-              const stockStatus = live?.status ?? p.stockStatus;
-              const { finalPrice, totalDiscountPercent } = calcProductPrice(p, tier, ev ?? null);
-              return (
-                <McAccountCard
-                  key={p.id}
-                  product={p}
-                  index={idx}
-                  shopName={shopName}
-                  priceText={finalPrice.toLocaleString("ko-KR")}
-                  originalPriceText={totalDiscountPercent > 0 ? p.price.toLocaleString("ko-KR") : null}
-                  discountPercent={totalDiscountPercent}
-                  stockStatus={stockStatus}
-                  sold={shopSummary?.sold ?? salesCounts[p.id] ?? 0}
-                  rating={shopSummary?.rating ?? null}
-                  wishlisted={wishlistIds.has(p.id)}
-                  onToggleWishlist={() => onToggleWishlist(p.id)}
-                  onAddToCart={() => onAddToCart?.(p.id)}
-                />
-              );
-            })}
-          </ul>
+          <>
+            {[
+              { key: "on", title: null as string | null, list: onSaleMc },
+              { key: "sold", title: "Sold", list: soldMc },
+            ].map((grp) =>
+              grp.list.length === 0 ? null : (
+                <div key={grp.key} className={grp.title ? "mt-10" : ""}>
+                  {grp.title ? (
+                    <div className="mf-dark mb-4 flex items-baseline gap-3 border-b border-white/10 pb-2">
+                      <h3 className="text-2xl font-extrabold text-[#737373]">{grp.title}</h3>
+                      <span className="text-sm font-semibold text-[#525252]">{grp.list.length}개 계정</span>
+                    </div>
+                  ) : null}
+                  <ul
+                    className={`grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${
+                      grp.title ? "" : "mt-4"
+                    }`}
+                  >
+                    {grp.list.map((p, idx) => {
+                      const ev = eventByProduct.get(p.id);
+                      const live = liveStock[p.id];
+                      const stockStatus = live?.status ?? p.stockStatus;
+                      const { finalPrice, totalDiscountPercent } = calcProductPrice(p, tier, ev ?? null);
+                      return (
+                        <McAccountCard
+                          key={p.id}
+                          product={p}
+                          index={idx}
+                          shopName={shopName}
+                          priceText={finalPrice.toLocaleString("ko-KR")}
+                          originalPriceText={totalDiscountPercent > 0 ? p.price.toLocaleString("ko-KR") : null}
+                          discountPercent={totalDiscountPercent}
+                          stockStatus={stockStatus}
+                          sold={shopSummary?.sold ?? salesCounts[p.id] ?? 0}
+                          rating={shopSummary?.rating ?? null}
+                          wishlisted={wishlistIds.has(p.id)}
+                          onToggleWishlist={() => onToggleWishlist(p.id)}
+                          onAddToCart={() => onAddToCart?.(p.id)}
+                        />
+                      );
+                    })}
+                  </ul>
+                </div>
+              ),
+            )}
+          </>
         ) : (
           <ul className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filteredProducts.map((p, idx) => {
@@ -316,6 +346,8 @@ export function ShopProductsTab({
               );
             })}
           </ul>
+        )}
+        </>
         )}
       </div>
     </div>

@@ -45,7 +45,8 @@ const createSchema = z.object({
   fulfillment: z.enum(["auto", "manual"]).optional(),
   manualNotice: z.string().max(800).nullable().optional(),
   stockBoardHidden: z.boolean().optional(),
-  productKind: z.enum(["general", "mc_account"]).optional(),
+  productKind: z.enum(["general", "mc_account", "mc_cape"]).optional(),
+  capeType: z.string().regex(/^[a-z0-9]{2,24}$/).nullable().optional(),
   discountPercent: z.number().int().min(0).max(90).nullable().optional(),
   mcNickname: z
     .string()

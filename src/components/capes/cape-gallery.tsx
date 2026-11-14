@@ -2,7 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, User, X } from "lucide-react";
-import { CAPES, type CapeEntry } from "@/lib/capes-data";
+import Link from "next/link";
+import { CAPE_BY_TYPE, type CapeEntry } from "@/lib/capes-data";
+import { SELLABLE_CAPES } from "@/lib/sellable-capes";
+import { formatKRW } from "@/lib/utils";
+
+/** 판매하는 망토 10종 (표시 이름은 운영자 기준) */
+const CAPES: CapeEntry[] = SELLABLE_CAPES.flatMap((c) => {
+  const e = CAPE_BY_TYPE[c.type];
+  return e ? [{ ...e, title: c.title }] : [];
+});
+
+export type CapeStock = Record<string, { count: number; price: number; href: string | null }>;
 import { CapeViewer, type SkinInfo, type ViewMode } from "./cape-viewer";
 import { capeFace } from "./cape-face";
 
@@ -11,7 +22,16 @@ const STORE_KEY = "does-cape-skin";
 type SavedSkin = SkinInfo & { name: string };
 
 /** 카드: 커서를 올리면 커서 위치에 따라 망토가 돌아간다 */
-function CapeCard({ cape, onOpen }: { cape: CapeEntry; onOpen: () => void }) {
+function CapeCard({
+  cape,
+  onOpen,
+  stock,
+}: {
+  cape: CapeEntry;
+  onOpen: () => void;
+  stock?: CapeStock[string] | null;
+}) {
+  const out = !stock || stock.count <= 0;
   const [src, setSrc] = useState<string | null>(null);
   const [rot, setRot] = useState(-18);
   const [hover, setHover] = useState(false);
@@ -44,6 +64,7 @@ function CapeCard({ cape, onOpen }: { cape: CapeEntry; onOpen: () => void }) {
       }}
       onPointerMove={onMove}
       className="group flex flex-col overflow-hidden rounded-3xl border border-black/5 bg-white text-left shadow-sm transition hover:shadow-xl"
+      style={out ? { filter: "grayscale(1)", opacity: 0.7 } : undefined}
     >
       <div
         className="relative flex h-[260px] items-center justify-center overflow-hidden"
@@ -95,9 +116,13 @@ function CapeCard({ cape, onOpen }: { cape: CapeEntry; onOpen: () => void }) {
       <div className="flex items-center justify-between gap-3 p-5">
         <div className="min-w-0">
           <p className="truncate text-[19px] font-extrabold tracking-tight text-neutral-900">{cape.title}</p>
-          <p className="mt-0.5 text-[13px] text-neutral-500">클릭하면 Player · Elytra 로 볼 수 있어요</p>
+          <p className="mt-0.5 text-[13px] text-neutral-500">
+            {stock ? (out ? "재고없음" : `${formatKRW(stock.price)} · 재고 ${stock.count}개`) : "클릭하면 Player · Elytra 로 볼 수 있어요"}
+          </p>
         </div>
-        <span className="shrink-0 text-sm font-bold text-emerald-600">3D 보기 →</span>
+        <span className={`shrink-0 text-sm font-bold ${out ? "text-neutral-500" : "text-emerald-600"}`}>
+          {stock ? (out ? "재고없음" : "구매 →") : "3D 보기 →"}
+        </span>
       </div>
     </button>
   );
@@ -109,7 +134,7 @@ const MODES: { id: ViewMode; label: string }[] = [
   { id: "elytra", label: "Elytra" },
 ];
 
-export function CapeGallery() {
+export function CapeGallery({ stock }: { stock?: CapeStock }) {
   const [skin, setSkin] = useState<SavedSkin | null>(null);
   const [nick, setNick] = useState("");
   const [busy, setBusy] = useState(false);
@@ -178,7 +203,7 @@ export function CapeGallery() {
   return (
     <div className="mf-dark space-y-6">
       <div className="rounded-3xl border border-black/5 bg-white p-5 shadow-sm">
-        <h1 className="text-[26px] font-extrabold tracking-tight text-neutral-900">망토 갤러리</h1>
+        <h1 className="text-[26px] font-extrabold tracking-tight text-neutral-900">마인크래프트 망토</h1>
         <p className="mt-1 text-[15px] text-neutral-500">
           카드에 커서를 올리면 망토가 돌아가요. 닉네임을 넣으면 내 스킨에 모든 망토를 입혀서 볼 수 있어요.
         </p>
@@ -221,7 +246,7 @@ export function CapeGallery() {
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {list.map((c) => (
-          <CapeCard key={c.type} cape={c} onOpen={() => setOpen(c)} />
+          <CapeCard key={c.type} cape={c} stock={stock ? (stock[c.type] ?? { count: 0, price: 0, href: null }) : undefined} onOpen={() => setOpen(c)} />
         ))}
       </div>
       {list.length === 0 ? <p className="py-16 text-center text-neutral-500">검색 결과가 없어요</p> : null}
@@ -254,6 +279,20 @@ export function CapeGallery() {
             <p className="px-5 py-3 text-[13px] text-neutral-500">
               드래그해서 돌려 보세요. {skin ? `${skin.name} 스킨으로 보는 중` : "닉네임을 넣으면 내 스킨으로 볼 수 있어요"}
             </p>
+            {stock ? (
+              (() => {
+                const st = stock[open.type];
+                return st && st.count > 0 && st.href ? (
+                  <Link href={st.href} className="mx-5 mb-5 flex h-12 items-center justify-center rounded-xl bg-neutral-900 text-[15px] font-bold text-white">
+                    {formatKRW(st.price)} · 구매하기
+                  </Link>
+                ) : (
+                  <p className="mx-5 mb-5 flex h-12 items-center justify-center rounded-xl bg-neutral-200 text-[15px] font-bold text-neutral-500">
+                    재고없음
+                  </p>
+                );
+              })()
+            ) : null}
           </div>
         </div>
       ) : null}

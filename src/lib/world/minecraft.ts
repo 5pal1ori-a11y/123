@@ -32,7 +32,7 @@ export function isValidIgn(ign: string) {
   return /^[A-Za-z0-9_]{3,16}$/.test(ign);
 }
 
-async function hypixelKey() {
+export async function hypixelKey() {
   try {
     const { getCloudflareContext } = await import("@opennextjs/cloudflare");
     const { env } = await getCloudflareContext({ async: true });

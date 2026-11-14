@@ -223,6 +223,17 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "계정등록",
+    description: "마크 계정 판매 글을 올립니다 (관리자)",
+    type: 1,
+    options: [
+      { name: "닉네임", description: "마인크래프트 닉네임", type: 3, required: true, min_length: 3, max_length: 16 },
+      { name: "가격", description: "판매 가격 (원)", type: 4, required: true, min_value: 0 },
+      { name: "접두사", description: "채널·제목 앞에 붙일 말 (예: NON, 비우면 지난번 값)", type: 3, required: false, max_length: 12 },
+      { name: "카테고리", description: "채널을 만들 카테고리 (한 번 정하면 기억해요)", type: 7, required: false, channel_types: [4] },
+    ],
+  },
+  {
     name: "추천인",
     description: "추천인 코드 안내를 채널에 올립니다",
     type: 1,

@@ -125,6 +125,9 @@ export type ShopSettings = {
   discordRandomBoxLogChannelId: string | null;
   discordStockChannelId: string | null;
   discordStockMessageId: string | null;
+  /** /계정등록 — 채널을 만들 카테고리와 기본 접두사 */
+  accountCategoryId?: string | null;
+  accountPrefix?: string | null;
   /** /서버상황 — 온라인 여부를 지켜볼 디스코드 사용자 ID, 올라가 있는 패널들, 마지막 상태 */
   serverStatusUserId?: string | null;
   serverStatusPanels?: { channelId: string; messageId: string }[];

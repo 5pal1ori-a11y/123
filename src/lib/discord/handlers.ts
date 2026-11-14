@@ -29,6 +29,7 @@ import {
   errorPanel,
 } from "@/lib/discord/components";
 import { sendDiscordDm } from "@/lib/discord/dm";
+import type { DiscordInteraction } from "@/lib/discord/components";
 import { listReviewsAdmin, submitPurchaseReview } from "@/lib/store-admin";
 import {
   approvePointCharge,
@@ -439,6 +440,52 @@ function refreshRandomBoxPanel(shopId: string, shopSlug: string, channelId?: str
       shopId,
     ).catch((err) => console.error("[rbox] panel refresh failed", err)),
   );
+}
+
+/** /계정등록 닉네임 가격 [접두사] [카테고리] — 관리자 전용. 시간이 걸려서 먼저 '처리 중' 으로 응답하고 결과를 고쳐 쓴다 */
+export function handleAccountRegisterCommand(
+  shopSlug: string,
+  interaction: DiscordInteraction,
+  roles: string[],
+  permissions: string | undefined,
+) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return errorPanel("상점을 찾을 수 없어요.");
+  if (!isDiscordAdmin(getShopSettings(shop.id), roles, permissions)) return errorPanel("관리자만 쓸 수 있어요.", "권한 없음");
+  const opt = (name: string) => interaction.data?.options?.find((o) => o.name === name)?.value;
+  const nickname = String(opt("닉네임") ?? "").trim();
+  const price = Math.floor(Number(opt("가격")));
+  const prefix = opt("접두사") ? String(opt("접두사")) : undefined;
+  const categoryId = opt("카테고리") ? String(opt("카테고리")) : undefined;
+  const guildId = interaction.guild_id;
+  if (!guildId) return errorPanel("서버 안에서 써 주세요.");
+  if (!/^[A-Za-z0-9_]{3,16}$/.test(nickname)) return errorPanel("닉네임은 영문·숫자·_ 3~16자예요.");
+  if (!Number.isFinite(price) || price < 0) return errorPanel("가격을 확인해 주세요.");
+
+  scheduleDiscordBackground(
+    (async () => {
+      const { createListing } = await import("@/lib/discord/account-listing");
+      const r = await createListing({ shopId: shop.id, guildId, nickname, price, prefix, categoryId }).catch(
+        (err) => ({ ok: false as const, error: `오류: ${String(err).slice(0, 120)}` }),
+      );
+      const { editInteractionOriginal } = await import("@/lib/discord/rest");
+      await editInteractionOriginal(interaction.application_id, interaction.token, {
+        content: r.ok ? `등록했어요 → <#${r.channelId}>` : r.error,
+        allowed_mentions: { parse: [] },
+      });
+    })(),
+  );
+  return { type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE, data: { flags: MessageFlags.EPHEMERAL } };
+}
+
+/** 계정 글의 게임 셀렉트 — 고른 게임의 하이픽셀 스탯으로 패널을 바꾼다 */
+export async function handleAccountTab(shopSlug: string, listingId: string, tab: string | undefined) {
+  const { loadListing, fetchHypixelDetail, listingPanel, LISTING_TABS } = await import("@/lib/discord/account-listing");
+  const listing = await loadListing(listingId);
+  if (!listing) return errorPanel("이 판매 글 정보를 찾지 못했어요.");
+  const t = LISTING_TABS.find((x) => x.id === tab)?.id ?? "bedwars";
+  const hy = await fetchHypixelDetail(listing.uuid);
+  return { type: InteractionResponseType.UPDATE_MESSAGE, data: listingPanel(shopSlug, listing, hy, t) };
 }
 
 /** /서버상황 — 관리자 온라인 여부 패널을 이 채널에 올린다 (관리자 전용) */

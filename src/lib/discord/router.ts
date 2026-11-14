@@ -48,6 +48,8 @@ import {
   handleVendingCommand,
   handleRandomBoxCommand,
   handleRandomBoxOpen,
+  handleAccountRegisterCommand,
+  handleAccountTab,
   handleReferralCommand,
   handleServerStatusCommand,
   handleReferralMine,
@@ -213,6 +215,9 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         interaction.guild_id,
         typeof target === "string" ? target : null,
       );
+    }
+    if (name === "계정등록") {
+      return handleAccountRegisterCommand(shop.slug, interaction, actor.roles, perms);
     }
     if (name === "추천인") {
       return handleReferralCommand(shop.slug);
@@ -509,6 +514,7 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       return handleEmbedChannel(embedCtx(interaction, shop.slug, actor), channelId);
     }
     if (action === "ref_mine") return handleReferralMine(shop.slug, actor.id);
+    if (action === "acct_tab") return handleAccountTab(shop.slug, payload, interaction.data?.values?.[0]);
     if (action === "rbox_open") {
       return handleRandomBoxOpen(shop.slug, actor.id, interaction.channel_id, interaction.message?.id);
     }

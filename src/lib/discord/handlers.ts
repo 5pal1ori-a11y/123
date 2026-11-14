@@ -463,7 +463,7 @@ export async function handleServerStatusCommand(
   const posted = await postServerStatusPanel(shop.id, channelId, targetUserId);
   if (!posted.ok) return errorPanel("패널을 올리지 못했어요. 봇이 이 채널에 글을 쓸 수 있는지 확인해 주세요.");
   if (guildId) scheduleDiscordBackground(pollAndRefresh(shop.id, guildId).catch(() => null));
-  return plainEphemeral("관리자 상황 패널을 올렸어요. 5분마다 자동으로 갱신돼요.");
+  return plainEphemeral("관리자 상황 패널을 올렸어요. 3분마다 자동으로 갱신돼요.");
 }
 
 /** /추천인 — 관리자가 채널에 올리는 안내 패널. 누구나 버튼으로 자기 코드를 본다 */

@@ -115,7 +115,7 @@ async function syncStatusWatch(env: Env, ctx: ExecutionContext) {
     return;
   }
   const config = (await res.json()) as { token?: string; guildId?: string; userIds?: string[] };
-  // 유료 플랜(STATUS_WATCH_ENABLED=1)이면 상시 연결, 아니면 닫아 두고 아래 5분 확인만 쓴다
+  // STATUS_WATCH_ENABLED=1(유료 플랜)이면 봇 '온라인' 표시용 상시 연결, 아니면 닫아 둔다
   try {
     const stub = env.STATUS_WATCH.get(env.STATUS_WATCH.idFromName("does"));
     const r = await stub.fetch("https://status-watch/", {
@@ -124,10 +124,16 @@ async function syncStatusWatch(env: Env, ctx: ExecutionContext) {
     });
     console.log("status watch sync", r.status, (await r.text()).slice(0, 120));
   } catch (err) {
-    // Durable Object 한도 초과 등 — 아래 5분 확인은 계속한다
+    // Durable Object 한도 초과 등
     console.log("status watch sync failed", String(err));
   }
-  if (!config.token) {
+}
+
+/** 3분마다: /서버상황 패널이 있으면 관리자 상태를 잠깐 접속해서 확인 */
+async function pollServerStatus(env: Env, ctx: ExecutionContext) {
+  const secret = (env.AOS_BRIDGE_SECRET || env.AUTH_SECRET || "").trim();
+  if (secret.length < 8) return;
+  {
     const poll: Response = await handler.fetch(
       new Request("https://vendix.team/api/discord/server-status", {
         method: "POST",
@@ -161,7 +167,11 @@ export default {
     }
     return handler.fetch(request, env, ctx);
   },
-  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    if (controller.cron === "*/3 * * * *") {
+      ctx.waitUntil(pollServerStatus(env, ctx));
+      return;
+    }
     ctx.waitUntil(syncPushbulletBridges(env, ctx));
     ctx.waitUntil(syncDiscordCommands(env, ctx));
     ctx.waitUntil(syncTicketGateway(env, ctx));

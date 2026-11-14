@@ -53,7 +53,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       token: enabled ? (await doesDiscordEnvAsync()).botToken : "",
       guildId: settings.discordGuildId || MFA_DISCORD_GUILD_ID,
-      userIds: [settings.serverStatusUserId || DEFAULT_STATUS_USER_ID],
+      // 관리자 상태는 3분 크론(op: poll)으로 확인하고, 상시 연결은 봇 '온라인' 표시용으로만 쓴다
+      userIds: [] as string[],
     });
   }
   return NextResponse.json(await applyPresence(shop.id, parsed.data.userId, parsed.data.status));

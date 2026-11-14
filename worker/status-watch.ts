@@ -38,7 +38,7 @@ export class StatusWatch extends DurableObject<Env> {
     const body = (await request.json().catch(() => ({}))) as Partial<Config> & { stop?: boolean };
     const token = (body.token ?? "").trim();
     const userIds = Array.isArray(body.userIds) ? body.userIds.map(String).filter(Boolean) : [];
-    if (body.stop || token.length < 20 || !userIds.length || !body.guildId) {
+    if (body.stop || token.length < 20 || !body.guildId) {
       await this.shutdown();
       return Response.json({ ok: true, stopped: true });
     }
@@ -155,7 +155,7 @@ export class StatusWatch extends DurableObject<Env> {
 
   /** 대상 사용자의 현재 상태를 요청 (GUILD_MEMBERS_CHUNK 로 돌아온다) */
   private requestPresences() {
-    if (!this.ws || !this.config) return;
+    if (!this.ws || !this.config || !this.config.userIds.length) return;
     this.lastResync = Date.now();
     this.send({
       op: 8,
@@ -182,7 +182,7 @@ export class StatusWatch extends DurableObject<Env> {
         op: 2,
         d: {
           token: this.config?.token ?? "",
-          intents: this.presenceDenied ? INTENTS_BASIC : INTENTS,
+          intents: this.presenceDenied || !this.config?.userIds.length ? INTENTS_BASIC : INTENTS,
           properties: { os: "linux", browser: "does-status", device: "does-status" },
           presence: { since: null, activities: [{ name: "DOES", type: 2 }], status: "online", afk: false },
         },

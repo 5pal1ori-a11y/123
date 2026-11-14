@@ -49,7 +49,7 @@ export function buildServerStatusPanel(shopId: string) {
               .join("\n"),
           ),
           separator(true, 1),
-          textDisplay(`-# 5분마다 갱신돼요 · 확인 <t:${now}:R>`),
+          textDisplay(`-# 3분마다 갱신돼요 · 확인 <t:${now}:R>`),
         ],
         online ? 0x22c55e : 0xef4444,
       ),
@@ -190,8 +190,8 @@ export async function pollAdminPresence(shopId: string, guildId: string, token: 
             token,
             intents: (1 << 0) | (1 << 8), // GUILDS | GUILD_PRESENCES
             properties: { os: "linux", browser: "does-status", device: "does-status" },
-            // 잠깐 붙는 동안 봇이 온라인으로 깜빡이지 않게
-            presence: { since: null, activities: [], status: "invisible", afk: false },
+            // 상시 연결(StatusWatch)과 같은 상태로 붙어 봇 표시가 바뀌지 않게
+            presence: { since: null, activities: [{ name: "DOES", type: 2 }], status: "online", afk: false },
           },
         });
         return;

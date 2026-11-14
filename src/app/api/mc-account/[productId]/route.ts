@@ -44,6 +44,6 @@ export async function GET(request: Request, context: { params: Promise<{ product
     })),
   };
   return NextResponse.json(body, {
-    headers: { "Cache-Control": "public, max-age=600, s-maxage=600" },
+    headers: { "Cache-Control": "public, max-age=120, s-maxage=120" },
   });
 }

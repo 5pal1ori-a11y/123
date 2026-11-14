@@ -3,6 +3,7 @@
  * 닉네임은 클라이언트에 노출하지 않고, 이미지도 이 서버를 거쳐서 내려준다.
  */
 import { CAPE_ORDER, type McCapeInfo, type McCapeSource } from "@/lib/mc-account";
+import { CAPE_TITLES, capeTypeFromTextureUrl } from "@/lib/mc-cape-catalog";
 
 const UA = "VendixShop/1.0 (+minecraft account listing)";
 const TTL_MS = 30 * 60 * 1000;
@@ -40,7 +41,7 @@ async function ownedCapes(name: string): Promise<ResolvedCape[] | null> {
       source: "minecraft" as const,
       baseWidth: 10,
       front: true,
-      title: catalog.get(c.type)?.title ?? c.type,
+      title: catalog.get(c.type)?.title ?? CAPE_TITLES[c.type] ?? c.type,
       url: `https://capes.me/images/capes/${encodeURIComponent(c.type)}.png`,
     }));
 }
@@ -179,7 +180,8 @@ export async function resolveMcProfile(nickname: string): Promise<ResolvedProfil
     // capes.me 가 안 되면 지금 착용 중인 망토 하나만
     let mojang = capeFromProperties(pdb?.properties);
     if (!mojang && uuid) mojang = await mojangCapeUrl(uuid);
-    push("minecraft", mojang, 64, "Minecraft Cape");
+    const type = mojang ? capeTypeFromTextureUrl(mojang) : null;
+    push("minecraft", mojang, 64, (type && CAPE_TITLES[type]) || "Minecraft Cape");
   }
   push("optifine", optifine, 46, "OptiFine");
   const value: ResolvedProfile = { uuid, name: realName, capes };

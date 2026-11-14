@@ -23,7 +23,7 @@ function timeAgo(iso: string) {
 }
 
 /** 망토 텍스처에서 앞면(10x16)만 잘라서 픽셀 그대로 보여준다 */
-function CapeIcon({ src, cape }: { src: string; cape: McCapeInfo }) {
+export function CapeIcon({ src, cape }: { src: string; cape: McCapeInfo }) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const [failed, setFailed] = useState(false);
 

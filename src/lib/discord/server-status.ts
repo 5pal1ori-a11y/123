@@ -120,6 +120,8 @@ export async function kickStatusWatch(shopId: string, guildId: string) {
     const { env } = await getCloudflareContext({ async: true });
     const ns = (env as { STATUS_WATCH?: DoNs }).STATUS_WATCH;
     if (!ns) return;
+    // 무료 플랜에서는 꺼 둔다 (server-status route 참고)
+    if ((env as Record<string, string | undefined>).STATUS_WATCH_ENABLED?.trim() !== "1") return;
     const settings = getShopSettings(shopId);
     const token = (await doesDiscordEnvAsync()).botToken;
     if (!token) return;

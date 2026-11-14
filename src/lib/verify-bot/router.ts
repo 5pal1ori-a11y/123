@@ -3,20 +3,19 @@ import {
   actorFromInteraction,
   button,
   ButtonStyle,
+  cid,
   container,
   InteractionResponseType,
   InteractionType,
-  mediaGallery,
   MessageFlags,
   optionValue,
   separator,
   textDisplay,
   type DiscordInteraction,
 } from "@/lib/discord/components";
-import { verifyOAuthStartOrigin, verifyOrigin } from "@/lib/domain";
+import { verifyOrigin } from "@/lib/domain";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
 import { computeSuspicionScore } from "@/lib/verify-bot/analytics";
-import { createVerifyOAuthState } from "@/lib/verify-bot/oauth";
 import { verifyFeatureError, verifyHasFeature, recoveryLimitFor } from "@/lib/verify-bot/plan";
 import { recoverMembersToGuild } from "@/lib/verify-bot/recovery";
 import {
@@ -169,32 +168,16 @@ export async function handleVerifyBotInteraction(interaction: DiscordInteraction
 
   if (name === "인증하기" || name === "인증") {
     const guild = getVerifyGuild(guildId);
-    if (!guild) return errorV2("먼저 `/인증설정` 으로 로그 채널과 역할을 정해 주세요.");
-    if (!guild.verifiedRoleId) return errorV2("먼저 `/인증설정` 으로 인증 역할을 정해 주세요.");
+    if (!guild || !guild.verifiedRoleId) return errorV2("먼저 `/인증설정` 으로 로그 채널과 역할을 정해 주세요.");
     if (!guild.enabled) return errorV2("인증봇이 비활성화되어 있어요.");
-
-    const campaign = String(optionValue(interaction, "캠페인") || "").trim() || undefined;
-    const channelId = interaction.channel_id || undefined;
-    const state = createVerifyOAuthState(guildId, {
-      channelId: guild.trackSources ? channelId : undefined,
-      campaign: guild.trackSources ? campaign : undefined,
-    });
-    const origin = verifyOAuthStartOrigin().replace(/\/$/, "");
-    const startUrl = `${origin}/api/verify-bot/oauth/start?guild=${encodeURIComponent(guildId)}&state=${encodeURIComponent(state)}`;
-
+    const { findShopByDiscordGuildId, MFA_SHOP_SLUG } = await import("@/lib/store");
+    const slug = findShopByDiscordGuildId(guildId)?.slug ?? MFA_SHOP_SLUG;
+    // 버튼만 누르면 바로 역할이 지급되는 간단한 인증 (웹 페이지 · IP 기록 없음)
     return publicV2([
-      mediaGallery([VERIFY_PANEL_BANNER]),
-      textDisplay(`## ${guild.panelTitle || "서버 인증"}`),
+      textDisplay("## 인증하기"),
       separator(true, 1),
-      textDisplay(guild.panelDescription || "아래 버튼으로 인증하세요."),
-      separator(true, 1),
-      actionRow(
-        button({
-          label: (guild.buttonLabel || "인증하기").slice(0, 80),
-          style: ButtonStyle.LINK,
-          url: startUrl,
-        }),
-      ),
+      textDisplay("아래 **인증하기** 버튼을 누르면 바로 인증이 완료되고 역할이 지급돼요."),
+      actionRow(button({ label: "인증하기", emoji: "✅", customId: cid(slug, "vf_click") })),
     ]);
   }
 
@@ -313,4 +296,41 @@ export async function handleVerifyBotInteraction(interaction: DiscordInteraction
   }
 
   return errorV2("알 수 없는 명령이에요.");
+}
+
+/** 인증 패널의 버튼 — 누른 사람에게 인증 역할을 주고 로그 채널에 남긴다 (본인에게만 답) */
+export async function handleVerifyButton(interaction: DiscordInteraction) {
+  await initVerifyStore();
+  const guildId = interaction.guild_id;
+  const actor = actorFromInteraction(interaction);
+  if (!guildId || !actor) return errorV2("서버에서만 쓸 수 있어요.");
+  const guild = getVerifyGuild(guildId);
+  if (!guild?.verifiedRoleId || !guild.enabled) return errorV2("인증이 아직 설정되지 않았어요. 관리자에게 알려 주세요.");
+  if (guild.blacklistUserIds.includes(actor.id)) return errorV2("인증할 수 없는 계정이에요. 관리자에게 문의해 주세요.");
+  if (actor.roles.includes(guild.verifiedRoleId)) {
+    return ephemeralV2([textDisplay("이미 인증된 계정이에요 ✅")]);
+  }
+  const { addMemberRole } = await import("@/lib/verify-bot/rest");
+  const r = await addMemberRole(guildId, actor.id, guild.verifiedRoleId);
+  if (!r.ok) {
+    console.error("[verify] button role failed", r.status);
+    return errorV2("역할을 주지 못했어요. 봇 역할이 인증 역할보다 위에 있는지 관리자에게 확인해 주세요.");
+  }
+  if (guild.logChannelId) {
+    const now = Math.floor(Date.now() / 1000);
+    const { postChannelMessage } = await import("@/lib/discord/rest");
+    scheduleDiscordBackground(
+      postChannelMessage(guild.logChannelId, {
+        flags: MessageFlags.IS_COMPONENTS_V2,
+        components: [
+          container([
+            textDisplay(`✅ <@${actor.id}> 님이 인증했어요`),
+            textDisplay(`-# ${actor.username} · ${actor.id} · <t:${now}:F>`),
+          ]),
+        ],
+        allowed_mentions: { parse: [] },
+      }).then(() => undefined),
+    );
+  }
+  return ephemeralV2([textDisplay("## 인증 완료 ✅"), textDisplay(`<@&${guild.verifiedRoleId}> 역할이 지급됐어요.`)]);
 }

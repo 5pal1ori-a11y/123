@@ -535,6 +535,10 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       if (!channelId) return plainEphemeral("채널을 선택해 주세요.");
       return handleEmbedChannel(embedCtx(interaction, shop.slug, actor), channelId);
     }
+    if (action === "vf_click") {
+      const { handleVerifyButton } = await import("@/lib/verify-bot/router");
+      return handleVerifyButton(interaction);
+    }
     if (action === "tq_mine") {
       const { handleTicketQueueMine } = await import("@/lib/discord/ticket-queue");
       return handleTicketQueueMine(interaction.guild_id, actor.id);

@@ -49,7 +49,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: { default: "DOES", template: "%s · DOES" },
-  description: "디지털 자판기 플랫폼. 계좌이체로 라이선스를 구매하고 나만의 상점을 운영해 보세요.",
+  description: "DOES MC 온라인 샵에 오신것을 환영합니다.",
   icons: {
     icon: "/does-logo.png",
     apple: "/does-logo.png",

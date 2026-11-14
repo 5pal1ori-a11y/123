@@ -1,7 +1,7 @@
 {
   "name": "DOES",
   "short_name": "DOES",
-  "description": "디지털 자판기 플랫폼",
+  "description": "DOES MC 온라인 샵에 오신것을 환영합니다.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#050508",

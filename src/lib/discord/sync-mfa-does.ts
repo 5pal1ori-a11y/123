@@ -64,10 +64,20 @@ export async function syncMfaDoesDiscord(guildId = MFA_DISCORD_GUILD_ID) {
     registerGuildCommands(guildId, []),
   ]);
 
+  // 디스코드가 돌려준 실제 등록 목록 요약 (크론 로그로 확인용 — 이름만, 비밀값 없음)
+  const registered = doesReg.ok && Array.isArray(doesReg.commands) ? (doesReg.commands as { name?: string }[]) : [];
   return {
     ok: doesReg.ok,
     error: doesReg.ok ? undefined : doesReg.error,
     does: doesReg.ok ? "ok" : doesReg.error,
     vendix: vendixClear.ok ? "cleared" : vendixClear.error,
+    guildId,
+    sent: doesMerged.length,
+    registered: registered.length,
+    has: {
+      서버상황: registered.some((c) => c.name === "서버상황"),
+      추천인: registered.some((c) => c.name === "추천인"),
+      출석: registered.some((c) => c.name === "출석"),
+    },
   };
 }

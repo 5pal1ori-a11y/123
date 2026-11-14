@@ -215,7 +215,7 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       );
     }
     if (name === "추천인") {
-      return handleReferralCommand(shop.slug, actor.roles, perms);
+      return handleReferralCommand(shop.slug, actor.id);
     }
     if (name === "웹패널") {
       return handleWebPanelCommand(shop.slug, actor.roles, perms);

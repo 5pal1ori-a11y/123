@@ -224,7 +224,7 @@ export const VENDIX_DISCORD_COMMANDS = [
   },
   {
     name: "추천인",
-    description: "추천인 코드 패널을 채널에 올립니다 (관리자)",
+    description: "내 추천인 코드를 채널에 보여줍니다",
     type: 1,
     // 관리자 확인은 명령 처리에서 한다 (권한 필터로 목록에서 숨지 않게)
   },

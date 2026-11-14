@@ -3,9 +3,11 @@ import { DOES_BOT_COMMANDS } from "@/lib/discord/commands-list";
 import { DOES_APPLICATION_ID, DOES_PUBLIC_KEY } from "@/lib/discord/does-env";
 import { DOES_COMMUNITY_COMMANDS } from "@/lib/discord/does-community-commands";
 import { registerGuildCommands, VENDIX_DISCORD_COMMANDS } from "@/lib/discord/rest";
+import { DISCORD_API } from "@/lib/discord/components";
 import {
   MFA_DISCORD_GUILD_ID,
   MFA_SHOP_SLUG,
+  getDiscordCredentials,
   getShopBySlug,
   initStore,
   persistAsync,
@@ -66,12 +68,24 @@ export async function syncMfaDoesDiscord(guildId = MFA_DISCORD_GUILD_ID) {
 
   // 디스코드가 돌려준 실제 등록 목록 요약 (크론 로그로 확인용 — 이름만, 비밀값 없음)
   const registered = doesReg.ok && Array.isArray(doesReg.commands) ? (doesReg.commands as { name?: string }[]) : [];
+  // DOES 봇이 들어가 있는 서버 목록 (이름·ID만) — 명령이 다른 서버에 올라가 있지 않은지 확인용
+  let botGuilds: { id: string; name: string }[] = [];
+  try {
+    const token = getDiscordCredentials(shop.id).botToken;
+    if (token) {
+      const res = await fetch(`${DISCORD_API}/users/@me/guilds`, { headers: { Authorization: `Bot ${token}` } });
+      if (res.ok) botGuilds = ((await res.json()) as { id: string; name: string }[]).map((g) => ({ id: g.id, name: g.name }));
+    }
+  } catch {
+    /* 진단용 */
+  }
   return {
     ok: doesReg.ok,
     error: doesReg.ok ? undefined : doesReg.error,
     does: doesReg.ok ? "ok" : doesReg.error,
     vendix: vendixClear.ok ? "cleared" : vendixClear.error,
     guildId,
+    botGuilds,
     sent: doesMerged.length,
     registered: registered.length,
     has: {

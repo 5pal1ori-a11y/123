@@ -1,3 +1,4 @@
+import { container, mediaGallery, MessageFlags, textDisplay } from "@/lib/discord/components";
 import { doesDiscordEnvAsync } from "@/lib/discord/does-env";
 import { generateShopInquiryReply } from "@/lib/shop-inquiry-ai";
 import { getShopBySlug, getShopSettings, initStore, MFA_DISCORD_GUILD_ID, MFA_SHOP_SLUG } from "@/lib/store";
@@ -17,8 +18,12 @@ import type { ShopInquiryMessage } from "@/lib/types";
 
 const AI_FOOTER = "-# 안내 AI · 관리자가 답하면 AI는 꺼져요";
 const GREETING =
-  "안녕하세요! 안내 AI가 먼저 도와드릴게요. 궁금한 내용을 편하게 적어 주세요.\n-# 상품·충전·인증을 찾아보고 답해요. 관리자가 답하면 AI는 바로 꺼져요.";
+  "### 안녕하세요, 안내 AI예요\n문의하실 내용을 편하게 적어 주세요. 상품·충전·인증은 바로 찾아서 답해 드려요.\n-# 관리자가 답하면 AI는 바로 꺼져요.";
 const GREET_WINDOW_MS = 15 * 60_000;
+
+function appOrigin() {
+  return (process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://vendix.team").replace(/\/$/, "");
+}
 const PLACEHOLDER_RE = /^\((첨부 파일|봇 메시지|내용 없음[^)]*)\)$/;
 
 export type TicketAiEvent = {
@@ -63,7 +68,15 @@ async function greetNewTickets(shopId: string, token: string) {
   for (const t of fresh) t.aiGreetedAt = new Date().toISOString();
   await persistTicketStore();
   await withTicketBotToken(token, () =>
-    Promise.all(fresh.map((t) => postTicketChannelMessage(t.channelId, { content: GREETING, allowed_mentions: { parse: [] } }))),
+    Promise.all(
+      fresh.map((t) =>
+        postTicketChannelMessage(t.channelId, {
+          flags: MessageFlags.IS_COMPONENTS_V2,
+          components: [container([mediaGallery([`${appOrigin()}/brand/ticket.png`]), textDisplay(GREETING)])],
+          allowed_mentions: { parse: [] },
+        }),
+      ),
+    ),
   );
 }
 

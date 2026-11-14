@@ -258,7 +258,9 @@ async function postTicketPanel(
   const g = getTicketGuild(guildId) ?? guild;
 
   const kids: unknown[] = [];
-  if (g.panelBannerUrl) kids.push(mediaGallery([g.panelBannerUrl]));
+  // 배너를 따로 정하지 않았으면 기본 티켓 이미지
+  const origin = (process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://vendix.team").replace(/\/$/, "");
+  kids.push(mediaGallery([g.panelBannerUrl || `${origin}/brand/ticket.png`]));
   kids.push(textDisplay(`## ${g.panelTitle}`), separator(true, 1), textDisplay(g.panelDescription), separator(true, 1));
   kids.push(
     actionRow(

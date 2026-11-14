@@ -163,11 +163,11 @@ export async function handleVerifyBotInteraction(interaction: DiscordInteraction
           .filter(Boolean)
           .join("\n"),
       ),
-      textDisplay("-# 이제 `/인증` 으로 인증 패널을 올려 주세요 · 봇 역할이 인증 역할보다 위에 있어야 역할을 줄 수 있어요"),
+      textDisplay("-# 이제 `/인증하기` 로 인증 패널을 올려 주세요 · 봇 역할이 인증 역할보다 위에 있어야 역할을 줄 수 있어요"),
     ]);
   }
 
-  if (name === "인증") {
+  if (name === "인증하기" || name === "인증") {
     const guild = getVerifyGuild(guildId);
     if (!guild) return errorV2("먼저 `/인증설정` 으로 로그 채널과 역할을 정해 주세요.");
     if (!guild.verifiedRoleId) return errorV2("먼저 `/인증설정` 으로 인증 역할을 정해 주세요.");

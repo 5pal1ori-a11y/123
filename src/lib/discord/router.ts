@@ -131,7 +131,7 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
     const name = interaction.data?.name;
     const perms = interaction.member?.permissions;
-    const verifyNames = new Set(["등록", "인증", "인증설정", "복구", "인증복구", "통계", "차단추가", "차단해제"]);
+    const verifyNames = new Set(["등록", "인증", "인증하기", "인증설정", "복구", "인증복구", "통계", "차단추가", "차단해제"]);
     if (name && verifyNames.has(name)) {
       const { handleVerifyBotInteraction } = await import("@/lib/verify-bot/router");
       return handleVerifyBotInteraction(interaction);

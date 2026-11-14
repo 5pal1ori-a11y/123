@@ -182,7 +182,7 @@ function shouldDeferUpdate(interaction: DiscordInteraction) {
 function deferredEphemeral(interaction: DiscordInteraction) {
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
     // /자판기 is public Components V2
-    const publicCommands = ["자판기", "랜덤박스", "island", "추천인", "재고요청", "인증"];
+    const publicCommands = ["자판기", "랜덤박스", "island", "추천인", "재고요청", "인증", "인증하기"];
     if (publicCommands.includes(interaction.data?.name ?? "")) return false;
   }
   if (interaction.type === InteractionType.MODAL_SUBMIT) {

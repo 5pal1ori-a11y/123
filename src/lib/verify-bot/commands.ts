@@ -14,7 +14,7 @@ export const VERIFY_DISCORD_COMMANDS = [
     ],
   },
   {
-    name: "인증",
+    name: "인증하기",
     description: "인증 패널을 이 채널에 게시합니다.",
     type: 1,
     options: [

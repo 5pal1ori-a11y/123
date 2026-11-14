@@ -53,7 +53,7 @@ import {
 } from "@/lib/store";
 import { refreshMfaStockIfStale } from "@/lib/mfa";
 import { openRandomBoxOnce } from "@/lib/random-box-claim";
-import { RANDOM_BOX_IDLE_GIF_PATH, randomBoxGifPath } from "@/lib/random-box-gif";
+import { randomBoxGifPath } from "@/lib/random-box-gif";
 import { redeemWorldCoupon } from "@/lib/world/server";
 
 function productReviewSummary(shopId: string, productId: string) {
@@ -408,7 +408,7 @@ function randomBoxPanelComponents(shopId: string, shopSlug: string) {
   return [
       container([
         textDisplay("## 랜덤박스"),
-        mediaGallery([`${appOrigin()}${RANDOM_BOX_IDLE_GIF_PATH}`]),
+        mediaGallery([`${appOrigin()}/brand/randombox.gif`]),
         textDisplay(
           [
             `하루에 한번 열 수 있어요. 최대 **${RANDOM_BOX_MAX.toLocaleString("ko-KR")}포인트**가 드랍되니 행운을 빌어요!`,
@@ -543,25 +543,7 @@ export async function handleRandomBoxOpen(
 
   refreshRandomBoxPanel(shop.id, shop.slug, channelId, panelMessageId);
   const balanceLine = `-# 현재 잔액 ${formatKRW(result.balance)}`;
-  if (channelId) {
-    const posted = await postChannelMessage(
-      channelId,
-      {
-        flags: MessageFlags.IS_COMPONENTS_V2,
-        components: [container(randomBoxResultKids(discordId, result.amount))],
-        allowed_mentions: { parse: [] },
-      },
-      shop.id,
-    ).catch(() => null);
-    if (posted?.ok) {
-      return v2Ephemeral([
-        container([
-          textDisplay(result.amount > 0 ? `**${formatKRW(result.amount)}** 이 잔액에 충전됐어요.` : "이번엔 꽝이에요."),
-          textDisplay(balanceLine),
-        ]),
-      ]);
-    }
-  }
+  // 결과는 연 사람에게만 보인다 (채널에 공개로 올리지 않음). 기록은 랜덤박스 로그 채널에 따로 남는다
   return v2Ephemeral([container([...randomBoxResultKids(discordId, result.amount), textDisplay(balanceLine)])]);
 }
 

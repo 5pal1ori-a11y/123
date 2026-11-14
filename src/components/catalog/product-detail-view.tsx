@@ -17,7 +17,7 @@ import {
 import type { ProductWithStock } from "@/lib/types";
 import { formatKRW } from "@/lib/utils";
 import { productDiscountPercent } from "@/lib/pricing";
-import { McCapeChips, McSkinHero, useMcAccountInfo } from "@/components/catalog/mc-account-extras";
+import { McCapeChips, McHypixelPanel, McSkinHero, useMcAccountInfo } from "@/components/catalog/mc-account-extras";
 import { StockBadge } from "@/components/ui/stock-badge";
 import { WishHeartButton } from "@/components/ui/wish-heart-button";
 import { shopHeaders } from "@/lib/shop-client";
@@ -219,6 +219,7 @@ export function ProductDetailView({
           <p className="product-detail-price">{formatKRW(finalPrice)}</p>
         </div>
         {isMc ? <McCapeChips productId={product.id} version={product.mcVersion} info={mcInfo} /> : null}
+        {isMc ? <McHypixelPanel info={mcInfo} /> : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <StockBadge status={product.stockStatus} />

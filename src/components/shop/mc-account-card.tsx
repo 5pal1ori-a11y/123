@@ -197,9 +197,18 @@ export function McAccountCard({
           </button>
         </div>
 
-        {tag ? (
-          <span className="pointer-events-none absolute bottom-1 left-0 text-[11px] font-extrabold uppercase text-[#a3a3a3]">
-            {tag}
+        {tag || info?.hypixel?.rank ? (
+          <span className="pointer-events-none absolute bottom-1 left-0 flex flex-col items-start gap-1">
+            {info?.hypixel?.rank ? (
+              <span
+                className="rounded-[4px] bg-[rgba(0,0,0,0.55)] px-1.5 py-0.5 text-[11px] font-extrabold leading-none"
+                style={{ color: info.hypixel.rankColor }}
+                title="Hypixel 랭크"
+              >
+                [{info.hypixel.rank}]
+              </span>
+            ) : null}
+            {tag ? <span className="text-[11px] font-extrabold uppercase text-[#a3a3a3]">{tag}</span> : null}
           </span>
         ) : null}
 

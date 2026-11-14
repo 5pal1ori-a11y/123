@@ -34,8 +34,34 @@ export async function GET(request: Request, context: { params: Promise<{ product
     return img ?? new NextResponse(null, { status: 502 });
   }
 
+  let hypixel: McAccountInfo["hypixel"] = undefined;
+  if (profile?.uuid) {
+    try {
+      const { hypixelConfigured, hypixelStats } = await import("@/lib/world/minecraft");
+      if (await hypixelConfigured()) {
+        const h = await hypixelStats(profile.uuid);
+        hypixel = h
+          ? {
+              rank: h.rank,
+              rankColor: h.rankColor,
+              level: h.level,
+              karma: h.karma,
+              firstLogin: h.firstLogin,
+              lastLogin: h.lastLogin,
+              bedwars: h.bedwars,
+              skywars: h.skywars,
+              duels: h.duels,
+            }
+          : null;
+      }
+    } catch {
+      hypixel = undefined;
+    }
+  }
+
   const body: McAccountInfo = {
     ok: Boolean(profile?.uuid),
+    ...(hypixel !== undefined ? { hypixel } : {}),
     capes: (profile?.capes ?? []).map(({ source, baseWidth, title, front }) => ({
       source,
       baseWidth,

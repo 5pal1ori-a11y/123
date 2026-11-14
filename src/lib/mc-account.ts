@@ -53,7 +53,21 @@ export const CAPE_ORDER = [
   "mojangoffice",
 ];
 
+export type McHypixel = {
+  rank: string | null;
+  rankColor: string;
+  level: number;
+  karma: number;
+  firstLogin: string | null;
+  lastLogin: string | null;
+  bedwars: { stars: number; wins: number; finalKills: number; fkdr: number };
+  skywars: { level: string; wins: number; kills: number; kdr: number };
+  duels: { wins: number; kills: number };
+};
+
 export type McAccountInfo = {
   ok: boolean;
   capes: McCapeInfo[];
+  /** 하이픽셀 기록 (기록 없음 = null, 키 없음·조회 실패 = undefined) */
+  hypixel?: McHypixel | null;
 };

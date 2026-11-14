@@ -20,6 +20,7 @@ import {
   Receipt,
   Settings,
   ShieldCheck,
+  Shirt,
   Star,
   Sun,
   TreePine,
@@ -46,6 +47,7 @@ import { UserReviewsTab } from "./user-reviews-tab";
 import { UserIslandTab } from "./island/user-island-tab";
 import { ShopInquiryChatWidget } from "./shop-inquiry-chat-widget";
 import { UserAuthPanel } from "./user-auth-panel";
+import { CapeGallery } from "@/components/capes/cape-gallery";
 import { LoginRequiredNotice } from "./login-required-notice";
 import { VendixLogo } from "@/components/ui/vendix-logo";
 import type { UserCharge, UserOrder, UserTab } from "./user-dashboard-types";
@@ -87,6 +89,7 @@ function saveDarkTheme(dark: boolean) {
 const NAV: { id: UserTab; label: string; icon: typeof Home }[] = [
   { id: "main", label: "홈", icon: Home },
   { id: "products", label: "쇼핑", icon: Package },
+  { id: "capes", label: "망토", icon: Shirt },
   { id: "charge", label: "충전", icon: Coins },
   { id: "attendance", label: "출석", icon: CalendarCheck },
   { id: "reviews", label: "후기", icon: Star },
@@ -112,6 +115,7 @@ const GUEST_VIEWER = {
 const META: Record<UserTab, { title: string; sub: string }> = {
   main: { title: "홈", sub: "오늘도 좋은 하루 보내세요" },
   products: { title: "쇼핑", sub: "포인트로 바로 구매하고 즉시 받아보세요" },
+  capes: { title: "망토", sub: "커서로 돌려보고 Player · Elytra 로 입혀보기" },
   charge: { title: "포인트 충전", sub: "계좌 · 문화상품권 · 코인으로 간편하게" },
   attendance: { title: "출석체크", sub: "매일 한 번, 랜덤 포인트 상자를 열어보세요" },
   reviews: { title: "후기내역", sub: "디스코드에 남겨진 후기를 실시간으로 모아봤어요" },
@@ -968,6 +972,8 @@ export function UserDashboard({
                   <UserAuthPanel shopSlug={shopSlug} hideGuest />
                 </div>
               ) : null}
+
+              {tab === "capes" && <CapeGallery />}
 
               {user && tab === "charge" && (
                 <div className="user-mypage-charge w-full">

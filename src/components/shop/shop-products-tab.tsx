@@ -124,6 +124,13 @@ export function ShopProductsTab({
       {purchaseError ? <p className="text-sm text-red-400">{purchaseError}</p> : null}
 
       <div className="admin-bento p-4 sm:p-5">
+        <Link
+          href={shopPath(base, "/dashboard?tab=capes")}
+          className="mb-3 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/[0.07]"
+        >
+          <span>망토 갤러리 · 커서로 돌려보고 Player / Elytra 로 입혀보기</span>
+          <span className="text-neutral-400">보기 →</span>
+        </Link>
         <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
           {SECTIONS.map((sec) => (
             <button

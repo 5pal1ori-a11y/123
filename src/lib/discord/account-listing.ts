@@ -23,6 +23,10 @@ import { getShopById, getShopSettings, updateShopSettings, persistAsync } from "
 import { hypixelKey } from "@/lib/world/minecraft";
 import { kvGetJson, kvPutJson } from "@/lib/world/kv";
 
+function appOrigin() {
+  return (process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://vendix.team").replace(/\/$/, "");
+}
+
 export type ListingTab = "bedwars" | "skywars" | "duels";
 export const LISTING_TABS: { id: ListingTab; label: string }[] = [
   { id: "bedwars", label: "BEDWARS" },
@@ -162,7 +166,7 @@ export function listingPanel(slug: string, l: Listing, hy: Hy, tab: ListingTab) 
   const rank = hy?.rank ? `[${hy.rank}] ` : "";
   const header = `## [${l.prefix}] ${masked}`;
   const kids: unknown[] = [
-    mediaGallery([`https://starlightskins.lunareclipse.studio/render/default/${l.uuid}/bust`]),
+    mediaGallery([`${appOrigin()}/api/discord/skin/${l.uuid}.png`]),
     textDisplay(
       [
         header,

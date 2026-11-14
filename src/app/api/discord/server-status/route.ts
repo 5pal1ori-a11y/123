@@ -11,6 +11,7 @@ export const runtime = "nodejs";
 const snowflake = z.string().regex(/^\d{5,30}$/);
 const bodySchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("config") }),
+  z.object({ op: z.literal("poll") }),
   z.object({ op: z.literal("presence"), userId: snowflake, status: z.enum(["online", "idle", "dnd", "offline"]) }),
 ]);
 
@@ -36,6 +37,14 @@ export async function POST(request: Request) {
   if (!shop) return NextResponse.json({ token: "", guildId: "", userIds: [] });
   const settings = getShopSettings(shop.id);
 
+  if (parsed.data.op === "poll") {
+    const { pollAndRefresh } = await import("@/lib/discord/server-status");
+    const r = await pollAndRefresh(shop.id, settings.discordGuildId || MFA_DISCORD_GUILD_ID).catch((err) => ({
+      ok: false as const,
+      error: String(err),
+    }));
+    return NextResponse.json(r);
+  }
   if (parsed.data.op === "config") {
     // 게이트웨이를 계속 붙잡아 두면 Durable Object 사용 시간이 하루 약 10,800 GB-s 든다.
     // 무료 플랜(하루 13,000)에서는 자동충전(Pushbullet 브리지)까지 멈추게 되므로

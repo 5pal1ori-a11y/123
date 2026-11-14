@@ -115,12 +115,30 @@ async function syncStatusWatch(env: Env, ctx: ExecutionContext) {
     return;
   }
   const config = (await res.json()) as { token?: string; guildId?: string; userIds?: string[] };
-  const stub = env.STATUS_WATCH.get(env.STATUS_WATCH.idFromName("does"));
-  const r = await stub.fetch("https://status-watch/", {
-    method: "POST",
-    body: JSON.stringify(config.token ? config : { stop: true }),
-  });
-  console.log("status watch sync", r.status, (await r.text()).slice(0, 120));
+  // 유료 플랜(STATUS_WATCH_ENABLED=1)이면 상시 연결, 아니면 닫아 두고 아래 5분 확인만 쓴다
+  try {
+    const stub = env.STATUS_WATCH.get(env.STATUS_WATCH.idFromName("does"));
+    const r = await stub.fetch("https://status-watch/", {
+      method: "POST",
+      body: JSON.stringify(config.token ? config : { stop: true }),
+    });
+    console.log("status watch sync", r.status, (await r.text()).slice(0, 120));
+  } catch (err) {
+    // Durable Object 한도 초과 등 — 아래 5분 확인은 계속한다
+    console.log("status watch sync failed", String(err));
+  }
+  if (!config.token) {
+    const poll: Response = await handler.fetch(
+      new Request("https://vendix.team/api/discord/server-status", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-vendix-bridge-secret": secret },
+        body: JSON.stringify({ op: "poll" }),
+      }),
+      env,
+      ctx,
+    );
+    console.log("status poll", poll.status, (await poll.text()).slice(0, 160));
+  }
 }
 
 export default {

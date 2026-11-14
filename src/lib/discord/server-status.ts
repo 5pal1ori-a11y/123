@@ -49,7 +49,7 @@ export function buildServerStatusPanel(shopId: string) {
               .join("\n"),
           ),
           separator(true, 1),
-          textDisplay(`-# 상태가 바뀌면 바로 갱신돼요 · 확인 <t:${now}:R>`),
+          textDisplay(`-# 5분마다 갱신돼요 · 확인 <t:${now}:R>`),
         ],
         online ? 0x22c55e : 0xef4444,
       ),
@@ -104,7 +104,6 @@ export async function applyPresence(shopId: string, userId: string, status: Pres
   if (prev?.status === status && prev.since === since) return { ok: true as const, changed: false };
   updateShopSettings(shopId, { serverStatusLast: { status, since } });
   await persistAsync();
-  await refreshServerStatusPanels(shopId);
   return { ok: true as const, changed: true };
 }
 
@@ -132,4 +131,97 @@ export async function kickStatusWatch(shopId: string, guildId: string) {
   } catch (err) {
     console.error("[status-watch] kick failed", err);
   }
+}
+
+/**
+ * 짧게 게이트웨이에 붙어 관리자 상태만 물어보고 끊는다 (Durable Object 를 쓰지 않아 무료 한도에 거의 안 걸림).
+ * 크론이 5분마다 부른다. Presence Intent 가 꺼져 있으면 4014 로 끊긴다.
+ */
+export async function pollAdminPresence(shopId: string, guildId: string, token: string) {
+  const settings = getShopSettings(shopId);
+  const userId = settings.serverStatusUserId || DEFAULT_STATUS_USER_ID;
+  const res = await fetch("https://gateway.discord.gg/?v=10&encoding=json", { headers: { Upgrade: "websocket" } });
+  const ws = (res as Response & { webSocket?: WebSocket & { accept(): void } }).webSocket;
+  if (!ws) return { ok: false as const, error: `gateway ${res.status}` };
+  ws.accept();
+
+  return await new Promise<{ ok: true; status: PresenceStatus } | { ok: false; error: string }>((resolve) => {
+    let seq: number | null = null;
+    let beat: ReturnType<typeof setInterval> | null = null;
+    let done = false;
+    const finish = (r: { ok: true; status: PresenceStatus } | { ok: false; error: string }) => {
+      if (done) return;
+      done = true;
+      if (beat) clearInterval(beat);
+      clearTimeout(timer);
+      try {
+        ws.close(1000, "bye");
+      } catch {
+        /* closed */
+      }
+      resolve(r);
+    };
+    const timer = setTimeout(() => finish({ ok: false, error: "timeout" }), 12_000);
+    const send = (p: unknown) => {
+      try {
+        ws.send(JSON.stringify(p));
+      } catch {
+        finish({ ok: false, error: "send failed" });
+      }
+    };
+    ws.addEventListener("close", (ev: CloseEvent) =>
+      finish({ ok: false, error: ev.code === 4014 ? "Presence Intent 꺼짐" : `closed ${ev.code}` }),
+    );
+    ws.addEventListener("message", (ev: MessageEvent) => {
+      if (typeof ev.data !== "string") return;
+      let f: { op?: number; d?: unknown; s?: number | null; t?: string | null };
+      try {
+        f = JSON.parse(ev.data);
+      } catch {
+        return;
+      }
+      if (typeof f.s === "number") seq = f.s;
+      if (f.op === 10) {
+        const ms = (f.d as { heartbeat_interval?: number })?.heartbeat_interval ?? 41_250;
+        beat = setInterval(() => send({ op: 1, d: seq }), ms);
+        send({
+          op: 2,
+          d: {
+            token,
+            intents: (1 << 0) | (1 << 8), // GUILDS | GUILD_PRESENCES
+            properties: { os: "linux", browser: "does-status", device: "does-status" },
+            // 잠깐 붙는 동안 봇이 온라인으로 깜빡이지 않게
+            presence: { since: null, activities: [], status: "invisible", afk: false },
+          },
+        });
+        return;
+      }
+      if (f.op === 0 && f.t === "READY") {
+        send({ op: 8, d: { guild_id: guildId, user_ids: [userId], presences: true, nonce: `p${Date.now()}` } });
+        return;
+      }
+      if (f.op === 0 && f.t === "GUILD_MEMBERS_CHUNK") {
+        const d = f.d as { presences?: { user?: { id?: string }; status?: string }[] };
+        const p = (d.presences ?? []).find((x) => x.user?.id === userId);
+        const s = p?.status;
+        finish({ ok: true, status: s === "online" || s === "idle" || s === "dnd" ? s : "offline" });
+      }
+    });
+  });
+}
+
+/** 크론 · /서버상황 직후: 패널이 있으면 상태를 확인해서 패널을 고친다 */
+export async function pollAndRefresh(shopId: string, guildId: string) {
+  if (!(getShopSettings(shopId).serverStatusPanels ?? []).length) return { ok: true as const, skipped: true };
+  const { doesDiscordEnvAsync } = await import("@/lib/discord/does-env");
+  const token = (await doesDiscordEnvAsync()).botToken;
+  if (!token) return { ok: false as const, error: "no token" };
+  const r = await pollAdminPresence(shopId, guildId, token);
+  if (r.ok) {
+    const settings = getShopSettings(shopId);
+    await applyPresence(shopId, settings.serverStatusUserId || DEFAULT_STATUS_USER_ID, r.status);
+  }
+  // '확인 n분 전' 이 계속 늘지 않게 매번 고쳐 쓴다
+  await refreshServerStatusPanels(shopId);
+  return r;
 }

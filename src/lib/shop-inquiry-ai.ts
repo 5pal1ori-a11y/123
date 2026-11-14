@@ -96,6 +96,40 @@ async function getAiBinding(): Promise<AiBinding | null> {
   }
 }
 
+/** Claude API 키 (Cloudflare Secret ANTHROPIC_API_KEY). 없으면 Workers AI 로 답한다 */
+async function getAnthropicKey() {
+  try {
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+    const { env } = await getCloudflareContext({ async: true });
+    const e = env as Record<string, string | undefined>;
+    return { key: (e.ANTHROPIC_API_KEY ?? "").trim(), model: (e.CLAUDE_MODEL ?? "").trim() || "claude-sonnet-5-5" };
+  } catch {
+    return { key: (process.env.ANTHROPIC_API_KEY ?? "").trim(), model: process.env.CLAUDE_MODEL?.trim() || "claude-sonnet-5-5" };
+  }
+}
+
+async function askClaude(system: string, user: string): Promise<string | null> {
+  const { key, model } = await getAnthropicKey();
+  if (!key.startsWith("sk-ant-")) return null;
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model, max_tokens: 600, temperature: 0.4, system, messages: [{ role: "user", content: user }] }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) {
+      console.log("claude reply failed", res.status);
+      return null;
+    }
+    const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+    return data.content?.filter((c) => c.type === "text").map((c) => c.text ?? "").join("").trim() || null;
+  } catch (err) {
+    console.log("claude reply error", String(err));
+    return null;
+  }
+}
+
 function expandTokens(query: string) {
   const cleaned = query
     .toLowerCase()
@@ -362,7 +396,6 @@ export async function generateShopInquiryReply(input: {
     .join("\n\n");
 
   const fallback = () => fallbackReply(shopName, hits, query, web);
-  if (!ai) return fallback();
 
   const userBlob = `최근 대화:
 ${thread || "(없음)"}
@@ -373,6 +406,14 @@ ${thread || "(없음)"}
 ${notes}
 
 검색 자료는 참고입니다. 구매자에게 사람처럼 바로 답하세요. 도구 호출 문장은 쓰지 마세요.`;
+
+  // Claude 키가 있으면 Claude 로 먼저 답한다 (실패하면 아래 Workers AI 로)
+  const claude = await askClaude(systemPrompt(shopName), userBlob);
+  if (claude) {
+    const text = sanitizeAnswer(claude);
+    if (text && text.length >= 8 && !looksLikeToolDump(text)) return text;
+  }
+  if (!ai) return fallback();
 
   for (const model of [CHAT_MODEL, FAST_MODEL]) {
     try {

@@ -708,7 +708,8 @@ function safeMigrateLegacyIfNeeded() {
 let mfaCredentialsSynced = false;
 
 export const MFA_SHOP_SLUG = "mfa";
-export const MFA_DISCORD_GUILD_ID = "1432601807216967793";
+/** 상점이 연결된 디스코드 서버 (DOΞS). 옮길 때는 이 값과 wrangler.jsonc 의 MFA_VERIFY_GUILD_ID 를 같이 바꾼다 */
+export const MFA_DISCORD_GUILD_ID = "1560530136972140704";
 /** MFA MARKET 에서 들어오는 계정 상품의 기본 카테고리 */
 export const MFA_DEFAULT_CATEGORY = "정품계정";
 export const UNLIMITED_EXPIRES_AT = "9999-12-31T00:00:00.000Z";
@@ -821,6 +822,25 @@ function ensureMfaShop() {
       changed = true;
     }
     if (settings.discordGuildId !== MFA_DISCORD_GUILD_ID || !settings.discordBotEnabled) {
+      // 다른 서버에서 옮겨 오는 경우: 이전 서버의 채널·역할·패널 ID 는 새 서버에서 쓸 수 없으니 비운다
+      if (settings.discordGuildId && settings.discordGuildId !== MFA_DISCORD_GUILD_ID) {
+        settings.discordPurchaseLogChannelId = null;
+        settings.discordChargeLogChannelId = null;
+        settings.discordAdminLogChannelId = null;
+        settings.discordReviewLogChannelId = null;
+        settings.discordRestockLogChannelId = null;
+        settings.discordRestockRoleId = null;
+        settings.discordRandomBoxLogChannelId = null;
+        settings.discordStockChannelId = null;
+        settings.discordStockMessageId = null;
+        settings.accountCategoryId = null;
+        settings.stockRequestChannelId = null;
+        settings.serverStatusPanels = [];
+        settings.discordLeaderboardChannelId = null;
+        settings.discordLeaderboardMessageId = null;
+        settings.discordAdminRoleId = null;
+        settings.reviewFeedChannelId = null;
+      }
       settings.discordGuildId = MFA_DISCORD_GUILD_ID;
       settings.discordBotEnabled = true;
       changed = true;

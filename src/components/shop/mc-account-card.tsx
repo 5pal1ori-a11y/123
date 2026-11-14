@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { BarChart3, ExternalLink, Heart, ShoppingCart, Star, User } from "lucide-react";
 import type { ProductWithStock, StockStatus } from "@/lib/types";
 import type { McAccountInfo, McCapeInfo } from "@/lib/mc-account";
+import { useCapeFace } from "@/components/capes/cape-face";
 import { shopPath, useShopBase } from "@/lib/shop-nav";
 
 function timeAgo(iso: string) {
@@ -24,6 +25,22 @@ function timeAgo(iso: string) {
 
 /** 망토 텍스처에서 앞면(10x16)만 잘라서 픽셀 그대로 보여준다 */
 export function CapeIcon({ src, cape }: { src: string; cape: McCapeInfo }) {
+  const faceSrc = useCapeFace(cape.hash);
+  if (cape.hash && faceSrc) {
+    return (
+      <span
+        title={cape.title}
+        className="flex h-[26px] w-[20px] items-center justify-center rounded-[4px] bg-[rgba(255,255,255,0.06)] ring-1 ring-[rgba(255,255,255,0.1)]"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={faceSrc} alt={cape.title ?? ""} className="h-[22.4px] w-[14px]" style={{ imageRendering: "pixelated" }} />
+      </span>
+    );
+  }
+  return <CapeIconLegacy src={src} cape={cape} />;
+}
+
+function CapeIconLegacy({ src, cape }: { src: string; cape: McCapeInfo }) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const [failed, setFailed] = useState(false);
 

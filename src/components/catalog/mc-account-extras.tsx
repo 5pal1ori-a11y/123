@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { McAccountInfo } from "@/lib/mc-account";
 import { CapeIcon } from "@/components/shop/mc-account-card";
+import { CapeFaceImg } from "@/components/capes/cape-face";
 
 /** 마크계정 상품 상세: 스킨 렌더 + 보유 망토(이름) */
 export function useMcAccountInfo(productId: string, version: string | null | undefined, enabled: boolean) {
@@ -59,7 +60,11 @@ export function McCapeChips({
               key={`${c.title ?? c.source}-${i}`}
               className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] py-1 pl-1.5 pr-2.5 text-xs font-semibold text-neutral-200"
             >
-              <CapeIcon cape={c} src={`/api/mc-account/${encodeURIComponent(productId)}?asset=cape&i=${i}&v=${v}`} />
+              {c.hash ? (
+                <CapeFaceImg hash={c.hash} width={22} alt="" />
+              ) : (
+                <CapeIcon cape={c} src={`/api/mc-account/${encodeURIComponent(productId)}?asset=cape&i=${i}&v=${v}`} />
+              )}
               {c.title ?? (c.source === "optifine" ? "OptiFine" : "Minecraft Cape")}
             </span>
           ))}

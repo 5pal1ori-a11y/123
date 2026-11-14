@@ -4,37 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, User, X } from "lucide-react";
 import { CAPES, type CapeEntry } from "@/lib/capes-data";
 import { CapeViewer, type SkinInfo, type ViewMode } from "./cape-viewer";
+import { capeFace } from "./cape-face";
 
 const STORE_KEY = "does-cape-skin";
 
 type SavedSkin = SkinInfo & { name: string };
-
-const faceCache = new Map<string, Promise<string | null>>();
-
-/** 텍스처에서 망토 바깥면(10×16)만 잘라 낸 이미지 주소 */
-function capeFace(hash: string) {
-  let p = faceCache.get(hash);
-  if (!p) {
-    p = new Promise<string | null>((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const k = img.width / 64;
-        const c = document.createElement("canvas");
-        c.width = Math.round(10 * k);
-        c.height = Math.round(16 * k);
-        const ctx = c.getContext("2d");
-        if (!ctx) return resolve(null);
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(img, k, k, 10 * k, 16 * k, 0, 0, c.width, c.height);
-        resolve(c.toDataURL("image/png"));
-      };
-      img.onerror = () => resolve(null);
-      img.src = `/api/capes/texture/${hash}`;
-    });
-    faceCache.set(hash, p);
-  }
-  return p;
-}
 
 /** 카드: 커서를 올리면 커서 위치에 따라 망토가 돌아간다 */
 function CapeCard({ cape, onOpen }: { cape: CapeEntry; onOpen: () => void }) {

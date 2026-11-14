@@ -62,11 +62,12 @@ export async function GET(request: Request, context: { params: Promise<{ product
   const body: McAccountInfo = {
     ok: Boolean(profile?.uuid),
     ...(hypixel !== undefined ? { hypixel } : {}),
-    capes: (profile?.capes ?? []).map(({ source, baseWidth, title, front }) => ({
+    capes: (profile?.capes ?? []).map(({ source, baseWidth, title, front, hash }) => ({
       source,
       baseWidth,
       ...(title ? { title } : {}),
       ...(front ? { front } : {}),
+      ...(hash ? { hash } : {}),
     })),
   };
   return NextResponse.json(body, {

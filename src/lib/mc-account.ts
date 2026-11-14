@@ -20,6 +20,8 @@ export type McCapeInfo = {
   title?: string;
   /** true 면 이미 앞면만 그린 이미지 (크롭하지 않고 그대로 보여준다) */
   front?: boolean;
+  /** Mojang 텍스처 해시 — 있으면 /api/capes/texture/<hash> 에서 그림을 만든다 */
+  hash?: string;
 };
 
 /**

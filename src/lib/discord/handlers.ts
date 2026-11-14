@@ -463,13 +463,10 @@ export async function handleServerStatusCommand(
   return plainEphemeral("관리자 상황 패널을 올렸어요. 3분마다 자동으로 갱신돼요.");
 }
 
-/** /추천인 — 관리자가 채널에 올리는 공개 안내 패널 (이미지 포함). 코드는 버튼을 누른 본인에게만 보인다 */
-export function handleReferralCommand(shopSlug: string, roles: string[], permissions?: string) {
+/** /추천인 — 누구나 쓸 수 있고, 채널에 모두가 볼 수 있는 안내 패널(이미지 포함)이 올라간다. 코드는 버튼을 누른 본인에게만 보인다 */
+export function handleReferralCommand(shopSlug: string) {
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점을 찾을 수 없어요.");
-  if (!isDiscordAdmin(getShopSettings(shop.id), roles, permissions)) {
-    return errorPanel("추천인 패널은 관리자만 올릴 수 있어요. 채널에 있는 버튼을 눌러 주세요.", "권한 없음");
-  }
   const panel = v2Public([
     container(
       [

@@ -5,6 +5,15 @@ export const VERIFY_DISCORD_COMMANDS = [
     type: 1,
   },
   {
+    name: "인증설정",
+    description: "인증 로그 채널과 인증 완료 시 줄 역할을 정합니다 (관리자)",
+    type: 1,
+    options: [
+      { type: 7, name: "로그채널", description: "인증 기록을 남길 채널", required: true, channel_types: [0, 5] },
+      { type: 8, name: "역할", description: "인증을 마치면 줄 역할", required: true },
+    ],
+  },
+  {
     name: "인증",
     description: "인증 패널을 이 채널에 게시합니다.",
     type: 1,

@@ -7,7 +7,8 @@ import {
   cid,
   container,
   errorPanel,
-  mediaGallery,
+  sectionText,
+  thumbnail,
   modalFieldValue,
   plainEphemeral,
   showModal,
@@ -19,7 +20,6 @@ import {
 } from "@/lib/discord/components";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { postChannelMessage } from "@/lib/discord/rest";
-import { BANNER_PATHS } from "@/lib/gif/banners";
 import { SELLABLE_CAPES } from "@/lib/sellable-capes";
 import { getShopBySlug, getShopSettings, listProducts, persistAsync, updateShopSettings } from "@/lib/store";
 
@@ -69,8 +69,10 @@ export function handleStockRequestCommand(
 
   const options = requestOptions(shop.id);
   const kids: unknown[] = [
-    mediaGallery([`${appOrigin()}${BANNER_PATHS.stockRequest}`]),
-    textDisplay("> 현재 **품절인** 상품을 요청해주세요!"),
+    sectionText({
+      text: "## 재고 요청\n> 현재 **품절인** 상품을 요청해주세요!",
+      accessory: thumbnail(`${appOrigin()}/brand/stock-request-icon.gif`),
+    }),
   ];
   if (options.length) {
     kids.push(actionRow(stringSelect({ customId: cid(shop.slug, "sr_pick"), placeholder: "요청할 상품을 골라 주세요", options })));

@@ -224,7 +224,34 @@ def icon_stock(d, f):
     sparkle(d, 104, 24, f % 8 < 4)
 
 
+def render_icon(path, icon):
+    """패널 오른쪽 위에 들어가는 정사각 썸네일 (아이콘만)"""
+    size = 200
+    frames = []
+    for f in range(N):
+        img = Image.new("RGBA", (size, size), BG + (255,))
+        d = ImageDraw.Draw(img)
+        rect(d, 0, 0, size, size, BG)
+        pulse = int(round(math.sin(f / N * math.pi * 2) * 2))
+        for r, c in ((92 + pulse, (31, 27, 50)), (70 + pulse // 2, (47, 30, 80))):
+            d.ellipse([100 - r, 100 - r, 100 + r, 100 + r], fill=c)
+        icon(d, f)
+        frames.append(img.convert("RGB"))
+    pal = frames[0].quantize(colors=64, method=Image.Quantize.MEDIANCUT)
+    q = [fr.quantize(palette=pal, dither=Image.Dither.NONE) for fr in frames]
+    q[0].save(path, save_all=True, append_images=q[1:], duration=[DELAY] * N, loop=0, optimize=True, disposal=1)
+    print("saved", path, os.path.getsize(path) // 1024, "KB")
+
+
+def icon_stock_square(d, f):
+    envelope(d, f, 100, 140)
+    coin(d, 46, 46 + int(math.sin(f / 5) * 2))
+    coin(d, 150, 150)
+    sparkle(d, 92, 30, f % 8 < 4)
+
+
 out = sys.argv[1] if len(sys.argv) > 1 else "."
+render_icon(os.path.join(out, "stock-request-icon.gif"), icon_stock_square)
 render(os.path.join(out, "giveaway.gif"), icon_giveaway, "경품 추첨", "버튼 한 번으로 참여하세요 · 마감 시 자동 추첨")
 render(os.path.join(out, "giveaway-end.gif"), icon_end, "당첨 발표!", "당첨자를 축하드려요 · 주최자에게 문의해 주세요")
 render(os.path.join(out, "stock-request.gif"), icon_stock, "재고 요청", "찾는 상품이 없으면 버튼 한 번으로 남겨 주세요")

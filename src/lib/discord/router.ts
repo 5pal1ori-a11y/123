@@ -131,7 +131,7 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
     const name = interaction.data?.name;
     const perms = interaction.member?.permissions;
-    const verifyNames = new Set(["등록", "인증", "복구", "인증복구", "통계", "차단추가", "차단해제"]);
+    const verifyNames = new Set(["등록", "인증", "인증설정", "복구", "인증복구", "통계", "차단추가", "차단해제"]);
     if (name && verifyNames.has(name)) {
       const { handleVerifyBotInteraction } = await import("@/lib/verify-bot/router");
       return handleVerifyBotInteraction(interaction);
@@ -208,7 +208,7 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         return typeof v === "string" ? v : undefined;
       };
       const { handleTemplateCommand } = await import("@/lib/discord/template-panels");
-      return handleTemplateCommand(shop.slug, actor.roles, perms, { kind: o("종류"), link1: o("링크1"), link2: o("링크2") });
+      return handleTemplateCommand(shop.slug, actor.roles, perms, { kind: o("종류"), link1: o("링크1"), link2: o("링크2"), channelId: interaction.channel_id });
     }
     if (name === "재고요청") {
       const ch = interaction.data?.options?.find((o) => o.name === "받을채널")?.value;

@@ -35,6 +35,7 @@ import {
   persistVerifyStore,
   registerVerifyGuild,
   removeBlacklistUser,
+  updateVerifyGuild,
 } from "@/lib/verify-bot/store";
 
 /** Discord 가 직접 받아 가므로 절대 URL 이어야 한다 (public/brand) */
@@ -134,9 +135,42 @@ export async function handleVerifyBotInteraction(interaction: DiscordInteraction
     ]);
   }
 
+  if (name === "인증설정") {
+    const logChannelId = String(optionValue(interaction, "로그채널") || "").trim();
+    const roleId = String(optionValue(interaction, "역할") || "").trim();
+    if (!logChannelId || !roleId) return errorV2("로그 채널과 역할을 모두 골라 주세요.");
+    if (roleId === guildId) return errorV2("@everyone 은 인증 역할로 쓸 수 없어요.");
+    let created = false;
+    let recoveryKey: string | null = null;
+    if (!getVerifyGuild(guildId)) {
+      const guildName =
+        (interaction as { guild?: { name?: string } }).guild?.name || `서버-${guildId.slice(-4)}`;
+      const reg = registerVerifyGuild({ guildId, guildName, registeredBy: actor.id });
+      created = reg.created;
+      recoveryKey = reg.recoveryKey;
+    }
+    updateVerifyGuild(guildId, { logChannelId, verifiedRoleId: roleId, enabled: true });
+    await persistVerifyStore();
+    return ephemeralV2([
+      textDisplay("## 인증 설정 완료"),
+      separator(true, 1),
+      textDisplay(
+        [
+          `**인증 로그 채널** <#${logChannelId}>`,
+          `**인증 역할** <@&${roleId}>`,
+          created && recoveryKey ? `**복구키** ||\`${recoveryKey}\`|| (잘 보관해 주세요)` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      ),
+      textDisplay("-# 이제 `/인증` 으로 인증 패널을 올려 주세요 · 봇 역할이 인증 역할보다 위에 있어야 역할을 줄 수 있어요"),
+    ]);
+  }
+
   if (name === "인증") {
     const guild = getVerifyGuild(guildId);
-    if (!guild) return errorV2("먼저 `/등록`으로 서버를 등록해 주세요.");
+    if (!guild) return errorV2("먼저 `/인증설정` 으로 로그 채널과 역할을 정해 주세요.");
+    if (!guild.verifiedRoleId) return errorV2("먼저 `/인증설정` 으로 인증 역할을 정해 주세요.");
     if (!guild.enabled) return errorV2("인증봇이 비활성화되어 있어요.");
 
     const campaign = String(optionValue(interaction, "캠페인") || "").trim() || undefined;

@@ -5,9 +5,11 @@ import {
   errorPanel,
   section,
   separator,
+  MessageFlags,
+  plainEphemeral,
   textDisplay,
-  v2Public,
 } from "@/lib/discord/components";
+import { postChannelMessage } from "@/lib/discord/rest";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { getShopBySlug, getShopSettings } from "@/lib/store";
 
@@ -20,11 +22,11 @@ function cleanUrl(raw: string | undefined, fallback: string) {
   return /^https?:\/\/\S+$/i.test(v) ? v : fallback;
 }
 
-export function handleTemplateCommand(
+export async function handleTemplateCommand(
   shopSlug: string,
   roles: string[],
   permissions: string | undefined,
-  opts: { kind?: string; link1?: string; link2?: string },
+  opts: { kind?: string; link1?: string; link2?: string; channelId?: string },
 ) {
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점을 찾을 수 없어요.");
@@ -68,6 +70,12 @@ export function handleTemplateCommand(
           }),
         ];
 
-  const panel = v2Public([container(kids)]);
-  return { ...panel, data: { ...panel.data, allowed_mentions: { parse: [] } } };
+  if (!opts.channelId) return errorPanel("채널에서 다시 써 주세요.");
+  const posted = await postChannelMessage(
+    opts.channelId,
+    { flags: MessageFlags.IS_COMPONENTS_V2, components: [container(kids)], allowed_mentions: { parse: [] } },
+    shop.id,
+  );
+  if (!posted.ok) return errorPanel("템플릿을 올리지 못했어요. 봇이 이 채널에 글을 쓸 수 있는지 확인해 주세요.");
+  return plainEphemeral("템플릿을 생성했습니다.");
 }

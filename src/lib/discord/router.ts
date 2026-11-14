@@ -202,6 +202,10 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       );
       return handleVendingCommand(shop.slug, actor.id);
     }
+    if (name === "문의대기") {
+      const { handleTicketQueueCommand } = await import("@/lib/discord/ticket-queue");
+      return handleTicketQueueCommand(shop.slug, actor.roles, perms, interaction.channel_id, interaction.guild_id);
+    }
     if (name === "템플릿") {
       const o = (n: string) => {
         const v = interaction.data?.options?.find((x) => x.name === n)?.value;
@@ -530,6 +534,10 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const channelId = values[0];
       if (!channelId) return plainEphemeral("채널을 선택해 주세요.");
       return handleEmbedChannel(embedCtx(interaction, shop.slug, actor), channelId);
+    }
+    if (action === "tq_mine") {
+      const { handleTicketQueueMine } = await import("@/lib/discord/ticket-queue");
+      return handleTicketQueueMine(interaction.guild_id, actor.id);
     }
     if (action === "sr_pick") {
       const { handleStockRequestPick } = await import("@/lib/discord/stock-request");

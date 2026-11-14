@@ -203,6 +203,11 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "문의대기",
+    description: "문의 대기 현황 패널을 채널에 올립니다 · 3분마다 갱신 (관리자)",
+    type: 1,
+  },
+  {
     name: "템플릿",
     description: "이용약관 · 업체소개 같은 안내 패널을 채널에 올립니다 (관리자)",
     type: 1,

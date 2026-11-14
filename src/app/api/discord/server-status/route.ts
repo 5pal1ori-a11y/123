@@ -43,7 +43,10 @@ export async function POST(request: Request) {
       ok: false as const,
       error: String(err),
     }));
-    return NextResponse.json(r);
+    // 같은 3분 크론에서 문의 대기 현황 패널도 고쳐 쓴다
+    const { refreshTicketQueuePanels } = await import("@/lib/discord/ticket-queue");
+    const queue = await refreshTicketQueuePanels(shop.id).catch((err) => ({ error: String(err) }));
+    return NextResponse.json({ ...r, queue });
   }
   if (parsed.data.op === "config") {
     // 게이트웨이를 계속 붙잡아 두면 Durable Object 사용 시간이 하루 약 10,800 GB-s 든다.

@@ -31,6 +31,18 @@ function appOrigin() {
 
 /** 같은 사람이 같은 상품을 연달아 보내지 못하게 (인스턴스 단위, 10분) */
 const recent = new Map<string, number>();
+/** 모두가 볼 수 있는 접수 안내 (멘션 알림은 보내지 않는다) */
+function publicNotice(userId: string, name: string, note?: string) {
+  const panel = v2Public([
+    container([
+      textDisplay(`📥 <@${userId}> 님이 **${name.slice(0, 100)}** 재고를 요청했어요`),
+      ...(note ? [textDisplay(`> ${note.slice(0, 300)}`)] : []),
+      textDisplay("-# 요청이 많은 상품부터 입고를 검토해요"),
+    ]),
+  ]);
+  return { ...panel, data: { ...panel.data, allowed_mentions: { parse: [] } } };
+}
+
 function tooSoon(key: string) {
   const now = Date.now();
   for (const [k, t] of recent) if (now - t > 600_000) recent.delete(k);
@@ -123,7 +135,7 @@ export async function handleStockRequestPick(shopSlug: string, userId: string, v
   if (!name) return plainEphemeral("상품을 찾지 못했어요.");
   if (tooSoon(`${userId}:${value}`)) return plainEphemeral(`**${name}** 요청은 이미 접수됐어요. 조금만 기다려 주세요!`);
   const ok = await deliver(shop.id, userId, name);
-  return plainEphemeral(ok ? `**${name}** 요청이 접수됐어요. 입고를 검토해 볼게요!` : "요청을 전달하지 못했어요. 잠시 후 다시 시도해 주세요.");
+  return ok ? publicNotice(userId, name) : plainEphemeral("요청을 전달하지 못했어요. 잠시 후 다시 시도해 주세요.");
 }
 
 export function handleStockRequestCustomModal(shopSlug: string) {
@@ -145,5 +157,5 @@ export async function handleStockRequestModal(shopSlug: string, userId: string, 
   if (!name) return plainEphemeral("찾는 상품을 적어 주세요.");
   if (tooSoon(`${userId}:t:${name.toLowerCase()}`)) return plainEphemeral("같은 요청이 이미 접수됐어요.");
   const ok = await deliver(shop.id, userId, name, note);
-  return plainEphemeral(ok ? `**${name}** 요청이 접수됐어요. 입고를 검토해 볼게요!` : "요청을 전달하지 못했어요. 잠시 후 다시 시도해 주세요.");
+  return ok ? publicNotice(userId, name, note) : plainEphemeral("요청을 전달하지 못했어요. 잠시 후 다시 시도해 주세요.");
 }

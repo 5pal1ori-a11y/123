@@ -10,6 +10,10 @@ const GUILDS = 1 << 0;
 const GUILD_MEMBERS = 1 << 1;
 /** 관리자 온라인 감시용 (Presence Intent) */
 const GUILD_PRESENCES = 1 << 8;
+/** 숫자 맞추기: 채널 메시지 받기 */
+const GUILD_MESSAGES = 1 << 9;
+/** 숫자 맞추기: 메시지 내용 읽기 (Developer Portal 에서 Message Content Intent 를 켜야 한다) */
+const MESSAGE_CONTENT = 1 << 15;
 const ALARM_MS = 30_000;
 /** 이 주기로 대상의 현재 상태를 다시 물어본다 (이벤트를 놓쳐도 맞춰진다) */
 const RESYNC_MS = 5 * 60_000;
@@ -36,6 +40,7 @@ export class StatusWatch extends DurableObject<Env> {
   private presenceDenied = false;
   /** Server Members Intent 가 꺼져 있어 4014 로 끊긴 적이 있으면 빼고 붙는다 */
   private membersDenied = false;
+  private contentDenied = false;
   private lastIntents = GUILDS;
 
   async fetch(request: Request) {
@@ -71,10 +76,11 @@ export class StatusWatch extends DurableObject<Env> {
     await this.ensureConnected();
     if (this.ws && !this.presenceDenied && Date.now() - this.lastResync > RESYNC_MS) this.requestPresences();
     // 한 시간에 한 번은 Presence Intent 가 켜졌는지 다시 시도
-    if ((this.presenceDenied || this.membersDenied) && Date.now() - this.lastResync > 60 * 60_000) {
+    if ((this.presenceDenied || this.membersDenied || this.contentDenied) && Date.now() - this.lastResync > 60 * 60_000) {
       this.lastResync = Date.now();
       this.presenceDenied = false;
       this.membersDenied = false;
+      this.contentDenied = false;
       this.close();
       await this.ensureConnected();
     }
@@ -136,12 +142,14 @@ export class StatusWatch extends DurableObject<Env> {
         if (this.ws !== ws) return;
         this.close();
         const usedPresence = (this.lastIntents & GUILD_PRESENCES) !== 0;
+        const usedContent = (this.lastIntents & MESSAGE_CONTENT) !== 0;
         const usedMembers = (this.lastIntents & GUILD_MEMBERS) !== 0;
-        if (ev.code === 4014 && (usedPresence || usedMembers)) {
+        if (ev.code === 4014 && (usedPresence || usedContent || usedMembers)) {
           // 권한 있는 intent 가 꺼져 있음 → 하나씩 빼고 다시 붙는다 (봇 온라인 표시는 유지)
           if (usedPresence) this.presenceDenied = true;
+          else if (usedContent) this.contentDenied = true;
           else this.membersDenied = true;
-          console.log("status watch: privileged intent disabled", usedPresence ? "presence" : "members");
+          console.log("status watch: privileged intent disabled", usedPresence ? "presence" : usedContent ? "content" : "members");
           this.ctx.waitUntil(new Promise((r) => setTimeout(r, 2_000)).then(() => this.ensureConnected()));
         } else if (FATAL_CLOSE.has(ev.code)) {
           this.refusedUntil = Date.now() + REFUSED_BACKOFF_MS;
@@ -230,6 +238,23 @@ export class StatusWatch extends DurableObject<Env> {
       for (const [id, st] of seen) this.update(id, st);
       return;
     }
+    if (frame.t === "MESSAGE_CREATE") {
+      const d = frame.d as {
+        id?: string;
+        channel_id?: string;
+        guild_id?: string;
+        content?: string;
+        author?: { id?: string; bot?: boolean };
+      };
+      // 숫자만 보낸 메시지만 넘긴다 (숫자 맞추기)
+      const m = /^\s*(\d{1,9})\s*$/.exec(d.content ?? "");
+      if (m && this.config && d.guild_id === this.config.guildId && d.author?.id && !d.author.bot && d.id && d.channel_id) {
+        this.ctx.waitUntil(
+          this.post({ op: "guess", channelId: d.channel_id, messageId: d.id, userId: d.author.id, guess: Number(m[1]) }),
+        );
+      }
+      return;
+    }
     if (frame.t === "GUILD_MEMBER_ADD") {
       const d = frame.d as { guild_id?: string; user?: { id?: string; avatar?: string | null; bot?: boolean } };
       if (this.config && d.guild_id === this.config.guildId) this.ctx.waitUntil(this.forwardMember(d));
@@ -245,9 +270,24 @@ export class StatusWatch extends DurableObject<Env> {
   private intents() {
     let v = GUILDS;
     if (!this.membersDenied) v |= GUILD_MEMBERS;
+    if (!this.contentDenied) v |= GUILD_MESSAGES | MESSAGE_CONTENT;
     if (!this.presenceDenied && this.config?.userIds.length) v |= GUILD_PRESENCES;
     this.lastIntents = v;
     return v;
+  }
+
+  private async post(body: Record<string, unknown>) {
+    const secret = (this.env.AOS_BRIDGE_SECRET || this.env.AUTH_SECRET || "").trim();
+    const req = new Request("https://vendix.team/api/discord/server-status", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-vendix-bridge-secret": secret },
+      body: JSON.stringify(body),
+    });
+    try {
+      await (this.env.WORKER_SELF_REFERENCE?.fetch(req) ?? fetch(req));
+    } catch (err) {
+      console.log("status watch post failed", String(err));
+    }
   }
 
   /** 새 멤버 → 환영 패널 */

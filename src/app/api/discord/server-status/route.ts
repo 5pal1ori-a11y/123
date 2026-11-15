@@ -13,6 +13,13 @@ const bodySchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("config") }),
   z.object({ op: z.literal("poll") }),
   z.object({
+    op: z.literal("guess"),
+    channelId: snowflake,
+    messageId: snowflake,
+    userId: snowflake,
+    guess: z.number().int().min(0).max(999_999_999),
+  }),
+  z.object({
     op: z.literal("member_add"),
     userId: snowflake,
     guildId: snowflake,
@@ -57,6 +64,11 @@ export async function POST(request: Request) {
     // 구매 랭킹(리더보드) · 재고현황은 10분에 한 번
     const rank = await refreshRankingEvery10m(shop.id).catch((err) => ({ error: String(err) }));
     return NextResponse.json({ ...r, queue, rank });
+  }
+  if (parsed.data.op === "guess") {
+    const { handleNumberGuessMessage } = await import("@/lib/discord/number-guess");
+    const d = parsed.data;
+    return NextResponse.json(await handleNumberGuessMessage(shop, d.channelId, d.messageId, d.userId, d.guess));
   }
   if (parsed.data.op === "member_add") {
     if (parsed.data.bot) return NextResponse.json({ ok: true, skipped: "bot" });

@@ -14,7 +14,7 @@ import {
 } from "@/lib/discord/components";
 import { appEmoji } from "@/lib/discord/app-emojis";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
-import { editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
+import { discordRest, editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
 import { getShopSettings } from "@/lib/store";
 import type { Shop } from "@/lib/types";
 import { kvGetJson, kvPutJson } from "@/lib/world/kv";
@@ -63,7 +63,7 @@ function startPanel(shopName: string, g: Game) {
           textDisplay(
             ended
               ? `-# 시도 ${g.attempts}번 만에 정답이 나왔어요`
-              : "-# `/맞추기 숫자` 로 입력해요 · 가장 먼저 맞힌 1명 당첨",
+              : "-# 이 채널에 숫자만 보내면 돼요 (✅ 정답 · ❌ 오답) · 가장 먼저 맞힌 1명 당첨",
           ),
         ],
         ended ? 0x6b7280 : 0x3b82f6,
@@ -174,4 +174,43 @@ export async function handleNumberGuess(shop: Shop, interaction: DiscordInteract
   );
   if (game.messageId) await editChannelMessage(channelId, game.messageId, startPanel(shop.name, game), shop.id).catch(() => null);
   return plainEphemeral(`🎉 정답이에요! **${guess}** — 축하합니다!`);
+}
+
+function react(channelId: string, messageId: string, emoji: string, shopId: string) {
+  return discordRest(
+    "PUT",
+    `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`,
+    undefined,
+    shopId,
+  ).catch(() => null);
+}
+
+/** 게임 채널에 숫자만 보낸 메시지 (게이트웨이 → server-status op: guess). 맞으면 ✅ + 정답 발표, 틀리면 ❌ */
+export async function handleNumberGuessMessage(
+  shop: Shop,
+  channelId: string,
+  messageId: string,
+  userId: string,
+  guess: number,
+) {
+  const game = await kvGetJson<Game>(key(channelId));
+  if (!game || game.winnerId) return { ok: true, ignored: true };
+  game.attempts += 1;
+  const inRange = game.min == null || game.max == null || (guess >= game.min && guess <= game.max);
+  if (!inRange || guess !== game.answer) {
+    await kvPutJson(key(channelId), game, TTL);
+    await react(channelId, messageId, "❌", shop.id);
+    return { ok: true, correct: false };
+  }
+  game.winnerId = userId;
+  game.endedAt = Date.now();
+  await kvPutJson(key(channelId), game, TTL);
+  await react(channelId, messageId, "✅", shop.id);
+  await postChannelMessage(
+    channelId,
+    { ...winPanel(shop.name, game), message_reference: { message_id: messageId, fail_if_not_exists: false } },
+    shop.id,
+  );
+  if (game.messageId) await editChannelMessage(channelId, game.messageId, startPanel(shop.name, game), shop.id).catch(() => null);
+  return { ok: true, correct: true };
 }

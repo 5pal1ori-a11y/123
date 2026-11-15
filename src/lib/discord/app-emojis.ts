@@ -63,7 +63,9 @@ async function load(shopId?: string) {
       ensured = true;
       return;
     }
-    const appId = DOES_APPLICATION_ID;
+    // 봇 토큰이 속한 앱의 ID (설정값과 다를 수 있어 토큰으로 직접 확인)
+    const me = await discordRest("GET", "/applications/@me", undefined, shopId);
+    const appId = (me.ok ? (me.json as { id?: string })?.id : null) || DOES_APPLICATION_ID;
     const list = await discordRest("GET", `/applications/${appId}/emojis`, undefined, shopId);
     if (!list.ok) return;
     const items = (list.json as { items?: { id: string; name: string; animated?: boolean }[] })?.items ?? [];

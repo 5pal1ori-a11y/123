@@ -216,6 +216,18 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "숫자맞추기",
+    description: "채널에 숫자 맞추기를 시작합니다 · 숫자만 보내면 ✅/❌ (관리자)",
+    type: 1,
+    options: [
+      { name: "숫자", description: "정답 숫자", type: 4, required: true, min_value: 0 },
+      { name: "채널", description: "게임 채널", type: 7, channel_types: [0], required: true },
+      { name: "최소", description: "범위 시작 (예: 600)", type: 4, required: false },
+      { name: "최대", description: "범위 끝 (예: 900)", type: 4, required: false },
+      { name: "상품", description: "맞힌 사람에게 줄 상품", type: 3, required: false, max_length: 200 },
+    ],
+  },
+  {
     name: "문의대기",
     description: "문의 대기 현황 패널을 채널에 올립니다 · 3분마다 갱신 (관리자)",
     type: 1,

@@ -145,11 +145,11 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       return handleIslandCommand(islandShop, interaction, actor.id);
     }
     // 숫자 맞추기는 이 봇이 직접 처리한다 (시작 · 정답 발표 이미지)
-    if (name === "숫자" || name === "맞추기") {
+    if (name === "숫자맞추기" || name === "맞추기") {
       const gameShop = resolveShop(interaction);
       if (!gameShop) return plainEphemeral("이 Discord 서버에 연결된 상점이 없어요.");
       const ng = await import("@/lib/discord/number-guess");
-      return name === "숫자"
+      return name === "숫자맞추기"
         ? ng.handleNumberGuessStart(gameShop, interaction, actor)
         : ng.handleNumberGuess(gameShop, interaction, actor);
     }

@@ -424,44 +424,6 @@ export const DOES_COMMUNITY_COMMANDS = [
   {
     "options": [
       {
-        "type": 4,
-        "name": "숫자",
-        "description": "맞출 숫자",
-        "required": true
-      },
-      {
-        "channel_types": [
-          0
-        ],
-        "name": "채널",
-        "description": "게임 채널",
-        "required": true,
-        "type": 7
-      },
-      { "type": 4, "name": "최소", "description": "범위 시작 (예: 600)", "required": false },
-      { "type": 4, "name": "최대", "description": "범위 끝 (예: 900)", "required": false },
-      { "type": 3, "name": "상품", "description": "맞힌 사람에게 줄 상품", "required": false, "max_length": 200 }
-    ],
-    "name": "숫자",
-    "description": "채널에서 숫자 맞추기 게임을 시작합니다",
-    "type": 1
-  },
-  {
-    "options": [
-      {
-        "type": 4,
-        "name": "숫자",
-        "description": "입력할 숫자",
-        "required": true
-      }
-    ],
-    "name": "맞추기",
-    "description": "숫자 맞추기 게임에 숫자를 입력합니다",
-    "type": 1
-  },
-  {
-    "options": [
-      {
         "type": 3,
         "name": "상품",
         "description": "이벤트 상품",
@@ -708,7 +670,7 @@ export const DOES_COMMUNITY_COMMANDS = [
   }
 ] as const;
 
-export const DOES_COMMUNITY_NAMES = new Set(["roles","say","deal","list","offer","bin","edit","바우처","말하기","출석","출석상점","도박","숫자","맞추기","이벤트","잔액","잔액관리","구매기록","내정보","채널설정","백업","후기복구"]);
+export const DOES_COMMUNITY_NAMES = new Set(["roles","say","deal","list","offer","bin","edit","바우처","말하기","출석","출석상점","도박","이벤트","잔액","잔액관리","구매기록","내정보","채널설정","백업","후기복구"]);
 
 const RENAME_TO_DOES: Record<string, string> = { 채널설정: "설정", 후기복구: "복구" };
 

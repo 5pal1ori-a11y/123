@@ -250,7 +250,7 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       return handleStockRequestCommand(shop.slug, actor.roles, perms, typeof ch === "string" ? ch : null);
     }
     if (name === "랜덤박스") {
-      return handleRandomBoxCommand(shop.slug, actor.roles, perms);
+      return handleRandomBoxCommand(shop.slug, actor.roles, perms, interaction.channel_id);
     }
     if (name === "서버상황") {
       const target = interaction.data?.options?.find((o) => o.name === "대상")?.value;

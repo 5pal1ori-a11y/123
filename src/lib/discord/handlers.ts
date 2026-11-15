@@ -384,15 +384,58 @@ function randomBoxOddsLine() {
     .join(" · ");
 }
 
-export function handleRandomBoxCommand(shopSlug: string, roles: string[], permissions?: string) {
+export async function handleRandomBoxCommand(
+  shopSlug: string,
+  roles: string[],
+  permissions?: string,
+  channelId?: string,
+) {
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점을 찾을 수 없어요.");
   if (!isDiscordAdmin(getShopSettings(shop.id), roles, permissions)) {
-    return errorPanel("랜덤박스 패널은 관리자만 올릴 수 있어요. 채널에 있는 **박스 열기** 버튼을 눌러 주세요.", "권한 없음");
+    return errorPanel("랜덤박스 패널은 관리자만 올릴 수 있어요. 채널에 있는 **다이아 캐기** 버튼을 눌러 주세요.", "권한 없음");
   }
+  if (!channelId) return errorPanel("채널에서 다시 써 주세요.");
+  // 채널에 일반 메시지로 올리고 위치를 기억한다 (10분마다 TOP 3 갱신)
+  const posted = await postChannelMessage(
+    channelId,
+    { flags: MessageFlags.IS_COMPONENTS_V2, components: randomBoxPanelComponents(shop.id, shop.slug), allowed_mentions: { parse: [] } },
+    shop.id,
+  );
+  const id = posted.ok ? (posted.json as { id?: string } | null)?.id : null;
+  if (!id) return errorPanel("패널을 올리지 못했어요. 봇이 이 채널에 글을 쓸 수 있는지 확인해 주세요.");
+  rememberRandomBoxPanel(shop.id, channelId, String(id));
+  await persistAsync();
+  return plainEphemeral("다이아 캐기 패널을 올렸어요. TOP 3 는 10분마다 갱신돼요.");
+}
 
-  const panel = v2Public(randomBoxPanelComponents(shop.id, shop.slug));
-  return { ...panel, data: { ...panel.data, allowed_mentions: { parse: [] } } };
+function rememberRandomBoxPanel(shopId: string, channelId: string, messageId: string) {
+  const list = getShopSettings(shopId).randomBoxPanels ?? [];
+  if (list.some((p) => p.messageId === messageId)) return false;
+  updateShopSettings(shopId, { randomBoxPanels: [...list, { channelId, messageId }].slice(-10) });
+  return true;
+}
+
+/** 10분 크론: 올라가 있는 다이아 캐기 패널의 TOP 3 를 고쳐 쓴다 (지워진 패널은 목록에서 뺀다) */
+export async function refreshRandomBoxPanels(shopId: string) {
+  const shop = (await import("@/lib/store")).getShopById(shopId);
+  const panels = getShopSettings(shopId).randomBoxPanels ?? [];
+  if (!shop || !panels.length) return { panels: 0 };
+  const payload = {
+    flags: MessageFlags.IS_COMPONENTS_V2,
+    components: randomBoxPanelComponents(shop.id, shop.slug),
+    allowed_mentions: { parse: [] as string[] },
+  };
+  const alive: typeof panels = [];
+  for (const p of panels) {
+    const r = await editChannelMessage(p.channelId, p.messageId, payload, shopId).catch(() => null);
+    if (r?.ok || (r && r.status !== 404)) alive.push(p);
+  }
+  if (alive.length !== panels.length) {
+    updateShopSettings(shopId, { randomBoxPanels: alive });
+    await persistAsync();
+  }
+  return { panels: alive.length };
 }
 
 /** 랜덤박스 패널 본문 — 처음 올릴 때와, 누가 열 때마다 TOP 3 를 고쳐 쓸 때 같이 쓴다 */
@@ -410,19 +453,12 @@ function randomBoxPanelComponents(shopId: string, shopSlug: string) {
 
   return [
       container([
-        textDisplay("## 다이아 캐기"),
         mediaGallery([`${appOrigin()}${RANDOM_BOX_IDLE_GIF_PATH}`]),
-        textDisplay(
-          [
-            "### 하루 한 번 캘 수 있어요",
-            `최대 **${RANDOM_BOX_MAX.toLocaleString("ko-KR")}P**까지 나와요`,
-            "-# 연속 출석 7 · 30 · 90일에는 특별 선물 · 계정 연동 필요",
-          ].join("\n"),
-        ),
+        textDisplay(`## 다이아 캐기\n하루 한 번 · 최대 **${RANDOM_BOX_MAX.toLocaleString("ko-KR")}P**`),
         separator(true, 1),
         textDisplay(`### 이번 주 TOP 3\n${topLines}`),
-        textDisplay(`-# 확률 ${randomBoxOddsLine()}`),
         actionRow(button({ customId: cid(shopSlug, "rbox_open"), label: "다이아 캐기" })),
+        textDisplay(`-# 확률 ${randomBoxOddsLine()} · 계정 연동 필요 · 10분마다 갱신`),
       ]),
     ];
 }
@@ -430,6 +466,8 @@ function randomBoxPanelComponents(shopId: string, shopSlug: string) {
 /** 박스를 연 뒤 그 패널 메시지의 TOP 3 를 최신으로 고친다 (실패해도 무시) */
 function refreshRandomBoxPanel(shopId: string, shopSlug: string, channelId?: string, messageId?: string) {
   if (!channelId || !messageId) return;
+  // 예전에 올린 패널도 누가 한 번 누르면 10분 갱신 목록에 들어간다
+  if (rememberRandomBoxPanel(shopId, channelId, messageId)) scheduleDiscordBackground(persistAsync());
   scheduleDiscordBackground(
     editChannelMessage(
       channelId,

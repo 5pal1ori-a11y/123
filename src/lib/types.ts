@@ -141,6 +141,8 @@ export type ShopSettings = {
     ticketChannelId?: string | null;
     siteUrl?: string | null;
   } | null;
+  /** /랜덤박스 패널들 — 10분마다 TOP 3 를 고쳐 쓴다 */
+  randomBoxPanels?: { channelId: string; messageId: string }[];
   /** /문의대기 — 3분마다 고쳐 쓰는 문의 대기 현황 패널들 */
   ticketQueuePanels?: { channelId: string; messageId: string; guildId: string }[];
   serverStatusPanels?: { channelId: string; messageId: string }[];

@@ -99,16 +99,20 @@ async function refreshRankingEvery10m(shopId: string) {
   const at = (await kvGetJson<number>(RANK_KEY)) ?? 0;
   if (Date.now() - at < 10 * 60_000 - 30_000) return { skipped: true };
   await kvPutJson(RANK_KEY, Date.now());
-  const [{ refreshLeaderboardBoard }, { pushDoesLeaderboard }, { refreshStockBoard }] = await Promise.all([
-    import("@/lib/discord/leaderboard-board"),
-    import("@/lib/discord/does-leaderboard"),
-    import("@/lib/discord/stock-board"),
-  ]);
+  const [{ refreshLeaderboardBoard }, { pushDoesLeaderboard }, { refreshStockBoard }, { refreshRandomBoxPanels }] =
+    await Promise.all([
+      import("@/lib/discord/leaderboard-board"),
+      import("@/lib/discord/does-leaderboard"),
+      import("@/lib/discord/stock-board"),
+      import("@/lib/discord/handlers"),
+    ]);
   // 재고현황판도 같은 주기로 새로 고쳐 쓴다 (재고가 바뀔 때도 따로 갱신됨)
   const [board, top, stock] = await Promise.all([
     refreshLeaderboardBoard(shopId).catch(() => ({ ok: false })),
     pushDoesLeaderboard(shopId).catch(() => ({ ok: false })),
     refreshStockBoard(shopId).catch(() => ({ ok: false })),
   ]);
-  return { board: board.ok, top: top.ok, stock: stock.ok };
+  // 다이아 캐기 패널 TOP 3
+  const rbox = await refreshRandomBoxPanels(shopId).catch(() => ({ panels: -1 }));
+  return { board: board.ok, top: top.ok, stock: stock.ok, rbox: rbox.panels };
 }

@@ -314,3 +314,177 @@ export function raffleGif(prize: RafflePrize) {
   }
   return encodeScene(scene);
 }
+
+/* ───────────── 다이아 캐기 (랜덤박스) ───────────── */
+
+const ORE_X = 38;
+const ORE_BOTTOM = 52;
+const ORE = 24;
+
+const DIAMOND = [
+  "..oooooo..",
+  ".occwwcco.",
+  "occwcccbbo",
+  "oooooooooo",
+  ".occcbbbo.",
+  "..occbbo..",
+  "...ocbo...",
+  "....oo....",
+];
+
+function ground(cv: Canvas) {
+  cv.rect(0, ORE_BOTTOM, W, 1, P.NIGHT_3);
+  cv.rect(0, ORE_BOTTOM + 1, W, H - ORE_BOTTOM - 1, P.NIGHT_2);
+}
+
+/** 다이아 광석 블록. crack 0~3 금이 간 정도 */
+function oreBlock(cv: Canvas, crack: number, shake = 0) {
+  const x = ORE_X - ORE / 2 + shake;
+  const y = ORE_BOTTOM - ORE;
+  cv.rect(x - 1, y - 1, ORE + 2, ORE + 2, P.OUT);
+  for (let yy = 0; yy < ORE; yy++) {
+    for (let xx = 0; xx < ORE; xx++) {
+      const h = hash(Math.floor(xx / 3), Math.floor(yy / 3), 51);
+      cv.set(x + xx, y + yy, h < 0.35 ? P.STEEL_D : P.STEEL);
+    }
+  }
+  // 다이아 알갱이
+  for (const [ox, oy] of [[4, 5], [15, 3], [9, 12], [17, 15], [5, 18]] as const) {
+    cv.rect(x + ox, y + oy, 3, 2, P.CAP);
+    cv.set(x + ox, y + oy, P.GLASS);
+    cv.set(x + ox + 2, y + oy + 1, P.CAP_D);
+  }
+  // 금
+  const cracks: [number, number][][] = [
+    [[11, 0], [12, 4], [10, 8], [12, 12]],
+    [[12, 12], [16, 15], [15, 20], [18, 24]],
+    [[10, 8], [5, 11], [3, 16], [0, 18]],
+  ];
+  for (let c = 0; c < Math.min(crack, 3); c++) {
+    const pts = cracks[c]!;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x1, y1] = pts[i]!;
+      const [x2, y2] = pts[i + 1]!;
+      const n = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
+      for (let k = 0; k <= n; k++) cv.set(x + x1 + Math.round(((x2 - x1) * k) / n), y + y1 + Math.round(((y2 - y1) * k) / n), P.OUT);
+    }
+  }
+}
+
+/** 곡괭이: pose 0 = 들어 올림, 1 = 내려오는 중, 2 = 내리침 */
+function pickaxe(cv: Canvas, pose: number) {
+  // 손잡이 끝(손 위치)을 블록 오른쪽 아래에 두고, 내리치면 머리가 블록 위 모서리에 닿는다
+  const pivot = { x: ORE_X + 30, y: ORE_BOTTOM - 2 };
+  const ang = [-1.35, -1.85, -2.35][pose]!;
+  const len = 22;
+  for (let k = 0; k <= len; k++) {
+    const px = pivot.x + Math.cos(ang) * k;
+    const py = pivot.y + Math.sin(ang) * k;
+    cv.rect(px - 1, py - 1, 3, 3, P.OUT);
+  }
+  for (let k = 0; k <= len; k++) {
+    cv.rect(pivot.x + Math.cos(ang) * k, pivot.y + Math.sin(ang) * k, 2, 2, k > len - 3 ? P.DIRT_D : P.DIRT);
+  }
+  // 머리 (손잡이 끝에 수직으로)
+  const hx = pivot.x + Math.cos(ang) * len;
+  const hy = pivot.y + Math.sin(ang) * len;
+  const perp = ang + Math.PI / 2;
+  for (let k = -8; k <= 8; k++) {
+    const bend = Math.abs(k) * 0.12;
+    const x = hx + Math.cos(perp) * k + Math.cos(ang) * bend * 4;
+    const y = hy + Math.sin(perp) * k + Math.sin(ang) * bend * 4;
+    cv.rect(x - 1, y - 1, 3, 3, P.OUT);
+  }
+  for (let k = -7; k <= 7; k++) {
+    const bend = Math.abs(k) * 0.12;
+    cv.rect(hx + Math.cos(perp) * k + Math.cos(ang) * bend * 4, hy + Math.sin(perp) * k + Math.sin(ang) * bend * 4, 2, 2, Math.abs(k) > 5 ? P.GLASS : P.CAP);
+  }
+}
+
+function chips(cv: Canvas, t: number, seed: number) {
+  for (let i = 0; i < 10; i++) {
+    const ang = -Math.PI * (0.15 + hash(i, 1, seed) * 0.7);
+    const sp = 8 + hash(i, 2, seed) * 14;
+    const x = ORE_X + Math.cos(ang) * sp * t;
+    const y = ORE_BOTTOM - 12 + Math.sin(ang) * sp * t + t * t * 14;
+    cv.rect(x, y, 2, 2, i % 3 === 0 ? P.CAP : P.STEEL_D);
+  }
+}
+
+function diamondAt(cv: Canvas, cx: number, top: number) {
+  cv.sprite(DIAMOND, cx - 15, top, { o: P.OUT, c: P.CAP, b: P.CAP_D, w: P.WHITE }, 3);
+}
+
+/** 패널에 걸어 두는 기다리는 그림: 곡괭이가 계속 내리친다 */
+export function mineIdleGif() {
+  const scene = newScene();
+  const poses = [0, 0, 1, 2, 2, 1];
+  poses.forEach((pose, f) => {
+    addFrame(scene, pose === 2 ? 12 : 8, (cv) => {
+      night(cv, f);
+      glow(cv, ORE_X, 38, f);
+      ground(cv);
+      oreBlock(cv, 0, pose === 2 && f === 3 ? 1 : 0);
+      pickaxe(cv, pose);
+      if (pose === 2) {
+        sparkle(cv, ORE_X + 10, ORE_BOTTOM - 22, true, P.COIN_L);
+        chips(cv, 0.4, 3 + f);
+      }
+      drawText(cv, "DIG!", 8, "gold", 2, 76);
+    });
+  });
+  return encodeScene(scene);
+}
+
+/** 결과: 세 번 내리쳐 금이 가고 → 깨지고 → 다이아(+금액) 또는 꽝 */
+export function mineOpenGif(amount: number) {
+  const scene = newScene();
+  let f = 0;
+  for (let hit = 0; hit < 3; hit++) {
+    for (const pose of [0, 1, 2]) {
+      const ff = f++;
+      addFrame(scene, pose === 2 ? 9 : 6, (cv) => {
+        night(cv, ff);
+        glow(cv, ORE_X, 38, ff);
+        ground(cv);
+        oreBlock(cv, pose === 2 ? hit + 1 : hit, pose === 2 ? (hit % 2 ? 1 : -1) : 0);
+        pickaxe(cv, pose);
+        if (pose === 2) chips(cv, 0.5, 9 + hit);
+      });
+    }
+  }
+  // 깨짐
+  for (let k = 0; k < 4; k++) {
+    const ff = f++;
+    addFrame(scene, 6, (cv) => {
+      night(cv, ff);
+      glow(cv, ORE_X, 38, ff);
+      ground(cv);
+      chips(cv, 0.3 + k * 0.25, 30);
+      cv.rect(ORE_X - 10, ORE_BOTTOM - 3, 20, 3, P.STEEL_D);
+    });
+  }
+  const text = amount > 0 ? signedAmount("+", amount, "원") : "꽝";
+  for (let k = 0; k < 14; k++) {
+    const ff = f++;
+    const last = k === 13;
+    addFrame(scene, last ? HOLD : 8, (cv) => {
+      night(cv, ff);
+      glow(cv, ORE_X, 38, ff);
+      ground(cv);
+      cv.rect(ORE_X - 10, ORE_BOTTOM - 3, 20, 3, P.STEEL_D);
+      if (amount > 0) {
+        const bounce = [0, 6, 9, 6, 2, 3, 3][Math.min(k, 6)]!;
+        diamondAt(cv, ORE_X, ORE_BOTTOM - 28 - bounce);
+        burst(cv, ORE_X, ORE_BOTTOM - 26, Math.min(1, k / 9), 61);
+        if (k % 2 === 0) sparkle(cv, ORE_X - 16, ORE_BOTTOM - 30, true, P.COIN_L);
+        else sparkle(cv, ORE_X + 16, ORE_BOTTOM - 34, true, P.GLASS);
+        drawText(cv, text, 3, "gold");
+      } else {
+        cv.disc(ORE_X, ORE_BOTTOM - 8 - k, 2, P.STEEL_D);
+        drawText(cv, text, 8, "red", 4, 70);
+      }
+    });
+  }
+  return encodeScene(scene);
+}

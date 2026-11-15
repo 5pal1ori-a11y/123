@@ -44,7 +44,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ file: stri
   return new Response(new Blob([bytes as Uint8Array<ArrayBuffer>]), {
     headers: {
       "content-type": "image/gif",
-      "cache-control": "public, max-age=31536000, immutable",
+      "cache-control": "public, max-age=3600",
     },
   });
 }

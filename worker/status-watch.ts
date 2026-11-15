@@ -5,10 +5,11 @@ type Config = { token: string; guildId: string; userIds: string[]; syncedAt: num
 type Status = "online" | "idle" | "dnd" | "offline";
 
 const GATEWAY = "https://gateway.discord.gg/?v=10&encoding=json";
-/** GUILDS | GUILD_PRESENCES (Developer Portal 에서 Presence Intent 를 켜야 한다) */
-const INTENTS = (1 << 0) | (1 << 8);
-/** Presence Intent 가 꺼져 있으면(4014) GUILDS 만으로 붙어 '온라인' 표시만 유지한다 */
-const INTENTS_BASIC = 1 << 0;
+const GUILDS = 1 << 0;
+/** 입장 환영용 (Developer Portal 에서 Server Members Intent 를 켜야 한다) */
+const GUILD_MEMBERS = 1 << 1;
+/** 관리자 온라인 감시용 (Presence Intent) */
+const GUILD_PRESENCES = 1 << 8;
 const ALARM_MS = 30_000;
 /** 이 주기로 대상의 현재 상태를 다시 물어본다 (이벤트를 놓쳐도 맞춰진다) */
 const RESYNC_MS = 5 * 60_000;
@@ -33,6 +34,9 @@ export class StatusWatch extends DurableObject<Env> {
   private lastResync = 0;
   private statuses = new Map<string, Status>();
   private presenceDenied = false;
+  /** Server Members Intent 가 꺼져 있어 4014 로 끊긴 적이 있으면 빼고 붙는다 */
+  private membersDenied = false;
+  private lastIntents = GUILDS;
 
   async fetch(request: Request) {
     const body = (await request.json().catch(() => ({}))) as Partial<Config> & { stop?: boolean };
@@ -67,9 +71,10 @@ export class StatusWatch extends DurableObject<Env> {
     await this.ensureConnected();
     if (this.ws && !this.presenceDenied && Date.now() - this.lastResync > RESYNC_MS) this.requestPresences();
     // 한 시간에 한 번은 Presence Intent 가 켜졌는지 다시 시도
-    if (this.presenceDenied && Date.now() - this.lastResync > 60 * 60_000) {
+    if ((this.presenceDenied || this.membersDenied) && Date.now() - this.lastResync > 60 * 60_000) {
       this.lastResync = Date.now();
       this.presenceDenied = false;
+      this.membersDenied = false;
       this.close();
       await this.ensureConnected();
     }
@@ -130,10 +135,13 @@ export class StatusWatch extends DurableObject<Env> {
       ws.addEventListener("close", (ev) => {
         if (this.ws !== ws) return;
         this.close();
-        if (ev.code === 4014 && !this.presenceDenied) {
-          // Presence Intent 꺼짐 → 상태 감시는 못 하지만 봇 온라인 표시는 유지
-          this.presenceDenied = true;
-          console.log("status watch: presence intent disabled, reconnecting without it");
+        const usedPresence = (this.lastIntents & GUILD_PRESENCES) !== 0;
+        const usedMembers = (this.lastIntents & GUILD_MEMBERS) !== 0;
+        if (ev.code === 4014 && (usedPresence || usedMembers)) {
+          // 권한 있는 intent 가 꺼져 있음 → 하나씩 빼고 다시 붙는다 (봇 온라인 표시는 유지)
+          if (usedPresence) this.presenceDenied = true;
+          else this.membersDenied = true;
+          console.log("status watch: privileged intent disabled", usedPresence ? "presence" : "members");
           this.ctx.waitUntil(new Promise((r) => setTimeout(r, 2_000)).then(() => this.ensureConnected()));
         } else if (FATAL_CLOSE.has(ev.code)) {
           this.refusedUntil = Date.now() + REFUSED_BACKOFF_MS;
@@ -182,7 +190,7 @@ export class StatusWatch extends DurableObject<Env> {
         op: 2,
         d: {
           token: this.config?.token ?? "",
-          intents: this.presenceDenied || !this.config?.userIds.length ? INTENTS_BASIC : INTENTS,
+          intents: this.intents(),
           properties: { os: "linux", browser: "does-status", device: "does-status" },
           presence: { since: null, activities: [{ name: "DOES", type: 2 }], status: "online", afk: false },
         },
@@ -222,10 +230,46 @@ export class StatusWatch extends DurableObject<Env> {
       for (const [id, st] of seen) this.update(id, st);
       return;
     }
+    if (frame.t === "GUILD_MEMBER_ADD") {
+      const d = frame.d as { guild_id?: string; user?: { id?: string; avatar?: string | null; bot?: boolean } };
+      if (this.config && d.guild_id === this.config.guildId) this.ctx.waitUntil(this.forwardMember(d));
+      return;
+    }
     if (frame.t === "PRESENCE_UPDATE") {
       const d = frame.d as { guild_id?: string; user?: { id?: string }; status?: string };
       if (!this.config || d.guild_id !== this.config.guildId || !d.user?.id) return;
       this.update(d.user.id, toStatus(d.status));
+    }
+  }
+
+  private intents() {
+    let v = GUILDS;
+    if (!this.membersDenied) v |= GUILD_MEMBERS;
+    if (!this.presenceDenied && this.config?.userIds.length) v |= GUILD_PRESENCES;
+    this.lastIntents = v;
+    return v;
+  }
+
+  /** 새 멤버 → 환영 패널 */
+  private async forwardMember(d: { user?: { id?: string; avatar?: string | null; bot?: boolean } }) {
+    if (!d.user?.id || !this.config) return;
+    const secret = (this.env.AOS_BRIDGE_SECRET || this.env.AUTH_SECRET || "").trim();
+    const req = new Request("https://vendix.team/api/discord/server-status", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-vendix-bridge-secret": secret },
+      body: JSON.stringify({
+        op: "member_add",
+        userId: d.user.id,
+        guildId: this.config.guildId,
+        avatar: d.user.avatar ?? null,
+        bot: Boolean(d.user.bot),
+      }),
+    });
+    try {
+      const res = await (this.env.WORKER_SELF_REFERENCE?.fetch(req) ?? fetch(req));
+      console.log("status watch welcome", d.user.id, res.status);
+    } catch (err) {
+      console.log("status watch welcome failed", String(err));
     }
   }
 

@@ -202,6 +202,24 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       );
       return handleVendingCommand(shop.slug, actor.id);
     }
+    if (name === "환영설정") {
+      const o = (n: string) => {
+        const v = interaction.data?.options?.find((x) => x.name === n)?.value;
+        return typeof v === "string" ? v : undefined;
+      };
+      const ch = o("채널");
+      if (!ch) return plainEphemeral("채널을 골라 주세요.");
+      const { handleWelcomeSetup } = await import("@/lib/discord/welcome");
+      return handleWelcomeSetup(shop.slug, actor.roles, perms, {
+        channelId: ch,
+        verifyChannelId: o("인증채널"),
+        rulesChannelId: o("규칙채널"),
+        shopChannelId: o("구매채널"),
+        ticketChannelId: o("문의채널"),
+        siteUrl: o("웹사이트"),
+        userId: actor.id,
+      });
+    }
     if (name === "문의대기") {
       const { handleTicketQueueCommand } = await import("@/lib/discord/ticket-queue");
       return handleTicketQueueCommand(shop.slug, actor.roles, perms, interaction.channel_id, interaction.guild_id);

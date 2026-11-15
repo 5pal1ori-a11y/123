@@ -8,6 +8,7 @@ import { CAPE_BY_TYPE } from "@/lib/capes-data";
 import { SELLABLE_CAPES } from "@/lib/sellable-capes";
 import { CapeFaceImg } from "@/components/capes/cape-face";
 import type { ProductWithStock } from "@/lib/types";
+import { AdminStockList } from "./admin-stock-list";
 
 /** 관리자: 판매하는 망토 10종 — 망토를 눌러 재고를 넣으면 '재고 있음', 0 이면 회색 + '재고없음' */
 export function AdminCapeProductsPanel({
@@ -25,6 +26,7 @@ export function AdminCapeProductsPanel({
   const [price, setPrice] = useState("");
   const [codes, setCodes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const byType = (type: string) => products.find((p) => p.productKind === "mc_cape" && p.capeType === type);
 
@@ -73,7 +75,9 @@ export function AdminCapeProductsPanel({
       }
       if (productId && lines.length) await api("/api/inventory", "POST", { productId, codes: lines });
       onMessage(lines.length ? `${open.title} 재고 ${lines.length}개를 넣었어요` : `${open.title} 저장했어요`);
-      setOpen(null);
+      // 창은 열어 둔 채 목록만 새로 고친다 (이어서 추가·삭제할 수 있게)
+      setCodes("");
+      setRefreshKey((k) => k + 1);
       await onReload();
     } catch (err) {
       onMessage(err instanceof Error ? err.message : "저장 실패");
@@ -122,7 +126,7 @@ export function AdminCapeProductsPanel({
               <form
                 onSubmit={save}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-md space-y-3 rounded-2xl border border-white/10 bg-[#111] p-5"
+                className="max-h-[90vh] w-full max-w-2xl space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-[#111] p-5"
               >
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold text-white">{open.title} 망토 재고</h3>
@@ -146,6 +150,20 @@ export function AdminCapeProductsPanel({
                   {busy ? <Loader2 className="size-4 animate-spin" /> : null}
                   저장
                 </button>
+                {byType(open.type) ? (
+                  <div className="border-t border-white/10 pt-3">
+                    <p className="mb-2 text-sm font-semibold text-white">현재 재고 · 선택해서 삭제할 수 있어요</p>
+                    <AdminStockList
+                      shopSlug={shopSlug}
+                      productId={byType(open.type)!.id}
+                      refreshKey={refreshKey}
+                      onMessage={onMessage}
+                      onChanged={onReload}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-xs text-neutral-500">아직 등록된 재고가 없어요. 위에서 가격과 재고를 넣으면 목록이 생겨요.</p>
+                )}
               </form>
             </div>,
             document.body,

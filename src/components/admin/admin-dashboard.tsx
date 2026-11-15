@@ -270,13 +270,20 @@ const TAB_PERM: Partial<Record<Tab, StaffPermission | "owner">> = {
 };
 
 async function postAction(shopSlug: string, body: Record<string, unknown>) {
-  const res = await fetch("/api/admin", {
-    method: "POST",
-    credentials: "include",
-    headers: shopHeaders(shopSlug),
-    body: JSON.stringify(body),
-  });
-  return res;
+  // 응답이 오지 않으면 '저장 중' 에서 멈추지 않도록 25초 뒤 끊는다
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 25_000);
+  try {
+    return await fetch("/api/admin", {
+      method: "POST",
+      credentials: "include",
+      headers: shopHeaders(shopSlug),
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
@@ -466,7 +473,19 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
 
   async function runAction(body: Record<string, unknown>, successMsg: string) {
     setSaving(true);
-    const res = await postAction(shopSlug, body);
+    let res: Response;
+    try {
+      res = await postAction(shopSlug, body);
+    } catch (err) {
+      setSaving(false);
+      pushToast(
+        err instanceof DOMException && err.name === "AbortError"
+          ? "서버 응답이 없어요. 잠시 후 다시 저장해 주세요."
+          : "네트워크 오류로 저장하지 못했어요. 다시 시도해 주세요.",
+        "error",
+      );
+      return false;
+    }
     let failMsg = "실패";
     if (!res.ok) {
       try {

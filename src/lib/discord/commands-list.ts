@@ -203,6 +203,19 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "환영설정",
+    description: "새 멤버가 들어오면 환영 메시지를 올릴 채널을 정합니다 (관리자)",
+    type: 1,
+    options: [
+      { name: "채널", description: "환영 메시지를 올릴 채널", type: 7, channel_types: [0, 5], required: true },
+      { name: "인증채널", description: "처음 오셨나요? 1번 — 인증 채널", type: 7, channel_types: [0, 5], required: false },
+      { name: "규칙채널", description: "규칙·이용약관 채널", type: 7, channel_types: [0, 5], required: false },
+      { name: "구매채널", description: "자판기·구매 채널", type: 7, channel_types: [0, 5], required: false },
+      { name: "문의채널", description: "문의 채널", type: 7, channel_types: [0, 5], required: false },
+      { name: "웹사이트", description: "웹사이트 열기 버튼 주소 (비우면 https://doesmc.xyz)", type: 3, required: false },
+    ],
+  },
+  {
     name: "문의대기",
     description: "문의 대기 현황 패널을 채널에 올립니다 · 3분마다 갱신 (관리자)",
     type: 1,

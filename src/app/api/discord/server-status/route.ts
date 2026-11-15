@@ -12,6 +12,13 @@ const snowflake = z.string().regex(/^\d{5,30}$/);
 const bodySchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("config") }),
   z.object({ op: z.literal("poll") }),
+  z.object({
+    op: z.literal("member_add"),
+    userId: snowflake,
+    guildId: snowflake,
+    avatar: z.string().max(80).nullable().optional(),
+    bot: z.boolean().optional(),
+  }),
   z.object({ op: z.literal("presence"), userId: snowflake, status: z.enum(["online", "idle", "dnd", "offline"]) }),
 ]);
 
@@ -47,6 +54,13 @@ export async function POST(request: Request) {
     const { refreshTicketQueuePanels } = await import("@/lib/discord/ticket-queue");
     const queue = await refreshTicketQueuePanels(shop.id).catch((err) => ({ error: String(err) }));
     return NextResponse.json({ ...r, queue });
+  }
+  if (parsed.data.op === "member_add") {
+    if (parsed.data.bot) return NextResponse.json({ ok: true, skipped: "bot" });
+    const { postWelcome } = await import("@/lib/discord/welcome");
+    return NextResponse.json(
+      await postWelcome(shop.id, { userId: parsed.data.userId, avatar: parsed.data.avatar, guildId: parsed.data.guildId }),
+    );
   }
   if (parsed.data.op === "config") {
     // 게이트웨이를 계속 붙잡아 두면 Durable Object 사용 시간이 하루 약 10,800 GB-s 든다.

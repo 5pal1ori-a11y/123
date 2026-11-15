@@ -132,6 +132,15 @@ export type ShopSettings = {
   serverStatusUserId?: string | null;
   /** /재고요청 — 손님 요청을 받을 채널 */
   stockRequestChannelId?: string | null;
+  /** /환영설정 — 새 멤버 환영 패널 */
+  welcome?: {
+    channelId: string;
+    verifyChannelId?: string | null;
+    rulesChannelId?: string | null;
+    shopChannelId?: string | null;
+    ticketChannelId?: string | null;
+    siteUrl?: string | null;
+  } | null;
   /** /문의대기 — 3분마다 고쳐 쓰는 문의 대기 현황 패널들 */
   ticketQueuePanels?: { channelId: string; messageId: string; guildId: string }[];
   serverStatusPanels?: { channelId: string; messageId: string }[];

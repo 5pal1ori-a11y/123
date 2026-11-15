@@ -181,7 +181,7 @@ export function McAccountCard({
       }
     >
       {/* 스킨 영역 */}
-      <div className="relative h-[210px] rounded-[10px]">
+      <div className="relative h-[180px] rounded-[10px] sm:h-[210px]">
         <ViewWrap href={href} onView={onView} className="absolute inset-0 flex items-end justify-center overflow-hidden rounded-[10px]">
           {isMc ? (
             <>

@@ -266,6 +266,11 @@ export function plainEphemeral(content: string) {
   return v2Ephemeral([textDisplay(content.slice(0, 4000))]);
 }
 
+/** 상품 이름 등에 든 * _ ~ ` | 가 디스코드에서 굵게·기울임으로 읽히지 않게 (예: 가린 닉네임 Vi***3) */
+export function escapeMd(text: string) {
+  return String(text ?? "").replace(/([\\*_~`|>])/g, "\\$1");
+}
+
 /** Triple-backtick fence for Discord values */
 export function codeFence(value: string) {
   const safe = String(value ?? "").replace(/```/g, "'''").slice(0, 1000);

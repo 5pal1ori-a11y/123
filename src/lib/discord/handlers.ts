@@ -1,4 +1,5 @@
 import { formatKRW } from "@/lib/utils";
+import { escapeMd } from "@/lib/discord/components";
 import { plainEmoji } from "@/lib/discord/app-emojis";
 import { getShopBank } from "@/lib/bank";
 import { shopUrl } from "@/lib/domain";
@@ -686,7 +687,7 @@ async function handleCatalogCategory(shopSlug: string, category: string, mode: "
     const productText = products
       .map(
         (p) =>
-          `**${p.name}**\n가격: ${p.price.toLocaleString()}원 | 재고: ${p.availableCount}개`,
+          `**${escapeMd(p.name)}**\n가격: ${p.price.toLocaleString()}원 | 재고: ${p.availableCount}개`,
       )
       .join("\n\n")
       .slice(0, 3900);

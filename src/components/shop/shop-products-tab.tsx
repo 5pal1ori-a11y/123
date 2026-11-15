@@ -13,10 +13,10 @@ export type ProductSort = "default" | "price_asc" | "price_desc" | "popular";
 export type ProductSection = "general" | "mc_account" | "mc_cape";
 export type ShopListingSummary = { rating: number | null; reviewCount: number; sold: number };
 
-const SECTIONS: { id: ProductSection; label: string }[] = [
-  { id: "general", label: "기타상품" },
-  { id: "mc_account", label: "마인크래프트 계정" },
-  { id: "mc_cape", label: "마인크래프트 망토" },
+const SECTIONS: { id: ProductSection; label: string; short: string }[] = [
+  { id: "general", label: "기타상품", short: "기타상품" },
+  { id: "mc_account", label: "마인크래프트 계정", short: "마크 계정" },
+  { id: "mc_cape", label: "마인크래프트 망토", short: "마크 망토" },
 ];
 
 export function ShopProductsTab({
@@ -138,11 +138,12 @@ export function ShopProductsTab({
               key={sec.id}
               type="button"
               onClick={() => onSectionChange(sec.id)}
-              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+              className={`whitespace-nowrap rounded-lg px-1.5 py-2 text-[13px] font-semibold transition sm:px-3 sm:text-sm ${
                 productSection === sec.id ? "bg-white text-black" : "text-neutral-300 hover:bg-white/[0.06]"
               }`}
             >
-              {sec.label}
+              <span className="sm:hidden">{sec.short}</span>
+              <span className="hidden sm:inline">{sec.label}</span>
               <span className="ml-1.5 text-xs text-neutral-500">
                 {sectionCounts[sec.id]}
               </span>

@@ -11,6 +11,7 @@ import {
   textDisplay,
   thumbnail,
 } from "@/lib/discord/components";
+import { escapeMd } from "@/lib/discord/components";
 import { appEmoji } from "@/lib/discord/app-emojis";
 import { discordRest, postChannelMessage } from "@/lib/discord/rest";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
@@ -102,7 +103,7 @@ export function postPurchaseLog(
   kids.push(
     textDisplay("## 구매 로그"),
     separator(true, 1),
-    textDisplay(`${input.buyerMention} 님 **${input.productName}** **${input.quantity}개** 구매 감사드립니다!`),
+    textDisplay(`${input.buyerMention} 님 **${escapeMd(input.productName)}** **${input.quantity}개** 구매 감사드립니다!`),
     separator(true, 1),
     textDisplay(`누적판매 **${input.totalSold.toLocaleString("ko-KR")}개**  ·  <t:${Math.floor(Date.now() / 1000)}:f>`),
   );
@@ -152,7 +153,7 @@ export function postReviewLog(
     body: string;
   },
 ) {
-  const head = `## 후기 감사합니다\n**${input.productName}**`;
+  const head = `## 후기 감사합니다\n**${escapeMd(input.productName)}**`;
   const task = (async () => {
     const avatar = input.authorDiscordId ? await discordAvatarUrl(shopId, input.authorDiscordId) : null;
     return postV2Log(shopId, "review", [
@@ -212,7 +213,7 @@ export function postRestockLog(
     "restock",
     [
       textDisplay("## 입고 알림"),
-      textDisplay(`**${input.productName}** 상품이 입고되었어요.`),
+      textDisplay(`**${escapeMd(input.productName)}** 상품이 입고되었어요.`),
       separator(true, 1),
       textDisplay(
         [

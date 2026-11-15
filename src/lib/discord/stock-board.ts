@@ -7,6 +7,7 @@ import {
   textDisplay,
   v2Message,
 } from "@/lib/discord/components";
+import { escapeMd } from "@/lib/discord/components";
 import { discordRest, editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
 import { shopUrl } from "@/lib/domain";
 import {
@@ -30,7 +31,7 @@ function stockLabel(p: ProductWithStock) {
 }
 
 function productLine(p: ProductWithStock) {
-  return `${p.availableCount > 0 ? appEmoji("does_check") : appEmoji("does_sold")} **${p.name}** · ${formatKRW(p.price)} · ${stockLabel(p)}`;
+  return `${p.availableCount > 0 ? appEmoji("does_check") : appEmoji("does_sold")} **${escapeMd(p.name)}** · ${formatKRW(p.price)} · ${stockLabel(p)}`;
 }
 
 function groupByCategory(products: ProductWithStock[]) {

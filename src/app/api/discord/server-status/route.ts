@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     // 같은 3분 크론에서 문의 대기 현황 패널도 고쳐 쓴다
     const { refreshTicketQueuePanels } = await import("@/lib/discord/ticket-queue");
     const queue = await refreshTicketQueuePanels(shop.id).catch((err) => ({ error: String(err) }));
-    // 구매 랭킹(리더보드)은 10분에 한 번
+    // 구매 랭킹(리더보드) · 재고현황은 10분에 한 번
     const rank = await refreshRankingEvery10m(shop.id).catch((err) => ({ error: String(err) }));
     return NextResponse.json({ ...r, queue, rank });
   }
@@ -87,13 +87,16 @@ async function refreshRankingEvery10m(shopId: string) {
   const at = (await kvGetJson<number>(RANK_KEY)) ?? 0;
   if (Date.now() - at < 10 * 60_000 - 30_000) return { skipped: true };
   await kvPutJson(RANK_KEY, Date.now());
-  const [{ refreshLeaderboardBoard }, { pushDoesLeaderboard }] = await Promise.all([
+  const [{ refreshLeaderboardBoard }, { pushDoesLeaderboard }, { refreshStockBoard }] = await Promise.all([
     import("@/lib/discord/leaderboard-board"),
     import("@/lib/discord/does-leaderboard"),
+    import("@/lib/discord/stock-board"),
   ]);
-  const [board, top] = await Promise.all([
+  // 재고현황판도 같은 주기로 새로 고쳐 쓴다 (재고가 바뀔 때도 따로 갱신됨)
+  const [board, top, stock] = await Promise.all([
     refreshLeaderboardBoard(shopId).catch(() => ({ ok: false })),
     pushDoesLeaderboard(shopId).catch(() => ({ ok: false })),
+    refreshStockBoard(shopId).catch(() => ({ ok: false })),
   ]);
-  return { board: board.ok, top: top.ok };
+  return { board: board.ok, top: top.ok, stock: stock.ok };
 }

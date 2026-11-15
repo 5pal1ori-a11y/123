@@ -62,7 +62,7 @@ export function buildStockPanel(shopId: string, mode: "board" | "view") {
 
   const kids: unknown[] = [
     textDisplay(`## ${shop?.name ?? "상점"} 재고현황`),
-    textDisplay(`-# 실시간으로 갱신돼요 · 마지막 갱신 <t:${now}:R>`),
+    textDisplay(`-# 10분마다 갱신돼요 · 마지막 갱신 <t:${now}:R>`),
     separator(true, 1),
   ];
 

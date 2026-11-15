@@ -2,7 +2,6 @@
  * /랜덤뽑기 — 관리자가 채널에 패널을 올리면(모두가 봄), 누구나 버튼을 눌러 잔액에서 가격만큼 내고 뽑는다.
  * 결과(GIF · 상품 · 남은 잔액)는 누른 사람에게만 보인다. 상품 · 확률 · 가격은 관리자 웹에서 바꾼다.
  */
-import { createHmac } from "crypto";
 import {
   actionRow,
   button,
@@ -26,11 +25,6 @@ function origin() {
   return (process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://vendix.team").replace(/\/$/, "");
 }
 
-export function gachaGifSig(key: string) {
-  const secret = process.env.AUTH_SECRET?.trim() || "vendix-dev-secret-change-me";
-  return createHmac("sha256", secret).update(`gacha1:${key}`).digest("hex").slice(0, 16);
-}
-
 function pct(w: number, total: number) {
   return `${Number(((w / total) * 100).toFixed(2))}%`;
 }
@@ -44,7 +38,7 @@ export function gachaPanel(shop: Shop) {
     components: [
       container(
         [
-          mediaGallery([`${origin()}/api/discord/gacha/idle-1.gif`]),
+          mediaGallery([`${origin()}/brand/gacha-idle.gif`]),
           textDisplay(`## 랜덤뽑기\n한 번에 **${formatKRW(cfg.price)}** · 잔액에서 바로 차감돼요`),
           separator(true, 1),
           textDisplay(`### 상품 · 확률\n${lines}`),
@@ -81,8 +75,9 @@ export async function handleGachaDraw(shop: Shop, discordId: string) {
   const r = drawGacha(shop.id, user.id);
   if (!r.ok) return plainEphemeral(r.error);
   await persistAsync();
-  const key = r.prize.points > 0 ? `p${r.prize.points}` : r.prize.weight > 0 && /꽝/.test(r.prize.label) ? "none" : "item";
-  const gif = `${origin()}/api/discord/gacha/${key}-${gachaGifSig(key)}.gif`;
+  const key = r.prize.points > 0 ? "coin" : /꽝/.test(r.prize.label) ? "none" : "item";
+  // 고화질 연출 GIF (금액 · 상품 이름은 아래 글자로 보여 준다)
+  const gif = `${origin()}/brand/gacha-${key === "item" ? "win" : key}.gif`;
   const won = key !== "none";
   // 포인트가 아닌 상품은 관리자가 직접 지급 → 관리자 로그에 남긴다
   if (key === "item") {

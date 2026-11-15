@@ -124,6 +124,8 @@ function needsSyncModalResponse(interaction: DiscordInteraction) {
   const parsed = parseCid(interaction.data?.custom_id ?? "");
   const action = parsed?.action;
   return (
+    // 재고 요청 '직접 적어서 요청' 은 입력 창(모달)을 바로 열어야 한다
+    action === "sr_custom" ||
     action === "chg_custom" ||
     action === "menu_charge" ||
     action === "menu_coupon" ||

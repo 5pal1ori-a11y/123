@@ -437,7 +437,10 @@ export const DOES_COMMUNITY_COMMANDS = [
         "description": "게임 채널",
         "required": true,
         "type": 7
-      }
+      },
+      { "type": 4, "name": "최소", "description": "범위 시작 (예: 600)", "required": false },
+      { "type": 4, "name": "최대", "description": "범위 끝 (예: 900)", "required": false },
+      { "type": 3, "name": "상품", "description": "맞힌 사람에게 줄 상품", "required": false, "max_length": 200 }
     ],
     "name": "숫자",
     "description": "채널에서 숫자 맞추기 게임을 시작합니다",

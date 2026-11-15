@@ -141,6 +141,11 @@ export type ShopSettings = {
     ticketChannelId?: string | null;
     siteUrl?: string | null;
   } | null;
+  /** /랜덤뽑기 — 한 번 가격(원)과 상품 · 확률(가중치). points 가 있으면 그만큼 잔액으로 바로 지급 */
+  gacha?: {
+    price: number;
+    prizes: { id: string; label: string; weight: number; points: number }[];
+  } | null;
   /** /랜덤박스 패널들 — 10분마다 TOP 3 를 고쳐 쓴다 */
   randomBoxPanels?: { channelId: string; messageId: string }[];
   /** /문의대기 — 3분마다 고쳐 쓰는 문의 대기 현황 패널들 */

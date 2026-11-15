@@ -488,3 +488,68 @@ export function mineOpenGif(amount: number) {
   }
   return encodeScene(scene);
 }
+
+/* ───────────── 랜덤뽑기 (잔액 차감 가챠) ───────────── */
+
+/** 패널 그림: 가챠 기계 손잡이가 돌고 캡슐이 반짝인다 */
+export function gachaIdleGif() {
+  const scene = newScene();
+  for (let f = 0; f < 12; f++) {
+    addFrame(scene, 9, (cv) => {
+      night(cv, f);
+      glow(cv, 30, 30, f);
+      gachaMachine(cv, 30, 6, f % 4, f);
+      drawText(cv, "GACHA!", 10, "gold", 2, 63);
+      if (f % 2 === 0) sparkle(cv, 54, 30, f % 4 === 0, P.COIN_L);
+      else sparkle(cv, 88, 38, false, P.VIOLET_L);
+      coin(cv, 70, 40 - ((f * 2) % 6), 1, f % 4);
+    });
+  }
+  return encodeScene(scene);
+}
+
+export type GachaOutcome = { kind: "points"; amount: number } | { kind: "item" } | { kind: "none" };
+
+/** 결과: 손잡이 → 캡슐이 굴러 나와 열림 → 금액 / 상품 / 꽝 */
+export function gachaResultGif(outcome: GachaOutcome) {
+  const scene = newScene();
+  const mcx = 30;
+  const top = 6;
+  const win = outcome.kind !== "none";
+  for (let f = 0; f < 30; f++) {
+    const last = f === 29;
+    addFrame(scene, last ? HOLD : 8, (cv) => {
+      night(cv, f);
+      glow(cv, 66, 32, f, win && f >= 17);
+      gachaMachine(cv, mcx, top, f < 7 ? f : 0, f);
+      let capX = mcx + 10;
+      let capY = top + 37;
+      if (f >= 7) {
+        const t = Math.min(1, (f - 7) / 6);
+        capX = Math.round(mcx + 10 + t * 26);
+        capY = Math.round(top + 37 - Math.sin(t * Math.PI) * 10 - t * 4);
+      }
+      if (f >= 7 && f < 17) capsule(cv, capX, capY, f >= 13 ? Math.min(4, f - 12) : 0);
+      if (f >= 17) {
+        const rise = Math.min(1, (f - 17) / 4);
+        if (outcome.kind === "none") {
+          cv.disc(66, 36, 3, P.STEEL_D);
+          drawText(cv, "꽝", Math.round(18 - rise * 4), "red", 2, 66);
+        } else if (outcome.kind === "points") {
+          coin(cv, 66, Math.round(34 - rise * 6), 3, f % 4);
+          drawText(cv, signedAmount("+", outcome.amount, "원"), 3, "gold");
+          burst(cv, 66, 34, Math.min(1, (f - 17) / 9), 71);
+        } else {
+          prizeIcon(cv, "nitro", 66, Math.round(30 - rise * 6), 2);
+          drawText(cv, "WIN!", 3, "green", 2, 48);
+          burst(cv, 66, 34, Math.min(1, (f - 17) / 9), 73);
+        }
+        if (win) {
+          if (f % 2 === 0) sparkle(cv, 52, 22, true, P.COIN_L);
+          else sparkle(cv, 84, 28, true, P.VIOLET_L);
+        }
+      }
+    });
+  }
+  return encodeScene(scene);
+}

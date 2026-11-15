@@ -1319,7 +1319,7 @@ export function handleSettingsPanel(shopSlug: string, roles: string[], permissio
         }),
         button({
           customId: cid(shopSlug, "set_bbox"),
-          label: "랜덤박스",
+          label: "다이아 캐기",
           style: ButtonStyle.PRIMARY,
         }),
       ),
@@ -1404,7 +1404,7 @@ export async function handleSetLogChannel(
         : kind === "rlog"
           ? "후기"
           : kind === "bbox"
-            ? "랜덤박스"
+            ? "다이아 캐기"
             : "입고";
   return plainEphemeral(`${label} 로그 채널을 <#${channelId}> 로 설정했어요.`);
 }

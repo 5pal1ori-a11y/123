@@ -267,10 +267,14 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
-    name: "랜덤박스",
-    description: "랜덤박스 패널을 채널에 올립니다 (관리자)",
+    name: "다이아채굴",
+    description: "다이아 캐기 패널을 채널에 올립니다 (관리자)",
     type: 1,
-    default_member_permissions: "32",
+  },
+  {
+    name: "랜덤뽑기",
+    description: "랜덤뽑기 패널을 채널에 올립니다 · 한 번에 잔액에서 차감 (관리자)",
+    type: 1,
   },
   {
     name: "서버상황",

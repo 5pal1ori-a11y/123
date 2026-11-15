@@ -3906,6 +3906,66 @@ export function creditUserPoints(
 
 export const RANDOM_BOX_MIN = 0;
 export const RANDOM_BOX_MAX = 3000;
+
+/* ───────────── 랜덤뽑기 (잔액 차감) ───────────── */
+
+export const DEFAULT_GACHA = {
+  price: 500,
+  prizes: [
+    { id: "none", label: "꽝", weight: 70, points: 0 },
+    { id: "p300", label: "300원", weight: 20, points: 300 },
+    { id: "p1000", label: "1,000원", weight: 8, points: 1000 },
+    { id: "p5000", label: "5,000원", weight: 2, points: 5000 },
+  ],
+};
+
+export function getGachaConfig(shopId: string) {
+  const g = getShopSettings(shopId).gacha;
+  return g && g.prizes?.length ? g : DEFAULT_GACHA;
+}
+
+export function saveGachaConfig(shopId: string, input: { price: number; prizes: { id?: string; label: string; weight: number; points: number }[] }) {
+  const price = Math.max(1, Math.min(1_000_000, Math.floor(input.price)));
+  const prizes = input.prizes
+    .map((p, i) => ({
+      id: (p.id && /^[a-z0-9_-]{1,24}$/i.test(p.id) ? p.id : `p${i}_${randomUUID().slice(0, 4)}`),
+      label: String(p.label ?? "").trim().slice(0, 40),
+      weight: Math.max(0, Math.min(1_000_000, Number(p.weight) || 0)),
+      points: Math.max(0, Math.min(10_000_000, Math.floor(Number(p.points) || 0))),
+    }))
+    .filter((p) => p.label && p.weight > 0)
+    .slice(0, 20);
+  if (!prizes.length) throw new Error("상품을 하나 이상 넣어 주세요.");
+  updateShopSettings(shopId, { gacha: { price, prizes } });
+  return getGachaConfig(shopId);
+}
+
+/** 한 번 뽑기: 잔액에서 가격을 빼고, 가중치로 상품을 고르고, 포인트 상품이면 바로 지급 */
+export function drawGacha(shopId: string, userId: string) {
+  const store = getStore();
+  const user = store.users.find((u) => u.id === userId && u.shopId === shopId);
+  if (!user) return { ok: false as const, error: "회원을 찾을 수 없어요." };
+  const cfg = getGachaConfig(shopId);
+  if (user.points < cfg.price) {
+    return { ok: false as const, error: `잔액이 부족해요. 한 번에 ${cfg.price.toLocaleString("ko-KR")}원이 필요해요 (현재 ${user.points.toLocaleString("ko-KR")}원).` };
+  }
+  const total = cfg.prizes.reduce((s, p) => s + p.weight, 0);
+  const r = (crypto.getRandomValues(new Uint32Array(1))[0]! / 0x1_0000_0000) * total;
+  let acc = 0;
+  let prize = cfg.prizes[cfg.prizes.length - 1]!;
+  for (const p of cfg.prizes) {
+    acc += p.weight;
+    if (r < acc) {
+      prize = p;
+      break;
+    }
+  }
+  user.points -= cfg.price;
+  if (prize.points > 0) user.points += prize.points;
+  pushLog(user.email, "gacha.draw", { price: cfg.price, prize: prize.label, points: prize.points }, shopId);
+  persist(store);
+  return { ok: true as const, prize, price: cfg.price, balance: user.points, user, chance: prize.weight / total };
+}
 export const RANDOM_BOX_JACKPOT = 1200;
 
 /** 출석체크 확률표 (합 100%). 0원 = 꽝. 구간 안에서는 1원 단위 균등 */

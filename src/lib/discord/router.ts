@@ -249,7 +249,11 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const { handleStockRequestCommand } = await import("@/lib/discord/stock-request");
       return handleStockRequestCommand(shop.slug, actor.roles, perms, typeof ch === "string" ? ch : null);
     }
-    if (name === "랜덤박스") {
+    if (name === "랜덤뽑기") {
+      const { handleGachaCommand } = await import("@/lib/discord/gacha");
+      return handleGachaCommand(shop, actor, perms, interaction.channel_id);
+    }
+    if (name === "다이아채굴" || name === "랜덤박스") {
       return handleRandomBoxCommand(shop.slug, actor.roles, perms, interaction.channel_id);
     }
     if (name === "서버상황") {
@@ -568,6 +572,10 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
     if (action === "vf_click") {
       const { handleVerifyButton } = await import("@/lib/verify-bot/router");
       return handleVerifyButton(interaction);
+    }
+    if (action === "gacha_draw") {
+      const { handleGachaDraw } = await import("@/lib/discord/gacha");
+      return handleGachaDraw(shop, actor.id);
     }
     if (action === "tq_mine") {
       const { handleTicketQueueMine } = await import("@/lib/discord/ticket-queue");

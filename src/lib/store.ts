@@ -3630,6 +3630,14 @@ export function createPointCharge(
   };
   store.charges.unshift(charge);
   persist(store);
+  // 입금을 먼저 하고 신청을 나중에 한 경우: 최근 30분 안에 못 맞춘 입금 알림이 있으면 지금 맞춰 본다
+  if (method === "bank") {
+    try {
+      matchEarlyDeposits(shopId, amount);
+    } catch (err) {
+      console.error("[charge] early deposit match failed", err);
+    }
+  }
   return charge;
 }
 
@@ -4101,6 +4109,33 @@ export function listTodayRandomBoxDraws(shopId: string, limit = 16) {
         createdAt: c.createdAt,
       };
     });
+}
+
+/** 신청보다 먼저 들어온(맞출 신청이 없던) 입금 알림을 다시 맞춰 본다 */
+export function matchEarlyDeposits(shopId: string, amount: number) {
+  const store = getStore();
+  const since = Date.now() - 30 * 60 * 1000;
+  const early = store.logs.filter(
+    (l) =>
+      l.shopId === shopId &&
+      l.action === "charge.auto.unmatched" &&
+      Number(l.meta?.amount) === amount &&
+      !l.meta?.consumed &&
+      new Date(l.createdAt).getTime() >= since,
+  );
+  for (const l of early) {
+    const name = typeof l.meta?.depositorName === "string" ? l.meta.depositorName : null;
+    const text = typeof l.meta?.depositorText === "string" ? l.meta.depositorText : name ?? "";
+    if (!name && !text) continue;
+    const r = autoMatchCharge({ shopId, amount, depositorText: text, depositorName: name });
+    if (r.ok) {
+      l.meta = { ...l.meta, consumed: true };
+      pushLog("auto:early", "charge.auto.matched", { amount, depositorName: name, chargeId: r.charge.id, error: null, early: true }, shopId);
+      persist(store);
+      return r;
+    }
+  }
+  return null;
 }
 
 export function autoMatchCharge(input: {

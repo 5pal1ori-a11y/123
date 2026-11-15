@@ -19,6 +19,7 @@ const bodySchema = z.discriminatedUnion("op", [
     userId: snowflake,
     guess: z.number().int().min(0).max(999_999_999),
   }),
+  z.object({ op: z.literal("member_remove"), userId: snowflake, guildId: snowflake }),
   z.object({
     op: z.literal("member_add"),
     userId: snowflake,
@@ -70,8 +71,22 @@ export async function POST(request: Request) {
     const d = parsed.data;
     return NextResponse.json(await handleNumberGuessMessage(shop, d.channelId, d.messageId, d.userId, d.guess));
   }
+  if (parsed.data.op === "member_remove") {
+    const { onMemberLeave } = await import("@/lib/discord/invites");
+    await onMemberLeave(parsed.data.guildId, parsed.data.userId).catch(() => null);
+    return NextResponse.json({ ok: true });
+  }
   if (parsed.data.op === "member_add") {
     if (parsed.data.bot) return NextResponse.json({ ok: true, skipped: "bot" });
+    // 초대 추적 (어느 링크로 들어왔는지) — 실패해도 환영 메시지는 보낸다
+    const join = parsed.data;
+    const inviter = await import("@/lib/discord/invites")
+      .then(({ onMemberJoin }) => onMemberJoin(shop.id, join.guildId, join.userId, join.avatar ?? null))
+      .catch((err) => {
+        console.error("[invites] join failed", err);
+        return null;
+      });
+    void inviter;
     const { postWelcome } = await import("@/lib/discord/welcome");
     return NextResponse.json(
       await postWelcome(shop.id, { userId: parsed.data.userId, avatar: parsed.data.avatar, guildId: parsed.data.guildId }),
@@ -112,6 +127,13 @@ async function refreshRankingEvery10m(shopId: string) {
     pushDoesLeaderboard(shopId).catch(() => ({ ok: false })),
     refreshStockBoard(shopId).catch(() => ({ ok: false })),
   ]);
+  // 초대 랭킹판 (1시간에 한 번)
+  const invAt = (await kvGetJson<number>("invites:rank-at")) ?? 0;
+  if (Date.now() - invAt > 60 * 60_000 - 60_000) {
+    await kvPutJson("invites:rank-at", Date.now());
+    const { refreshInviteRanks } = await import("@/lib/discord/invites");
+    await refreshInviteRanks(shopId).catch(() => null);
+  }
   // 다이아 캐기 패널 TOP 3
   const rbox = await refreshRandomBoxPanels(shopId).catch(() => ({ panels: -1 }));
   return { board: board.ok, top: top.ok, stock: stock.ok, rbox: rbox.panels };

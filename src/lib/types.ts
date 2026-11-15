@@ -146,6 +146,10 @@ export type ShopSettings = {
     price: number;
     prizes: { id: string; label: string; weight: number; points: number }[];
   } | null;
+  /** /초대로그 — 누가 누구를 초대했는지 올리는 채널 */
+  inviteLogChannelId?: string | null;
+  /** /초대랭킹 판들 — 1시간마다 고쳐 쓴다 */
+  inviteRankPanels?: { channelId: string; messageId: string; guildId: string }[];
   /** /뽑기로그 — 누가 무엇을 뽑았는지 올리는 채널 */
   gachaLogChannelId?: string | null;
   /** /랜덤박스 패널들 — 10분마다 TOP 3 를 고쳐 쓴다 */

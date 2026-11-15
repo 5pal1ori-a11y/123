@@ -272,6 +272,22 @@ export const VENDIX_DISCORD_COMMANDS = [
     type: 1,
   },
   {
+    name: "초대이벤트",
+    description: "초대 이벤트 패널(초대 링크 만들기 · 내 초대 확인)을 올립니다 (관리자)",
+    type: 1,
+  },
+  {
+    name: "초대랭킹",
+    description: "초대 랭킹판을 올립니다 · 1시간마다 갱신 (관리자)",
+    type: 1,
+  },
+  {
+    name: "초대로그",
+    description: "누가 누구를 초대했는지 올릴 채널을 정합니다 (관리자)",
+    type: 1,
+    options: [{ name: "채널", description: "초대 로그 채널", type: 7, channel_types: [0, 5], required: true }],
+  },
+  {
     name: "뽑기로그",
     description: "랜덤뽑기 결과(누가 무엇을 뽑았는지)를 올릴 채널을 정합니다 (관리자)",
     type: 1,

@@ -147,6 +147,45 @@ def icon_crown(cv, f, cx, cy, s):
     confetti(cv, f, 9, cx - 130, cx + 130, y_range=300, count=26)
 
 
+def person(cv, cx, cy, s, body, head=(255, 224, 196)):
+    d = cv.d
+    d.ellipse([S(cx - 46 * s), S(cy + 6 * s), S(cx + 46 * s), S(cy + 96 * s)], fill=OUT)
+    d.ellipse([S(cx - 40 * s), S(cy + 12 * s), S(cx + 40 * s), S(cy + 92 * s)], fill=body)
+    d.ellipse([S(cx - 30 * s), S(cy - 52 * s), S(cx + 30 * s), S(cy + 8 * s)], fill=OUT)
+    d.ellipse([S(cx - 25 * s), S(cy - 47 * s), S(cx + 25 * s), S(cy + 3 * s)], fill=head)
+    d.ellipse([S(cx - 12 * s), S(cy - 26 * s), S(cx - 6 * s), S(cy - 20 * s)], fill=OUT)
+    d.ellipse([S(cx + 6 * s), S(cy - 26 * s), S(cx + 12 * s), S(cy - 20 * s)], fill=OUT)
+    d.arc([S(cx - 10 * s), S(cy - 18 * s), S(cx + 10 * s), S(cy - 4 * s)], 20, 160, fill=OUT, width=S(3 * s))
+
+
+def icon_invite(cv, f, cx, cy, s):
+    bob = math.sin(f / N * math.pi * 2) * 4
+    person(cv, cx - 34 * s, cy - 6 * s + bob, s * 0.78, (96, 165, 250))
+    person(cv, cx + 30 * s, cy - 2 * s - bob, s * 0.9, (244, 114, 182))
+    d = cv.d
+    px, py, r = cx + 62 * s, cy - 52 * s, 24 * s
+    d.ellipse([S(px - r - 4), S(py - r - 4), S(px + r + 4), S(py + r + 4)], fill=OUT)
+    d.ellipse([S(px - r), S(py - r), S(px + r), S(py + r)], fill=(34, 197, 94))
+    d.rounded_rectangle([S(px - 4 * s), S(py - 14 * s), S(px + 4 * s), S(py + 14 * s)], radius=S(3), fill=(255, 255, 255))
+    d.rounded_rectangle([S(px - 14 * s), S(py - 4 * s), S(px + 14 * s), S(py + 4 * s)], radius=S(3), fill=(255, 255, 255))
+
+
+def icon_trophy(cv, f, cx, cy, s):
+    d = cv.d
+    bob = math.sin(f / N * math.pi * 2) * 4
+    cy = cy + bob
+    d.rounded_rectangle([S(cx - 60 * s), S(cy - 62 * s), S(cx + 60 * s), S(cy + 18 * s)], radius=S(26 * s), fill=OUT)
+    d.rounded_rectangle([S(cx - 53 * s), S(cy - 55 * s), S(cx + 53 * s), S(cy + 11 * s)], radius=S(22 * s), fill=(255, 205, 64))
+    d.rectangle([S(cx + 14 * s), S(cy - 55 * s), S(cx + 53 * s), S(cy + 4 * s)], fill=(226, 160, 30))
+    for side in (-1, 1):
+        hx = cx + side * 66 * s
+        d.arc([S(hx - 26 * s), S(cy - 50 * s), S(hx + 26 * s), S(cy + 2 * s)], 90 if side > 0 else -90, 270 if side > 0 else 90, fill=OUT, width=S(9 * s))
+    d.rectangle([S(cx - 12 * s), S(cy + 14 * s), S(cx + 12 * s), S(cy + 44 * s)], fill=OUT)
+    d.rounded_rectangle([S(cx - 46 * s), S(cy + 40 * s), S(cx + 46 * s), S(cy + 64 * s)], radius=S(8 * s), fill=OUT)
+    d.rounded_rectangle([S(cx - 40 * s), S(cy + 45 * s), S(cx + 40 * s), S(cy + 59 * s)], radius=S(6 * s), fill=(150, 104, 52))
+    d.ellipse([S(cx - 34 * s), S(cy - 46 * s), S(cx - 14 * s), S(cy - 26 * s)], fill=(255, 240, 190))
+
+
 # 기존 배너 크기 · 글자 그대로 (파일 이름만 -hq 로 바꿔 디스코드가 새 그림을 받게)
 banner(os.path.join(out, "giveaway-hq.gif"), 960, 190, icon_gift, "경품 추첨", "버튼 한 번으로 참여하세요 · 마감 시 자동 추첨")
 banner(os.path.join(out, "giveaway-end-hq.gif"), 960, 190, icon_gift_open, "당첨 발표!", "당첨자를 축하드려요 · 주최자에게 문의해 주세요")
@@ -155,6 +194,10 @@ banner(os.path.join(out, "purchase-hq.gif"), 960, 190, icon_bag, "주문 완료!
 banner(os.path.join(out, "number-guess-hq.gif"), 960, 300, icon_tile, "숫자 맞추기", "가장 먼저 맞힌 1명에게 상품", line=((34, 197, 94), (21, 128, 61)))
 banner(os.path.join(out, "number-guess-win-hq.gif"), 960, 300, icon_crown, "정답!", "가장 먼저 맞혔어요 · 축하합니다", line=((34, 197, 94), (21, 128, 61)))
 banner(os.path.join(out, "welcome-hq.gif"), 960, 300, icon_heart, "환영합니다!", "DOES 에 오신 걸 환영해요", line=((34, 197, 94), (21, 128, 61)), glow_color=(220, 60, 110))
+
+
+banner(os.path.join(out, "invite-event-hq.gif"), 960, 300, icon_invite, "초대 이벤트", "친구를 초대하고 보상을 받아 가세요", line=((34, 197, 94), (21, 128, 61)), glow_color=(60, 150, 255))
+banner(os.path.join(out, "invite-rank-hq.gif"), 960, 190, icon_trophy, "초대 랭킹", "1시간마다 갱신돼요 · 실제 남아 있는 인원 기준", glow_color=(255, 190, 60))
 
 
 # 재고 요청 정사각 썸네일

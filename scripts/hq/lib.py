@@ -56,12 +56,21 @@ def noto(size, weight=500):
     return f
 
 
+def _thin_vowel(ch):
+    o = ord(ch) - 0xAC00
+    if not 0 <= o < 11172:
+        return False
+    return (o // 28) % 21 in (1, 3, 5, 7, 10, 15)
+
+
 def pixel_text_img(text, color, scale, shadow=(44, 34, 70)):
     """기존 배너와 같은 픽셀 제목 (Galmuri 를 굵게 찍어 nearest 로 키움 + 그림자)"""
     tmp = Image.new("RGBA", (len(text) * 14 + 8, 18), (0, 0, 0, 0))
     td = ImageDraw.Draw(tmp)
     td.text((2, 1), text, font=pix_font(), fill=color + (255,))
-    td.text((3, 1), text, font=pix_font(), fill=color + (255,))
+    # 굵게(한 칸 옆에 한 번 더). ㅐ·ㅔ 처럼 세로획이 1칸 간격인 모음은 뭉개지므로 그대로 둔다
+    if not any(_thin_vowel(ch) for ch in text):
+        td.text((3, 1), text, font=pix_font(), fill=color + (255,))
     bb = tmp.getbbox()
     if not bb:
         return Image.new("RGBA", (1, 1))

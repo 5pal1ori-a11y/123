@@ -255,6 +255,14 @@ export class StatusWatch extends DurableObject<Env> {
       }
       return;
     }
+    if (frame.t === "GUILD_MEMBER_REMOVE") {
+      // 초대 이벤트: 나간 사람은 초대한 사람의 인원에서 뺀다
+      const d = frame.d as { guild_id?: string; user?: { id?: string; bot?: boolean } };
+      if (this.config && d.guild_id === this.config.guildId && d.user?.id && !d.user.bot) {
+        this.ctx.waitUntil(this.post({ op: "member_remove", userId: d.user.id, guildId: this.config.guildId }));
+      }
+      return;
+    }
     if (frame.t === "GUILD_MEMBER_ADD") {
       const d = frame.d as { guild_id?: string; user?: { id?: string; avatar?: string | null; bot?: boolean } };
       if (this.config && d.guild_id === this.config.guildId) this.ctx.waitUntil(this.forwardMember(d));

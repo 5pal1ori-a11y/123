@@ -249,6 +249,13 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const { handleStockRequestCommand } = await import("@/lib/discord/stock-request");
       return handleStockRequestCommand(shop.slug, actor.roles, perms, typeof ch === "string" ? ch : null);
     }
+    if (name === "초대이벤트" || name === "초대랭킹" || name === "초대로그") {
+      const inv = await import("@/lib/discord/invites");
+      if (name === "초대이벤트") return inv.handleInviteEventCommand(shop, actor, perms, interaction.channel_id);
+      if (name === "초대랭킹") return inv.handleInviteRankCommand(shop, actor, perms, interaction.channel_id, interaction.guild_id);
+      const ch = interaction.data?.options?.find((o) => o.name === "채널")?.value;
+      return inv.handleInviteLogCommand(shop, actor, perms, typeof ch === "string" ? ch : null);
+    }
     if (name === "뽑기로그") {
       const ch = interaction.data?.options?.find((o) => o.name === "채널")?.value;
       const { handleGachaLogCommand } = await import("@/lib/discord/gacha");
@@ -577,6 +584,10 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
     if (action === "vf_click") {
       const { handleVerifyButton } = await import("@/lib/verify-bot/router");
       return handleVerifyButton(interaction);
+    }
+    if (action === "inv_create" || action === "inv_mine") {
+      const inv = await import("@/lib/discord/invites");
+      return action === "inv_create" ? inv.handleInviteCreate(shop, interaction, actor.id) : inv.handleInviteMine(interaction, actor.id);
     }
     if (action === "gacha_draw") {
       const { handleGachaDraw } = await import("@/lib/discord/gacha");

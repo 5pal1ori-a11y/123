@@ -3660,6 +3660,17 @@ export function cancelUserPointCharge(chargeId: string, shopId: string, userId: 
   );
   if (!charge) return { ok: false as const, error: "충전 요청 없음" };
   if (charge.status !== "pending") return { ok: false as const, error: "이미 처리된 요청이에요." };
+  // 이미 입금한 뒤 취소하면 돈이 묶이므로, 같은 금액·이름의 입금이 들어와 있으면 취소 대신 바로 충전한다
+  if (charge.method === "bank") {
+    try {
+      matchEarlyDeposits(shopId, charge.amount);
+    } catch {
+      /* 아래에서 그대로 취소 */
+    }
+    if ((charge.status as string) === "completed") {
+      return { ok: false as const, error: "입금이 이미 확인돼서 충전을 완료했어요. 잔액을 확인해 주세요.", charge };
+    }
+  }
   charge.status = "cancelled";
   pushLog("user", "charge.cancel", { chargeId, method: charge.method }, shopId);
   persist(store);
@@ -4144,6 +4155,7 @@ export function matchEarlyDeposits(shopId: string, amount: number) {
     const r = autoMatchCharge({ shopId, amount, depositorText: text, depositorName: name });
     if (r.ok) {
       l.meta = { ...l.meta, consumed: true };
+      r.charge.earlyDepositAt = l.createdAt;
       pushLog("auto:early", "charge.auto.matched", { amount, depositorName: name, chargeId: r.charge.id, error: null, early: true }, shopId);
       persist(store);
       return r;

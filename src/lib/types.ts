@@ -525,6 +525,8 @@ export type PointCharge = {
   /** 유저가 받은 충전 안내 응답 — 자동충전 시 완료로 수정 (15분 유효) */
   discordApplicationId: string | null;
   discordInteractionToken: string | null;
+  /** 신청보다 먼저 들어와 있던 입금으로 승인된 경우, 그 입금 시각 */
+  earlyDepositAt?: string | null;
 };
 
 /** 상품 종류: 기타상품 / 마인크래프트 계정 */

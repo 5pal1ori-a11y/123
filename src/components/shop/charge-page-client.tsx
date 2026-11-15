@@ -93,6 +93,8 @@ export function ChargePageClient({
   const [error, setError] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [done, setDone] = useState(false);
+  /** 신청 전에 이미 들어와 있던 입금으로 바로 충전된 경우 그 시각 */
+  const [earlyAt, setEarlyAt] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [chargeFailed, setChargeFailed] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -268,6 +270,14 @@ export function ChargePageClient({
         if (/보안|CAPCHA|캡챠/i.test(data.error ?? "")) await captcha.refresh();
         throw new Error(data.error);
       }
+      // 신청 전에 이미 입금이 들어와 있어서 바로 충전된 경우
+      if (data.charge.status === "completed") {
+        setEarlyAt(data.charge.earlyDepositAt ?? new Date().toISOString());
+        setDone(true);
+        void refresh();
+        return;
+      }
+      setEarlyAt(null);
       const charge = {
         id: data.charge.id,
         amount: data.charge.amount,
@@ -439,6 +449,12 @@ export function ChargePageClient({
             <ChargeOrb active={false} amountLabel="완료" subLabel="charged" size="xl" />
             <h3>충전이 완료됐어요</h3>
             <p>현재 잔액 {formatKRW(user.points)}</p>
+            {earlyAt ? (
+              <p className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                {new Date(earlyAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}에 이미 들어온 입금으로
+                충전됐어요. <strong>다시 입금하지 마세요.</strong>
+              </p>
+            ) : null}
             <button type="button" className="charge-cta mt-6 max-w-xs" onClick={() => setDone(false)}>
               추가 충전
             </button>

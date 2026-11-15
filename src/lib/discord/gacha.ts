@@ -17,7 +17,7 @@ import {
 } from "@/lib/discord/components";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { postChannelMessage } from "@/lib/discord/rest";
-import { drawGacha, getGachaConfig, getShopSettings, getUserByDiscordId, persistAsync } from "@/lib/store";
+import { drawGacha, getGachaConfig, getShopSettings, getUserByDiscordId, persistAsync, updateShopSettings } from "@/lib/store";
 import type { Shop } from "@/lib/types";
 import { formatKRW } from "@/lib/utils";
 
@@ -76,8 +76,39 @@ export async function handleGachaDraw(shop: Shop, discordId: string) {
   if (!r.ok) return plainEphemeral(r.error);
   await persistAsync();
   const key = r.prize.points > 0 ? "coin" : /꽝/.test(r.prize.label) ? "none" : "item";
-  // 고화질 연출 GIF (금액 · 상품 이름은 아래 글자로 보여 준다)
-  const gif = `${origin()}/brand/gacha-${key === "item" ? "win" : key}.gif`;
+  // 고화질 연출 GIF (금액 · 상품 이름은 아래 글자로 보여 준다). 마크 계정은 잔디 블록 그림
+  const isMc = key === "item" && /마인크래프트|마크|계정/.test(r.prize.label);
+  const gif = isMc ? `${origin()}/brand/hq-raffle-mc.gif` : `${origin()}/brand/gacha-${key === "item" ? "win" : key}.gif`;
+  // /뽑기로그 채널: 누가 무엇을 뽑았는지 모두에게
+  const logCh = getShopSettings(shop.id).gachaLogChannelId;
+  if (logCh) {
+    const { scheduleDiscordBackground } = await import("@/lib/discord/schedule");
+    const now = Math.floor(Date.now() / 1000);
+    scheduleDiscordBackground(
+      postChannelMessage(
+        logCh,
+        {
+          flags: MessageFlags.IS_COMPONENTS_V2,
+          components: [
+            container(
+              [
+                mediaGallery([gif]),
+                textDisplay(
+                  key === "none"
+                    ? `<@${discordId}> 님이 뽑기를 했는데 **꽝**이 나왔어요`
+                    : `<@${discordId}> 님이 **${r.prize.label}** 을(를) 뽑았어요!`,
+                ),
+                textDisplay(`-# 확률 ${(r.chance * 100).toFixed(2)}% · 1회 ${formatKRW(r.price)} · <t:${now}:R>`),
+              ],
+              key === "none" ? 0x6b7280 : 0xa855f7,
+            ),
+          ],
+          allowed_mentions: { parse: [] },
+        },
+        shop.id,
+      ).then(() => undefined),
+    );
+  }
   const won = key !== "none";
   // 포인트가 아닌 상품은 관리자가 직접 지급 → 관리자 로그에 남긴다
   if (key === "item") {
@@ -101,4 +132,20 @@ export async function handleGachaDraw(shop: Shop, discordId: string) {
       won ? 0xa855f7 : 0x6b7280,
     ),
   ]);
+}
+
+/** /뽑기로그 채널 */
+export async function handleGachaLogCommand(
+  shop: Shop,
+  actor: { id: string; roles: string[] },
+  permissions: string | undefined,
+  channelId: string | null,
+) {
+  if (!isDiscordAdmin(getShopSettings(shop.id), actor.roles, permissions)) {
+    return errorPanel("관리자만 정할 수 있어요.", "권한 없음");
+  }
+  if (!channelId) return errorPanel("채널을 골라 주세요.");
+  updateShopSettings(shop.id, { gachaLogChannelId: channelId });
+  await persistAsync();
+  return plainEphemeral(`앞으로 랜덤뽑기 결과를 <#${channelId}> 에 올려요. (누가 무엇을 뽑았는지 · GIF 포함)`);
 }

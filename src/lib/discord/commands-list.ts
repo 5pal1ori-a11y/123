@@ -272,6 +272,12 @@ export const VENDIX_DISCORD_COMMANDS = [
     type: 1,
   },
   {
+    name: "뽑기로그",
+    description: "랜덤뽑기 결과(누가 무엇을 뽑았는지)를 올릴 채널을 정합니다 (관리자)",
+    type: 1,
+    options: [{ name: "채널", description: "뽑기 로그 채널", type: 7, channel_types: [0, 5], required: true }],
+  },
+  {
     name: "랜덤뽑기",
     description: "랜덤뽑기 패널을 채널에 올립니다 · 한 번에 잔액에서 차감 (관리자)",
     type: 1,

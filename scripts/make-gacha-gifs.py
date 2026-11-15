@@ -180,6 +180,17 @@ def gem(d, cx, cy, s):
     d.line([inner[0], inner[3]], fill=(70, 120, 210), width=S(3))
 
 
+def grass_block(d, cx, cy, s):
+    """마인크래프트 잔디 블록 (정육면체 느낌)"""
+    top = [(cx, cy - s), (cx + s, cy - s * 0.5), (cx, cy), (cx - s, cy - s * 0.5)]
+    left = [(cx - s, cy - s * 0.5), (cx, cy), (cx, cy + s), (cx - s, cy + s * 0.5)]
+    right = [(cx + s, cy - s * 0.5), (cx, cy), (cx, cy + s), (cx + s, cy + s * 0.5)]
+    for poly, col in ((top, (110, 200, 90)), (left, (150, 100, 60)), (right, (120, 78, 46))):
+        d.polygon(poly, fill=col, outline=(30, 24, 20))
+    d.polygon([(cx - s, cy - s * 0.5), (cx, cy), (cx, cy + s * 0.22), (cx - s, cy - s * 0.28)], fill=(90, 175, 70))
+    d.polygon([(cx + s, cy - s * 0.5), (cx, cy), (cx, cy + s * 0.22), (cx + s, cy - s * 0.28)], fill=(70, 150, 56))
+
+
 def coins(d, cx, cy, s, f):
     for i, (dx, dy) in enumerate([(-0.9, 0.35), (0.85, 0.4), (0, 0), (-0.35, -0.55), (0.45, -0.5)]):
         x, y = cx + dx * s, cy + dy * s + math.sin(f * 0.5 + i) * S(3)
@@ -277,7 +288,11 @@ def result(path, kind):
             pop = max(0.25, ease_back(min(1, (f - 38) / 9)))
             if kind == "win":
                 gem(d, tx, ty - S(8), S(58) * pop)
-            elif kind == "coin":
+            elif kind == "nitro":
+                gem(d, tx, ty - S(8), S(58) * pop)
+            elif kind == "mc":
+                grass_block(d, tx, ty, S(54) * pop)
+            elif kind in ("coin", "charge"):
                 coins(d, tx, ty, S(62) * pop, f)
             else:
                 # 연기 몇 덩이
@@ -460,8 +475,9 @@ def claw_result(path, kind):
         elif f >= 72:
             t = min(1, (f - 72) / 7)
             if kind != "none":
-                rays(img, tx, ty, (f - 72) / 9, (255, 214, 120) if kind == "coin" else (170, 210, 255))
-                soft_glow(img, tx, ty, S(110), (255, 220, 140) if kind == "coin" else (150, 200, 255), 170)
+                rc = {"coin": (255, 214, 120), "charge": (255, 214, 120), "nitro": (210, 150, 255), "mc": (150, 230, 140)}.get(kind, (170, 210, 255))
+                rays(img, tx, ty, (f - 72) / 9, rc)
+                soft_glow(img, tx, ty, S(110), rc, 170)
             else:
                 soft_glow(img, tx, ty, S(70), (90, 90, 110), 120)
             d = ImageDraw.Draw(img)
@@ -470,7 +486,11 @@ def claw_result(path, kind):
             pop = max(0.25, ease_back(min(1, (f - 72) / 8)))
             if kind == "win":
                 gem(d, tx, ty - S(8), S(58) * pop)
-            elif kind == "coin":
+            elif kind == "nitro":
+                gem(d, tx, ty - S(8), S(58) * pop)
+            elif kind == "mc":
+                grass_block(d, tx, ty, S(54) * pop)
+            elif kind in ("coin", "charge"):
                 coins(d, tx, ty, S(62) * pop, f)
             else:
                 for i in range(5):
@@ -485,8 +505,8 @@ def claw_result(path, kind):
                 for i, (sx, sy) in enumerate([(tx - S(90), ty - S(80)), (tx + S(95), ty - S(70)), (tx + S(70), ty + S(85))]):
                     if (f + i * 3) % 6 < 4:
                         sparkle(d, sx, sy, S(10 + 6 * ((f + i) % 3)))
-            label = {"win": "당첨!", "coin": "당첨!", "none": "꽝"}[kind]
-            col = {"win": (170, 220, 255), "coin": (255, 214, 80), "none": (190, 190, 205)}[kind]
+            label = "꽝" if kind == "none" else "당첨!"
+            col = {"win": (170, 220, 255), "coin": (255, 214, 80), "charge": (255, 214, 80), "nitro": (220, 170, 255), "mc": (150, 230, 140), "none": (190, 190, 205)}[kind]
             fz = font(max(12, int(60 * min(1, pop))), 900)
             tw = d.textlength(label, font=fz)
             d.text((tx - tw / 2 + S(4), S(36) + S(4)), label, font=fz, fill=(30, 20, 60))
@@ -499,8 +519,9 @@ def claw_result(path, kind):
     save(frames, path, durs)
 
 
-out = sys.argv[1] if len(sys.argv) > 1 else "."
-claw_idle(os.path.join(out, "gacha-idle-2.gif"))
-claw_result(os.path.join(out, "gacha-win.gif"), "win")
-claw_result(os.path.join(out, "gacha-coin.gif"), "coin")
-claw_result(os.path.join(out, "gacha-none.gif"), "none")
+if __name__ == "__main__":
+    out = sys.argv[1] if len(sys.argv) > 1 else "."
+    claw_idle(os.path.join(out, "gacha-idle-2.gif"))
+    claw_result(os.path.join(out, "gacha-win.gif"), "win")
+    claw_result(os.path.join(out, "gacha-coin.gif"), "coin")
+    claw_result(os.path.join(out, "gacha-none.gif"), "none")

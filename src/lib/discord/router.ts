@@ -249,6 +249,11 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const { handleStockRequestCommand } = await import("@/lib/discord/stock-request");
       return handleStockRequestCommand(shop.slug, actor.roles, perms, typeof ch === "string" ? ch : null);
     }
+    if (name === "뽑기로그") {
+      const ch = interaction.data?.options?.find((o) => o.name === "채널")?.value;
+      const { handleGachaLogCommand } = await import("@/lib/discord/gacha");
+      return handleGachaLogCommand(shop, actor, perms, typeof ch === "string" ? ch : null);
+    }
     if (name === "랜덤뽑기") {
       const { handleGachaCommand } = await import("@/lib/discord/gacha");
       return handleGachaCommand(shop, actor, perms, interaction.channel_id);

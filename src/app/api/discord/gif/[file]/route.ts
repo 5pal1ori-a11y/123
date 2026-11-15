@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { doesForwardKey } from "@/lib/discord/does-forward";
+import { serveBrandAsset } from "@/lib/brand-asset";
 import { checkinGif, gambleGif, raffleGif, type RafflePrize } from "@/lib/gif/night-scenes";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,16 @@ const SIG_VERSIONS = ["gif3", "gif2", "gif"] as const;
 
 function notFound() {
   return new Response("not found", { status: 404 });
+}
+
+function hqName(payload: string) {
+  let m = /^(checkin|jackpot)-\d{1,7}$/.exec(payload);
+  if (m) return m[1] === "jackpot" ? "hq-checkin-jackpot.gif" : "hq-checkin.gif";
+  m = /^gamble-(w|l)-\d{1,10}$/.exec(payload);
+  if (m) return m[1] === "w" ? "hq-gamble-win.gif" : "hq-gamble-lose.gif";
+  m = /^raffle-(nitro|mc|charge|none)$/.exec(payload);
+  if (m) return `hq-raffle-${m[1]}.gif`;
+  return null;
 }
 
 function render(payload: string): Uint8Array | null {
@@ -39,6 +50,12 @@ export async function GET(_request: Request, ctx: { params: Promise<{ file: stri
     return expected.length === given.length && timingSafeEqual(expected, given);
   });
   if (!signed) return notFound();
+  // 고화질로 미리 만든 그림 (금액은 디스코드 메시지 글자로 보인다)
+  const hq = hqName(m[1]!);
+  if (hq) {
+    const res = await serveBrandAsset(hq);
+    if (res) return res;
+  }
   const bytes = render(m[1]!);
   if (!bytes) return notFound();
   return new Response(new Blob([bytes as Uint8Array<ArrayBuffer>]), {

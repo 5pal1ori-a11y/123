@@ -52,7 +52,7 @@ function startPanel(shopName: string, g: Game) {
     components: [
       container(
         [
-          mediaGallery([`${origin()}/brand/number-guess.gif`]),
+          mediaGallery([`${origin()}/brand/number-guess-hq.gif`]),
           textDisplay(`-# ${shopName}`),
           textDisplay(ended ? "## 🔢 숫자 맞추기 종료" : "## 🔢 숫자 맞추기 시작!"),
           textDisplay(
@@ -79,7 +79,7 @@ function winPanel(shopName: string, g: Game) {
     components: [
       container(
         [
-          mediaGallery([`${origin()}/brand/number-guess-win.gif`]),
+          mediaGallery([`${origin()}/brand/number-guess-win-hq.gif`]),
           textDisplay(`-# ${shopName}`),
           textDisplay(`## ${appEmoji("does_party")} 정답이 나왔어요!`),
           textDisplay(`<@${g.winnerId}> 님이 맞혔어요. 축하합니다!\n**정답** ${g.answer.toLocaleString("ko-KR")}`),

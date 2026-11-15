@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "crypto";
 import { randomBoxGifSigs, renderIdleBoxGif, renderOpenBoxGif } from "@/lib/random-box-gif";
 import { RANDOM_BOX_MAX } from "@/lib/store";
+import { serveBrandAsset } from "@/lib/brand-asset";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,7 +23,7 @@ function sameSig(a: string, b: string) {
 
 export async function GET(_request: Request, ctx: { params: Promise<{ file: string }> }) {
   const { file } = await ctx.params;
-  if (/^idle(-[a-z]+)?\.gif$/.test(file)) return gif(renderIdleBoxGif());
+  if (/^idle(-[a-z]+)?\.gif$/.test(file)) return (await serveBrandAsset("hq-mine-idle.gif")) ?? gif(renderIdleBoxGif());
 
   const m = /^(\d{1,5})-([0-9a-f]{16})\.gif$/.exec(file);
   if (!m) return new Response("not found", { status: 404 });
@@ -31,5 +32,6 @@ export async function GET(_request: Request, ctx: { params: Promise<{ file: stri
     return new Response("not found", { status: 404 });
   }
   if (!randomBoxGifSigs(amount).some((sig) => sameSig(m[2]!, sig))) return new Response("not found", { status: 404 });
-  return gif(renderOpenBoxGif(amount));
+  // 고화질로 미리 만든 그림 (금액은 메시지 글자로 보인다)
+  return (await serveBrandAsset(amount > 0 ? "hq-mine-win.gif" : "hq-mine-none.gif")) ?? gif(renderOpenBoxGif(amount));
 }

@@ -3912,7 +3912,8 @@ export const RANDOM_BOX_MAX = 3000;
 export const DEFAULT_GACHA = {
   price: 500,
   prizes: [
-    { id: "none", label: "꽝", weight: 70, points: 0 },
+    { id: "none", label: "꽝", weight: 69.5, points: 0 },
+    { id: "mcacc", label: "마인크래프트 계정", weight: 0.5, points: 0 },
     { id: "p300", label: "300원", weight: 20, points: 300 },
     { id: "p1000", label: "1,000원", weight: 8, points: 1000 },
     { id: "p5000", label: "5,000원", weight: 2, points: 5000 },

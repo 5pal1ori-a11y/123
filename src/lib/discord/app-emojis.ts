@@ -3,9 +3,7 @@
  * 그림은 scripts/make-bot-emojis.py. 없으면 처음 한 번 봇 앱에 올리고, ID 는 KV 에 기억해 둔다.
  * 아직 준비가 안 됐거나 실패하면 일반 이모지로 대신한다.
  */
-import { DOES_APPLICATION_ID } from "@/lib/discord/does-env";
 import { BOT_EMOJI_IMAGES } from "@/lib/discord/emoji-images";
-import { discordRest } from "@/lib/discord/rest";
 import { kvGetJson, kvPutJson } from "@/lib/world/kv";
 
 export type AppEmojiName = keyof typeof BOT_EMOJI_IMAGES;
@@ -33,7 +31,8 @@ const FALLBACK: Record<AppEmojiName, string> = {
   does_sold: "⚫",
 };
 
-const KV_KEY = "does:app-emojis:v2";
+/** v3: DOES 봇 토큰으로만 올리고, 어느 앱 것인지(appId)를 같이 기억한다 */
+const KV_KEY = "does:app-emojis:v3";
 let cache: Partial<Record<AppEmojiName, string>> = {};
 let ensured = false;
 let inflight: Promise<void> | null = null;
@@ -55,27 +54,42 @@ export function plainEmoji(name: AppEmojiName) {
 /** 버튼 emoji 칸에 넣을 값 (components.button 이 <a:이름:ID> 를 알아본다) */
 export const buttonEmoji = appEmoji;
 
-export function ensureAppEmojis(shopId?: string) {
+export function ensureAppEmojis(_shopId?: string) {
   if (ensured) return Promise.resolve();
-  inflight ??= load(shopId).finally(() => {
+  inflight ??= load().finally(() => {
     inflight = null;
   });
   return inflight;
 }
 
-async function load(shopId?: string) {
+/** 이모지는 그 앱의 봇만 글자 속에서 쓸 수 있으므로, 반드시 DOES 봇 토큰으로 다룬다 */
+async function doesApi(method: string, path: string, body?: unknown) {
+  const { doesDiscordEnvAsync } = await import("@/lib/discord/does-env");
+  const token = (await doesDiscordEnvAsync()).botToken;
+  if (!token) return { ok: false, status: 0, json: null as unknown };
+  const res = await fetch(`https://discord.com/api/v10${path}`, {
+    method,
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const json = (await res.json().catch(() => null)) as unknown;
+  if (!res.ok) console.error("[app-emojis]", method, path, res.status, json);
+  return { ok: res.ok, status: res.status, json };
+}
+
+async function load() {
   const names = Object.keys(BOT_EMOJI_IMAGES) as AppEmojiName[];
   try {
-    const saved = await kvGetJson<Partial<Record<AppEmojiName, string>>>(KV_KEY);
-    if (saved && names.every((n) => saved[n])) {
-      cache = saved;
+    const me = await doesApi("GET", "/applications/@me");
+    const appId = me.ok ? (me.json as { id?: string })?.id : null;
+    if (!appId) return;
+    const saved = await kvGetJson<{ appId: string; map: Partial<Record<AppEmojiName, string>> }>(KV_KEY);
+    if (saved?.appId === appId && names.every((n) => saved.map[n])) {
+      cache = saved.map;
       ensured = true;
       return;
     }
-    // 봇 토큰이 속한 앱의 ID (설정값과 다를 수 있어 토큰으로 직접 확인)
-    const me = await discordRest("GET", "/applications/@me", undefined, shopId);
-    const appId = (me.ok ? (me.json as { id?: string })?.id : null) || DOES_APPLICATION_ID;
-    const list = await discordRest("GET", `/applications/${appId}/emojis`, undefined, shopId);
+    const list = await doesApi("GET", `/applications/${appId}/emojis`);
     if (!list.ok) return;
     const items = (list.json as { items?: { id: string; name: string; animated?: boolean }[] })?.items ?? [];
     const next: Partial<Record<AppEmojiName, string>> = {};
@@ -83,14 +97,14 @@ async function load(shopId?: string) {
       const spec = BOT_EMOJI_IMAGES[name];
       let e = items.find((x) => x.name === name);
       if (!e) {
-        const r = await discordRest("POST", `/applications/${appId}/emojis`, { name, image: spec.image }, shopId);
+        const r = await doesApi("POST", `/applications/${appId}/emojis`, { name, image: spec.image });
         if (r.ok) e = r.json as { id: string; name: string; animated?: boolean };
       }
       if (e?.id) next[name] = `<${(e.animated ?? spec.animated) ? "a" : ""}:${name}:${e.id}>`;
     }
-    cache = { ...cache, ...next };
     if (names.every((n) => next[n])) {
-      await kvPutJson(KV_KEY, next);
+      cache = next;
+      await kvPutJson(KV_KEY, { appId, map: next });
       ensured = true;
     }
   } catch (err) {

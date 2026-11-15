@@ -10,6 +10,7 @@ export type AppEmojiName = keyof typeof BOT_EMOJI_IMAGES;
 
 const FALLBACK: Record<AppEmojiName, string> = {
   does_check: "✅",
+  does_cross: "❌",
   does_star: "⭐",
   does_online: "🟢",
   does_offline: "⚫",
@@ -53,6 +54,13 @@ export function plainEmoji(name: AppEmojiName) {
 
 /** 버튼 emoji 칸에 넣을 값 (components.button 이 <a:이름:ID> 를 알아본다) */
 export const buttonEmoji = appEmoji;
+
+/** 반응(리액션) 주소에 넣을 값: 커스텀이면 "이름:ID", 아니면 일반 이모지 */
+export function reactionEmoji(name: AppEmojiName) {
+  const v = appEmoji(name);
+  const m = /^<a?:(\w+):(\d+)>$/.exec(v);
+  return m ? `${m[1]}:${m[2]}` : v;
+}
 
 export function ensureAppEmojis(_shopId?: string) {
   if (ensured) return Promise.resolve();

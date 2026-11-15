@@ -12,7 +12,7 @@ import {
   textDisplay,
   type DiscordInteraction,
 } from "@/lib/discord/components";
-import { appEmoji } from "@/lib/discord/app-emojis";
+import { appEmoji, ensureAppEmojis, reactionEmoji } from "@/lib/discord/app-emojis";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { discordRest, editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
 import { getShopSettings } from "@/lib/store";
@@ -63,7 +63,7 @@ function startPanel(shopName: string, g: Game) {
           textDisplay(
             ended
               ? `-# 시도 ${g.attempts}번 만에 정답이 나왔어요`
-              : "-# 이 채널에 숫자만 보내면 돼요 (✅ 정답 · ❌ 오답) · 가장 먼저 맞힌 1명 당첨",
+              : `-# 이 채널에 숫자만 보내면 돼요 (${appEmoji("does_check")} 정답 · ${appEmoji("does_cross")} 오답) · 가장 먼저 맞힌 1명 당첨`,
           ),
         ],
         ended ? 0x6b7280 : 0x3b82f6,
@@ -195,17 +195,18 @@ export async function handleNumberGuessMessage(
 ) {
   const game = await kvGetJson<Game>(key(channelId));
   if (!game || game.winnerId) return { ok: true, ignored: true };
+  await ensureAppEmojis();
   game.attempts += 1;
   const inRange = game.min == null || game.max == null || (guess >= game.min && guess <= game.max);
   if (!inRange || guess !== game.answer) {
     await kvPutJson(key(channelId), game, TTL);
-    await react(channelId, messageId, "❌", shop.id);
+    await react(channelId, messageId, reactionEmoji("does_cross"), shop.id);
     return { ok: true, correct: false };
   }
   game.winnerId = userId;
   game.endedAt = Date.now();
   await kvPutJson(key(channelId), game, TTL);
-  await react(channelId, messageId, "✅", shop.id);
+  await react(channelId, messageId, reactionEmoji("does_check"), shop.id);
   await postChannelMessage(
     channelId,
     { ...winPanel(shop.name, game), message_reference: { message_id: messageId, fail_if_not_exists: false } },

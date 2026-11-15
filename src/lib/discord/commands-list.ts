@@ -263,6 +263,12 @@ export const VENDIX_DISCORD_COMMANDS = [
         channel_types: [0, 5],
         required: false,
       },
+      {
+        name: "판매자",
+        description: "패널에 보여 줄 판매자 (한 번 지정하면 기억해요 · 비우면 상점 주인)",
+        type: 6,
+        required: false,
+      },
     ],
   },
   {

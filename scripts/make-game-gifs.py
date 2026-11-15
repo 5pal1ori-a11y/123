@@ -315,6 +315,30 @@ def render_game(path, icon, title, sub):
     print("saved", path, os.path.getsize(path) // 1024, "KB")
 
 
+HEART = [
+    ".kkk...kkk.",
+    "krrrk.krrrk",
+    "krwrrkrrrrk",
+    "krwrrrrrrRk",
+    "krrrrrrrrRk",
+    ".krrrrrrRk.",
+    "..krrrrRk..",
+    "...krrRk...",
+    "....kRk....",
+    ".....k.....",
+]
+HEART_PAL = {"k": (40, 20, 24), "r": (244, 63, 94), "R": (190, 24, 60), "w": (255, 190, 200)}
+
+
+def icon_welcome(d, f, img):
+    beat = 1 if (f % 12) in (0, 1, 4) else 0
+    s = 11 + beat
+    pixels(d, 150 - (11 * s) // 2, 150 - (10 * s) // 2, HEART, HEART_PAL, s)
+    sparkle(d, 236, 70, f % 8 < 4)
+    sparkle(d, 66, 96, f % 8 >= 4)
+
+
 out = sys.argv[1] if len(sys.argv) > 1 else "."
 render_game(os.path.join(out, "number-guess.gif"), icon_start, "숫자 맞추기", "가장 먼저 맞힌 1명에게 상품")
 render_game(os.path.join(out, "number-guess-win.gif"), icon_win, "정답!", "가장 먼저 맞혔어요 · 축하합니다")
+render_game(os.path.join(out, "welcome-dark.gif"), icon_welcome, "환영합니다!", "DOES 에 오신 걸 환영해요")

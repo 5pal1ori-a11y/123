@@ -25,6 +25,12 @@ M["check"] = [
     "kggwwwgwwwgggggk", "kgggwwwwwggggggk", "kggggwwwgggggggk", "kgggggwggggggGGk",
     ".kgggggggggGGGk.", ".kGgggggggGGGGk.", "..kkGGGGGGGGkk..", "....kkkkkkkk....",
 ]
+M["cross"] = [
+    "....kkkkkkkk....", "..kkrrrrrrrrkk..", ".krrrrrrrrrrrrk.", ".krwwrrrrrrwwrk.",
+    "krrwwwrrrrwwwrRk", "krrrwwwrrwwwrrRk", "krrrrwwwwwwrrrRk", "krrrrrwwwwrrrrRk",
+    "krrrrrwwwwrrrrRk", "krrrrwwwwwwrrrRk", "krrrwwwrrwwwrrRk", "krrwwwrrrrwwwRRk",
+    ".krwwrrrrrrwwRk.", ".kRrrrrrrrrRRRk.", "..kkRRRRRRRRkk..", "....kkkkkkkk....",
+]
 M["star"] = [
     ".......kk.......", "......kyyk......", "......kyyk......", ".....kyLyyk.....",
     "kkkkkkyLyyykkkkk", "kyyyyyLyyyyyyyyk", ".kyyyyyyyyyyyyk.", "..kyyyyyyyyyyk..",
@@ -206,6 +212,7 @@ def sold_badge():
 
 EMOJIS = {
     "does_check": ("gif", gif(shine(M["check"], "g"))),
+    "does_cross": ("png", png(draw(M["cross"]))),
     "does_star": ("gif", gif(shine(M["star"], "y"))),
     "does_online": ("gif", gif(pulse(M["dot"]), 120)),
     "does_offline": ("png", png(draw(M["dot"], {"g": (120, 120, 130), "G": (80, 80, 90), "l": (170, 170, 180)}))),

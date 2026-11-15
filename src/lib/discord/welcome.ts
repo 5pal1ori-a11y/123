@@ -79,7 +79,7 @@ export function welcomePanel(
     components: [
       container(
         [
-          mediaGallery([`${appOrigin()}/brand/welcome.gif`]),
+          mediaGallery([`${appOrigin()}/brand/welcome-dark.gif`]),
           sectionText({
             text: `${appEmoji("does_star")} <@${member.userId}> 님, **${shopName}** 에 오신 걸 환영해요.${info ? `\n-# ${info}` : ""}`,
             accessory: thumbnail(avatarUrl(member.userId, member.avatar)),

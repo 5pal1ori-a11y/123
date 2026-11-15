@@ -63,6 +63,20 @@ const COLORS = {
   ORANGE_D: 0xc77422,
   RED: 0xe0484f,
   RED_D: 0xa8323a,
+  /* 어두운 밤 배경 (추천인 배너 톤) */
+  NIGHT: 0x101420,
+  NIGHT_2: 0x1c1a30,
+  NIGHT_3: 0x2b2448,
+  NIGHT_DOT: 0x262c40,
+  STAR_1: 0x6e64a8,
+  STAR_2: 0xb6aaf0,
+  VIOLET: 0xa855f7,
+  VIOLET_D: 0x7e22ce,
+  VIOLET_L: 0xd8b4fe,
+  STEEL: 0x9aa4b8,
+  STEEL_D: 0x5d6680,
+  GLASS: 0xbfe6ff,
+  GLASS_D: 0x7fb8e0,
 } as const;
 
 type ColorName = keyof typeof COLORS;

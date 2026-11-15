@@ -4360,12 +4360,7 @@ export function purchaseWithPoints(
       grantSpendRolesForUser(shopId, user.id),
     ),
   );
-  scheduleDiscordBackground(
-    import("@/lib/discord/does-leaderboard").then(({ pushDoesLeaderboard }) => pushDoesLeaderboard(shopId)),
-  );
-  scheduleDiscordBackground(
-    import("@/lib/discord/leaderboard-board").then(({ refreshLeaderboardBoard }) => refreshLeaderboardBoard(shopId)),
-  );
+  // 구매 랭킹(리더보드)은 구매마다가 아니라 10분마다 크론에서 고쳐 쓴다
 
   if (!opts?.suppressDiscordNotify && user.discordId) {
     const codes = isManual

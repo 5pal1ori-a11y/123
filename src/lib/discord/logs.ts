@@ -18,7 +18,7 @@ import { shopUrl } from "@/lib/domain";
 import { randomBoxGifUrl } from "@/lib/random-box-gif";
 import { getShopById, getShopSettings, MFA_SHOP_SLUG } from "@/lib/store";
 
-const DOES_PURCHASE_BANNER = "https://doesmc.xyz/brand/does-purchase-banner.jpg";
+const DOES_PURCHASE_BANNER = "https://doesmc.xyz/brand/purchase.gif";
 import { formatKRW } from "@/lib/utils";
 
 export type DiscordLogKind =

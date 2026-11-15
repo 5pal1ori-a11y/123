@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { doesForwardKey } from "@/lib/discord/does-forward";
-import { checkinGif, gambleGif, raffleGif, type RafflePrize } from "@/lib/gif/cute-scenes";
+import { checkinGif, gambleGif, raffleGif, type RafflePrize } from "@/lib/gif/night-scenes";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

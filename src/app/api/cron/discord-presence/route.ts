@@ -71,12 +71,14 @@ export async function GET(request: Request) {
       console.error("[does-sync]", err);
       return { ok: false as const, error: String(err) };
     });
-  const doesLeaderboard = await pushDoesLeaderboard().catch((err) => {
+  // 리더보드 랭킹은 10분에 한 번만 (5분 크론 중 0·10·20… 분대)
+  const rankTurn = new Date().getUTCMinutes() % 10 < 5;
+  const doesLeaderboard = !rankTurn ? { skipped: true } : await pushDoesLeaderboard().catch((err) => {
     console.error("[does-leaderboard]", err);
     return { ok: false as const, error: String(err) };
   });
   // 실시간 구매 랭킹 집계판 (채널을 정한 상점만)
-  const rankBoards = await import("@/lib/discord/leaderboard-board")
+  const rankBoards = !rankTurn ? { skipped: true } : await import("@/lib/discord/leaderboard-board")
     .then(async ({ refreshLeaderboardBoard }) => {
       const { getStoreForRead, getShopSettings } = await import("@/lib/store");
       const ids = getStoreForRead()

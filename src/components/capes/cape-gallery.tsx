@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Search, User, X } from "lucide-react";
 import Link from "next/link";
 import { CAPE_BY_TYPE, type CapeEntry } from "@/lib/capes-data";
@@ -150,6 +151,16 @@ export function CapeGallery({
   const [mode, setMode] = useState<ViewMode>("player");
   const [q, setQ] = useState("");
 
+  // 창이 열려 있는 동안 뒤 페이지가 같이 스크롤되지 않게
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORE_KEY);
@@ -264,8 +275,8 @@ export function CapeGallery({
       )}
       {list.length === 0 ? <p className="py-16 text-center text-neutral-500">검색 결과가 없어요</p> : null}
 
-      {open ? (
-        <div className="fixed inset-0 z-[300] flex items-start justify-center overflow-y-auto bg-black/60 p-3 sm:items-center sm:p-6" onClick={() => setOpen(null)}>
+      {open && typeof document !== "undefined" ? createPortal(
+        <div className="mf-dark fixed inset-0 z-[300] flex items-start justify-center overflow-y-auto bg-black/60 p-3 sm:items-center sm:p-6" onClick={() => setOpen(null)}>
           <div className="relative w-full max-w-[1040px] rounded-3xl bg-white p-4 shadow-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
             <button type="button" onClick={() => setOpen(null)} className="absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-full hover:bg-neutral-100" aria-label="닫기">
               <X className="size-5 text-neutral-600" />
@@ -356,7 +367,7 @@ export function CapeGallery({
             </div>
           </div>
         </div>
-      ) : null}
+      , document.body) : null}
     </div>
   );
 }

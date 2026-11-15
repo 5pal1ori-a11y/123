@@ -250,8 +250,37 @@ def icon_stock_square(d, f):
     sparkle(d, 92, 30, f % 8 < 4)
 
 
+BAG = [
+    "....kkkkkk....",
+    "...k......k...",
+    "...k......k...",
+    "kkkkkkkkkkkkkk",
+    "kppppppppppppk",
+    "kplppppppppPPk",
+    "kplpppppppPPPk",
+    "kpppppkkpPPPPk",
+    "kppppkwwkPPPPk",
+    "kpppppkkpPPPPk",
+    "kppppppppPPPPk",
+    "kppppppppPPPPk",
+    "kPPPPPPPPPPPPk",
+    "kkkkkkkkkkkkkk",
+]
+BAG_PAL = {"k": (36, 22, 40), "p": (244, 114, 182), "P": (200, 62, 140), "l": (255, 190, 225), "w": (255, 214, 80)}
+
+
+def icon_purchase(d, f):
+    s = 7
+    bob = int(round(math.sin(f / N * math.pi * 2) * 4))
+    pixels(d, 112 - 7 * s, 95 - 7 * s + bob, BAG, BAG_PAL, s)
+    coin(d, 52, 40 + int(math.sin(f / 5) * 3))
+    coin(d, 160, 54)
+    sparkle(d, 100, 18, f % 8 < 4)
+
+
 out = sys.argv[1] if len(sys.argv) > 1 else "."
 render_icon(os.path.join(out, "stock-request-icon.gif"), icon_stock_square)
 render(os.path.join(out, "giveaway.gif"), icon_giveaway, "경품 추첨", "버튼 한 번으로 참여하세요 · 마감 시 자동 추첨")
 render(os.path.join(out, "giveaway-end.gif"), icon_end, "당첨 발표!", "당첨자를 축하드려요 · 주최자에게 문의해 주세요")
 render(os.path.join(out, "stock-request.gif"), icon_stock, "재고 요청", "찾는 상품이 없으면 버튼 한 번으로 남겨 주세요")
+render(os.path.join(out, "purchase.gif"), icon_purchase, "주문 완료!", "DOES 를 이용해 주셔서 감사해요")

@@ -51,7 +51,7 @@ export function buildLeaderboardBoard(shopId: string) {
 
   const kids: unknown[] = [
     textDisplay(`## ${shop?.name ?? "상점"} 구매 랭킹`),
-    textDisplay(`-# 실시간 집계 · <t:${now}:R> 갱신`),
+    textDisplay(`-# 10분마다 갱신 · <t:${now}:R> 갱신`),
     separator(true, 1),
     textDisplay(`구매자 **${people.toLocaleString("ko-KR")}명** · 누적 **${formatKRW(total)}**`),
     separator(true, 1),

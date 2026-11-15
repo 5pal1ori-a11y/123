@@ -229,6 +229,7 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         ticketChannelId: o("문의채널"),
         siteUrl: o("웹사이트"),
         userId: actor.id,
+        guildId: interaction.guild_id,
       });
     }
     if (name === "문의대기") {

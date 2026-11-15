@@ -11,6 +11,7 @@ import {
   mediaGallery,
   MessageFlags,
   plainEphemeral,
+  section,
   sectionText,
   separator,
   textDisplay,
@@ -54,45 +55,55 @@ function avatarUrl(userId: string, avatar: string | null | undefined) {
   }
 }
 
+/**
+ * 환영 패널 — 위: 프로필 + 인사 / 가운데: GIF / 아래: 바로가기 카드(채널마다 오른쪽 '이동' 버튼) / 맨 아래: 웹사이트 열기
+ */
 export function welcomePanel(
   shopName: string,
   cfg: WelcomeConfig,
-  member: { userId: string; avatar?: string | null; memberCount?: number | null },
+  member: { userId: string; avatar?: string | null; memberCount?: number | null; guildId?: string | null },
 ) {
   const created = createdAtSec(member.userId);
   const info = [
-    member.memberCount ? `${member.memberCount.toLocaleString("ko-KR")}번째 멤버` : "",
+    member.memberCount ? `**${member.memberCount.toLocaleString("ko-KR")}번째** 멤버` : "",
     created ? `디스코드 가입 <t:${created}:R>` : "",
   ]
     .filter(Boolean)
     .join(" · ");
-  const steps: string[] = [];
-  let n = 1;
-  if (cfg.verifyChannelId) steps.push(`> ${n++}. <#${cfg.verifyChannelId}> 에서 ${appEmoji("does_check")} 버튼을 눌러 인증해 주세요`);
-  if (cfg.rulesChannelId) steps.push(`> ${n++}. <#${cfg.rulesChannelId}> 를 확인해 주세요`);
-  if (cfg.shopChannelId) steps.push(`> ${n++}. <#${cfg.shopChannelId}> 에서 바로 구매할 수 있어요`);
-  else steps.push(`> ${n++}. 아래 **웹사이트 열기** 에서 바로 구매할 수 있어요`);
-  if (cfg.ticketChannelId) steps.push(`> └ 궁금한 점은 <#${cfg.ticketChannelId}> 로 문의해 주세요`);
+
+  const go = (channelId: string) =>
+    member.guildId
+      ? button({ label: "이동", url: `https://discord.com/channels/${member.guildId}/${channelId}` })
+      : null;
+  const shortcuts: { channelId: string; title: string; desc: string }[] = [];
+  if (cfg.verifyChannelId) shortcuts.push({ channelId: cfg.verifyChannelId, title: "인증하기", desc: "버튼 한 번으로 인증하고 채널을 열어요" });
+  if (cfg.rulesChannelId) shortcuts.push({ channelId: cfg.rulesChannelId, title: "규칙 · 이용약관", desc: "이용 전에 꼭 확인해 주세요" });
+  if (cfg.shopChannelId) shortcuts.push({ channelId: cfg.shopChannelId, title: "구매하기", desc: "상품을 보고 바로 구매할 수 있어요" });
+  if (cfg.ticketChannelId) shortcuts.push({ channelId: cfg.ticketChannelId, title: "문의하기", desc: "궁금한 점은 티켓으로 물어봐 주세요" });
+
+  const kids: unknown[] = [
+    sectionText({
+      text: `## 환영합니다!\n<@${member.userId}> 님, **${shopName}** 에 오신 걸 환영해요 ${appEmoji("does_star")}${info ? `\n-# ${info}` : ""}`,
+      accessory: thumbnail(avatarUrl(member.userId, member.avatar)),
+    }),
+    mediaGallery([`${appOrigin()}/brand/welcome-dark.gif`]),
+  ];
+  if (shortcuts.length) {
+    kids.push(separator(true, 1), textDisplay("### 바로가기"));
+    for (const sc of shortcuts) {
+      const btn = go(sc.channelId);
+      const text = `**${sc.title}** · <#${sc.channelId}>\n-# ${sc.desc}`;
+      kids.push(btn ? section({ text, accessory: btn }) : textDisplay(text));
+    }
+  }
+  kids.push(
+    separator(true, 1),
+    actionRow(button({ label: "웹사이트 열기", emoji: appEmoji("does_star"), url: cfg.siteUrl || DEFAULT_SITE })),
+  );
 
   return {
     flags: MessageFlags.IS_COMPONENTS_V2,
-    components: [
-      container(
-        [
-          mediaGallery([`${appOrigin()}/brand/welcome-dark.gif`]),
-          sectionText({
-            text: `${appEmoji("does_star")} <@${member.userId}> 님, **${shopName}** 에 오신 걸 환영해요.${info ? `\n-# ${info}` : ""}`,
-            accessory: thumbnail(avatarUrl(member.userId, member.avatar)),
-          }),
-          separator(true, 1),
-          textDisplay(`### ${appEmoji("does_online")} 처음 오셨나요?\n${steps.join("\n")}`),
-          actionRow(button({ label: "웹사이트 열기", emoji: appEmoji("does_star"), url: cfg.siteUrl || DEFAULT_SITE })),
-          separator(true, 1),
-          textDisplay("-# 판매자·봇은 DM으로 결제·계정 정보·인증 코드를 절대 먼저 요구하지 않습니다 — 그런 DM은 사기입니다"),
-        ],
-        0xef4444,
-      ),
-    ],
+    components: [container(kids, 0x22c55e)],
     allowed_mentions: { users: [member.userId] },
   };
 }
@@ -102,7 +113,7 @@ export async function handleWelcomeSetup(
   shopSlug: string,
   roles: string[],
   permissions: string | undefined,
-  opts: WelcomeConfig & { test?: boolean; userId?: string },
+  opts: WelcomeConfig & { test?: boolean; userId?: string; guildId?: string | null },
 ) {
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점을 찾을 수 없어요.");
@@ -123,7 +134,7 @@ export async function handleWelcomeSetup(
   await persistAsync();
   // 미리보기: 설정한 사람으로 한 번 올려 본다
   if (opts.userId) {
-    await postChannelMessage(cfg.channelId, welcomePanel(shop.name, cfg, { userId: opts.userId }), shop.id).catch(() => null);
+    await postChannelMessage(cfg.channelId, welcomePanel(shop.name, cfg, { userId: opts.userId, guildId: opts.guildId }), shop.id).catch(() => null);
   }
   return plainEphemeral(
     `입장 환영 채널을 <#${cfg.channelId}> 로 정했어요. 미리보기를 한 번 올렸어요.\n-# 새 멤버가 들어오면 자동으로 올라가요 · 디스코드 개발자 포털에서 봇의 **Server Members Intent** 가 켜져 있어야 해요`,

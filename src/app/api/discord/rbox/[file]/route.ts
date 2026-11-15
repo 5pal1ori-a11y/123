@@ -23,7 +23,7 @@ function sameSig(a: string, b: string) {
 
 export async function GET(_request: Request, ctx: { params: Promise<{ file: string }> }) {
   const { file } = await ctx.params;
-  if (/^idle(-[a-z]+)?\.gif$/.test(file)) return (await serveBrandAsset("3d-mine-idle.gif")) ?? gif(renderIdleBoxGif());
+  if (/^idle(-[a-z0-9]+)?\.gif$/.test(file)) return (await serveBrandAsset("3d-mine-idle.gif")) ?? gif(renderIdleBoxGif());
 
   const m = /^(\d{1,5})-([0-9a-f]{16})\.gif$/.exec(file);
   if (!m) return new Response("not found", { status: 404 });

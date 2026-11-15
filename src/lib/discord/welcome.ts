@@ -86,7 +86,7 @@ export function welcomePanel(
       text: `## 환영합니다!\n<@${member.userId}> 님, **${shopName}** 에 오신 걸 환영해요 ${appEmoji("does_star")}${info ? `\n-# ${info}` : ""}`,
       accessory: thumbnail(avatarUrl(member.userId, member.avatar)),
     }),
-    mediaGallery([`${appOrigin()}/brand/welcome-hq.gif`]),
+    mediaGallery([`${appOrigin()}/brand/welcome-3d.gif`]),
   ];
   if (shortcuts.length) {
     kids.push(separator(true, 1), textDisplay("### 바로가기"));

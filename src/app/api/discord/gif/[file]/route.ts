@@ -17,11 +17,11 @@ function notFound() {
 
 function hqName(payload: string) {
   let m = /^(checkin|jackpot)-\d{1,7}$/.exec(payload);
-  if (m) return m[1] === "jackpot" ? "hq-checkin-jackpot.gif" : "hq-checkin.gif";
+  if (m) return m[1] === "jackpot" ? "3d-checkin-jackpot.gif" : "3d-checkin.gif";
   m = /^gamble-(w|l)-\d{1,10}$/.exec(payload);
-  if (m) return m[1] === "w" ? "hq-gamble-win.gif" : "hq-gamble-lose.gif";
+  if (m) return m[1] === "w" ? "3d-gamble-win.gif" : "3d-gamble-lose.gif";
   m = /^raffle-(nitro|mc|charge|none)$/.exec(payload);
-  if (m) return `hq-raffle-${m[1]}.gif`;
+  if (m) return `3d-raffle-${m[1]}.gif`;
   return null;
 }
 

@@ -1538,8 +1538,12 @@ function withPublicStock(product: Product): ProductWithStock {
   const out = withStock(product);
   if (out.productKind === "mc_account") {
     out.mcMaskedName = maskMcNickname(product.mcNickname ?? "");
+    // 닉네임이나 직접 지정한 망토가 바뀌면 값이 달라져 카드가 새로 받아 온다
     out.mcVersion = product.mcNickname
-      ? createHmac("sha256", "mc-skin-version").update(product.mcNickname.toLowerCase()).digest("hex").slice(0, 10)
+      ? createHmac("sha256", "mc-skin-version")
+          .update(`${product.mcNickname.toLowerCase()}|${(product.mcCapes ?? []).join(",")}|${product.mcCapes ? 1 : 0}`)
+          .digest("hex")
+          .slice(0, 10)
       : null;
   }
   delete out.mcNickname;
@@ -1597,6 +1601,7 @@ export function createProduct(
     productKind?: Product["productKind"];
     mcNickname?: string | null;
     capeType?: string | null;
+    mcCapes?: string[] | null;
     discountPercent?: number | null;
   },
 ): Product {
@@ -1642,6 +1647,7 @@ export function createProduct(
     discountPercent: clampDiscount(input.discountPercent),
     productKind: input.productKind === "mc_account" ? "mc_account" : input.productKind === "mc_cape" ? "mc_cape" : "general",
     capeType: input.productKind === "mc_cape" ? input.capeType?.trim() || null : null,
+    mcCapes: input.productKind === "mc_account" && Array.isArray(input.mcCapes) ? cleanCapeList(input.mcCapes) : null,
     mcNickname: input.productKind === "mc_account" ? input.mcNickname?.trim() || null : null,
     createdAt: new Date().toISOString(),
   };
@@ -1680,6 +1686,7 @@ export function updateProduct(
       | "productKind"
       | "mcNickname"
       | "capeType"
+      | "mcCapes"
       | "discountPercent"
     >
   >,
@@ -1743,6 +1750,9 @@ export function updateProduct(
   if (patch.productKind !== undefined) {
     product.productKind =
       patch.productKind === "mc_account" ? "mc_account" : patch.productKind === "mc_cape" ? "mc_cape" : "general";
+  }
+  if (patch.mcCapes !== undefined) {
+    product.mcCapes = Array.isArray(patch.mcCapes) ? cleanCapeList(patch.mcCapes) : null;
   }
   if (patch.capeType !== undefined) {
     product.capeType = patch.capeType?.trim() || null;
@@ -2041,6 +2051,10 @@ export function updateInventoryCode(
   pushLog(actor, "inventory.update", { id, productId: item.productId }, shopId);
   persist(store);
   return { ok: true };
+}
+
+function cleanCapeList(list: string[]) {
+  return [...new Set(list.map((t) => String(t).trim().toLowerCase()).filter((t) => /^[a-z0-9_-]{2,32}$/.test(t)))].slice(0, 60);
 }
 
 export function deleteInventoryItems(

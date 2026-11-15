@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getProductById, initStore } from "@/lib/store";
 import { fetchImage, resolveMcProfile, skinRenderUrls } from "@/lib/mc-profile-server";
-import type { McAccountInfo } from "@/lib/mc-account";
+import type { McAccountInfo, McCapeInfo } from "@/lib/mc-account";
+import { CAPE_BY_TYPE } from "@/lib/capes-data";
 
 /**
  * GET /api/mc-account/:productId            → { ok, capes: [{source, baseWidth}] }
@@ -18,6 +19,16 @@ export async function GET(request: Request, context: { params: Promise<{ product
   }
 
   const profile = await resolveMcProfile(product.mcNickname);
+  // 관리자가 망토를 직접 지정했으면 자동 감지 대신 그 목록을 쓴다
+  const manual: (McCapeInfo & { url: string })[] | null = Array.isArray(product.mcCapes)
+    ? product.mcCapes.flatMap((t) => {
+        const c = CAPE_BY_TYPE[t];
+        return c
+          ? [{ source: "minecraft" as const, baseWidth: 64, title: c.title, hash: c.hash, url: `https://textures.minecraft.net/texture/${c.hash}` }]
+          : [];
+      })
+    : null;
+  const capeList = manual ?? profile?.capes ?? [];
   const url = new URL(request.url);
   const asset = url.searchParams.get("asset");
 
@@ -28,7 +39,7 @@ export async function GET(request: Request, context: { params: Promise<{ product
 
   if (asset === "cape") {
     const i = Number(url.searchParams.get("i") ?? "0");
-    const cape = profile?.capes[i];
+    const cape = capeList[i];
     if (!cape) return new NextResponse(null, { status: 404 });
     const img = await fetchImage([cape.url]);
     return img ?? new NextResponse(null, { status: 502 });
@@ -62,7 +73,7 @@ export async function GET(request: Request, context: { params: Promise<{ product
   const body: McAccountInfo = {
     ok: Boolean(profile?.uuid),
     ...(hypixel !== undefined ? { hypixel } : {}),
-    capes: (profile?.capes ?? []).map(({ source, baseWidth, title, front, hash }) => ({
+    capes: capeList.map(({ source, baseWidth, title, front, hash }) => ({
       source,
       baseWidth,
       ...(title ? { title } : {}),

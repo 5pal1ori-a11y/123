@@ -564,6 +564,8 @@ export type Product = {
   /** 상품 종류 (기본: 기타상품) */
   productKind?: ProductKind;
   /** 마크계정상품: 계정 닉네임 (관리자 전용 — 공개 목록에서는 제거됨) */
+  /** 마크계정상품: 관리자가 직접 지정한 망토 종류 목록 (없으면 닉네임으로 자동 감지) */
+  mcCapes?: string[] | null;
   /** 망토상품: 망토 종류 (예: aurora) */
   capeType?: string | null;
   mcNickname?: string | null;

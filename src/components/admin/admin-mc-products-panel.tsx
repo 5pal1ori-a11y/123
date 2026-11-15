@@ -6,6 +6,8 @@ import { Loader2, Pencil, Plus, Trash2, User, X } from "lucide-react";
 import { shopHeaders } from "@/lib/shop-client";
 import { MC_NICKNAME_RE, maskMcNickname } from "@/lib/mc-account";
 import { productDiscountPercent } from "@/lib/pricing";
+import { CAPES } from "@/lib/capes-data";
+import { CapeFaceImg } from "@/components/capes/cape-face";
 import type { ProductWithStock, ShopCategory } from "@/lib/types";
 
 type Form = {
@@ -109,10 +111,19 @@ export function AdminMcProductsPanel({
     acct?: Pick<Form, "email" | "password" | "recoveryEmail" | "recoveryCode" | "memo">;
     acctOrig?: string;
     acctNick?: string;
+    /** 직접 지정한 망토 (null 이면 닉네임으로 자동 감지) */
+    capes?: string[] | null;
   } | null>(null);
 
   /** 수정 창을 열면 그 상품의 판매 전 재고를 불러와 칸에 채운다 */
-  async function openEdit(base: { id: string; nickname: string; price: string; discount: string; tag: string }) {
+  async function openEdit(base: {
+    id: string;
+    nickname: string;
+    price: string;
+    discount: string;
+    tag: string;
+    capes?: string[] | null;
+  }) {
     setEditing({ ...base });
     try {
       const res = await fetch(`/api/inventory?productId=${encodeURIComponent(base.id)}`, {
@@ -211,6 +222,7 @@ export function AdminMcProductsPanel({
         price,
         discountPercent: discount || null,
         tags: editing.tag.trim() ? [editing.tag.trim().slice(0, 32)] : [],
+        mcCapes: editing.capes ?? null,
       });
       // 지급 정보(이메일·비밀번호·복구코드)가 바뀌었으면 재고도 고친다
       const acct = editing.acct;
@@ -359,6 +371,7 @@ export function AdminMcProductsPanel({
                         price: String(p.price),
                         discount: d ? String(d) : "",
                         tag: p.tags?.[0] ?? "",
+                        capes: p.mcCapes ?? null,
                       })
                     }
                   >
@@ -380,7 +393,7 @@ export function AdminMcProductsPanel({
       {editing && typeof document !== "undefined"
         ? createPortal(
             <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.55)] p-4" onClick={() => setEditing(null)}>
-              <form className="admin-bento grid w-full max-w-md gap-3 p-6" onClick={(e) => e.stopPropagation()} onSubmit={saveEdit}>
+              <form className="admin-bento grid max-h-[92vh] w-full max-w-lg gap-3 overflow-y-auto p-6" onClick={(e) => e.stopPropagation()} onSubmit={saveEdit}>
                 <div className="flex items-center justify-between">
                   <h3 className="text-[17px] font-extrabold">마크 계정 수정</h3>
                   <button type="button" className="admin-icon-btn" onClick={() => setEditing(null)}>
@@ -404,6 +417,59 @@ export function AdminMcProductsPanel({
                     <span className="text-xs text-neutral-400">태그</span>
                     <input className={field} value={editing.tag} onChange={(e) => setEditing({ ...editing, tag: e.target.value })} />
                   </label>
+                </div>
+                <div className="grid gap-2 border-t border-white/10 pt-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-neutral-300">망토</span>
+                    <div className="flex gap-1 rounded-lg bg-white/[0.05] p-0.5 text-[11px] font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setEditing({ ...editing, capes: null })}
+                        className={`rounded-md px-2.5 py-1 ${editing.capes == null ? "bg-white text-black" : "text-neutral-400"}`}
+                      >
+                        자동 감지
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditing({ ...editing, capes: editing.capes ?? [] })}
+                        className={`rounded-md px-2.5 py-1 ${editing.capes != null ? "bg-white text-black" : "text-neutral-400"}`}
+                      >
+                        직접 지정
+                      </button>
+                    </div>
+                  </div>
+                  {editing.capes == null ? (
+                    <p className="text-[11px] text-neutral-500">닉네임으로 장착 중인 망토를 자동으로 찾아 보여 줘요.</p>
+                  ) : (
+                    <>
+                      <p className="text-[11px] text-neutral-500">
+                        눌러서 넣고 빼요 · 선택 {editing.capes.length}개 (선택한 망토만 카드·상세에 보여요)
+                      </p>
+                      <div className="grid max-h-48 grid-cols-3 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-4">
+                        {CAPES.map((c) => {
+                          const on = editing.capes!.includes(c.type);
+                          return (
+                            <button
+                              key={c.type}
+                              type="button"
+                              onClick={() =>
+                                setEditing({
+                                  ...editing,
+                                  capes: on ? editing.capes!.filter((t) => t !== c.type) : [...editing.capes!, c.type],
+                                })
+                              }
+                              className={`flex items-center gap-1.5 rounded-lg border px-1.5 py-1 text-left text-[11px] ${
+                                on ? "border-emerald-400 bg-emerald-500/15 text-white" : "border-white/10 text-neutral-400"
+                              }`}
+                            >
+                              <CapeFaceImg hash={c.hash} width={10} alt="" />
+                              <span className="truncate">{c.title}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="grid gap-2 border-t border-white/10 pt-3">
                   <span className="text-xs font-semibold text-neutral-300">지급 정보 (구매자에게 전달)</span>

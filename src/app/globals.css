@@ -5078,3 +5078,10 @@ html.mfa-dark.mfa-light .support-chat-bubble--human { border-color: rgba(34, 197
   .charge-method-deck > * { flex: 1 1 45%; min-width: 0; }
   .charge-studio-header { flex-wrap: wrap; gap: 10px; }
 }
+@media (max-width: 767px) {
+  /* 후기 카드: 긴 디스코드 ID 가 카드 밖으로 나가지 않게 */
+  .rv-card-head { min-width: 0; }
+  .rv-who { min-width: 0; flex: 1 1 auto; }
+  .rv-who > span { display: flex; flex-wrap: wrap; gap: 2px 8px; }
+  .rv-who em { overflow-wrap: anywhere; }
+}

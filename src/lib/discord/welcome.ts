@@ -98,7 +98,7 @@ export function welcomePanel(
   }
   kids.push(
     separator(true, 1),
-    actionRow(button({ label: "웹사이트 열기", emoji: appEmoji("does_star"), url: cfg.siteUrl || DEFAULT_SITE })),
+    actionRow(button({ label: "웹사이트 열기", url: cfg.siteUrl || DEFAULT_SITE })),
   );
 
   return {

@@ -4100,9 +4100,28 @@ export function autoMatchCharge(input: {
       c.amount === input.amount &&
       new Date(c.createdAt).getTime() >= cutoff,
   );
+  // 신청 시간(기본 10분)이 지나 만료된 뒤에 입금이 들어온 경우: 1시간 안이면 늦은 입금으로 자동 승인한다
+  let late = false;
+  if (!pending.length) {
+    const lateCutoff = Date.now() - 60 * 60 * 1000;
+    const expired = store.charges.filter(
+      (c) =>
+        c.shopId === input.shopId &&
+        c.status === "expired" &&
+        c.method === "bank" &&
+        c.amount === input.amount &&
+        (c.failReason ?? "").includes("초과로 만료") &&
+        new Date(c.createdAt).getTime() >= lateCutoff,
+    );
+    if (expired.length) {
+      pending.push(...expired);
+      late = true;
+    }
+  }
   if (!pending.length) {
     return { ok: false, error: "같은 금액의 대기 중인 충전이 없어요." };
   }
+  const confirmOpts = late ? { resultLabel: "자동 승인됨 (늦은 입금)", manual: true } : { resultLabel: "자동 승인됨" };
 
   const text = input.depositorText.toUpperCase().replace(/\s/g, "");
   const parsedName = input.depositorName ? normDepositorName(input.depositorName) : null;
@@ -4143,9 +4162,7 @@ export function autoMatchCharge(input: {
     );
     if (exact.length > 1) return ambiguous;
     if (exact[0]) {
-      return confirmPointCharge(exact[0].id, input.shopId, parsedName, input.amount, {
-        resultLabel: "자동 승인됨",
-      });
+      return confirmPointCharge(exact[0].id, input.shopId, parsedName, input.amount, confirmOpts);
     }
   }
 
@@ -4192,9 +4209,7 @@ export function autoMatchCharge(input: {
   }
 
   const depositorLabel = parsedName ?? match.depositorName ?? match.reference;
-  return confirmPointCharge(match.id, input.shopId, depositorLabel, input.amount, {
-    resultLabel: "자동 승인됨",
-  });
+  return confirmPointCharge(match.id, input.shopId, depositorLabel, input.amount, confirmOpts);
 }
 
 /** 1인 구매 한도 — 발급 대기 · 입금 대기 주문도 수량만큼 센다 */

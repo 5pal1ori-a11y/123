@@ -44,6 +44,25 @@ export class PresenceRoom extends DurableObject<Env> {
   async fetch(request: Request) {
     const url = new URL(request.url);
 
+    // 서버 → 회원 브라우저 알림 (충전 완료 등). 워커 바인딩으로만 들어온다 (외부 요청은 웹소켓만 이 DO 로 옴)
+    if (url.pathname.endsWith("/notify") && request.method === "POST") {
+      const body = (await request.json().catch(() => null)) as { userId?: string; payload?: unknown } | null;
+      if (!body?.userId || !body.payload) return new Response("bad", { status: 400 });
+      const msg = JSON.stringify(body.payload);
+      let sent = 0;
+      for (const s of this.open()) {
+        const a = s.deserializeAttachment() as Attachment | null;
+        if (a?.u !== body.userId) continue;
+        try {
+          s.send(msg);
+          sent += 1;
+        } catch {
+          /* closing */
+        }
+      }
+      return Response.json({ sent });
+    }
+
     // 관리자 회원목록용: 지금 접속 중인 회원 + 회원별 마지막 접속 종료 시각
     if (url.pathname.endsWith("/users") && request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
       const online = [...this.onlineUsers()];

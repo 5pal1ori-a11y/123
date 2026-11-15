@@ -3777,6 +3777,20 @@ export function confirmPointCharge(
   pushLog(user.email, "charge.complete", { chargeId, amount: charge.amount }, shopId);
   persist(store);
 
+  // 사이트를 보고 있는 손님 브라우저에 바로 알린다 (KV 반영을 기다리지 않게)
+  {
+    const shopSlug = store.shops.find((s) => s.id === shopId)?.slug;
+    const notifyUserId = user.id;
+    const points = user.points;
+    if (shopSlug) {
+      scheduleDiscordBackground(
+        import("@/lib/presence-notify").then(({ notifyUser }) =>
+          notifyUser(shopSlug, notifyUserId, { type: "charge", chargeId, amount: charge.amount, points }),
+        ),
+      );
+    }
+  }
+
   if (user.discordId && store.tiers.some((t) => t.shopId === shopId && t.discordRoleId)) {
     const userId = user.id;
     scheduleDiscordBackground(

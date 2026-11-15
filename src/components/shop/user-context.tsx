@@ -2,7 +2,7 @@
 
 import {
   createContext,
-  useCallback,
+  useCallback, useRef,
   useContext,
   useEffect,
   useState,
@@ -40,6 +40,7 @@ export function ShopUserProvider({
   const router = useRouter();
   const [user, setUser] = useState<PublicUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const liveRef = useRef<{ userId: string; points: number; at: number } | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -48,7 +49,14 @@ export function ShopUserProvider({
         headers: shopHeaders(shopSlug),
       });
       const data = (await res.json()) as { user?: PublicUser | null };
-      setUser(data.user ?? null);
+      const fetched = data.user ?? null;
+      // 방금 실시간으로 받은 잔액보다 낮은 옛 값이 오면 (저장소 반영이 늦을 때) 실시간 값을 유지한다
+      const live = liveRef.current;
+      if (fetched && live && live.userId === fetched.id && Date.now() - live.at < 120_000 && fetched.points < live.points) {
+        setUser({ ...fetched, points: live.points });
+      } else {
+        setUser(fetched);
+      }
     } catch {
       setUser(null);
     } finally {
@@ -59,6 +67,21 @@ export function ShopUserProvider({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // 충전 완료 실시간 알림 → 잔액을 바로 바꾼다
+  useEffect(() => {
+    const onCharge = (e: Event) => {
+      const d = (e as CustomEvent<{ points?: number }>).detail;
+      if (typeof d?.points !== "number") return;
+      setUser((prev) => {
+        if (!prev) return prev;
+        liveRef.current = { userId: prev.id, points: d.points!, at: Date.now() };
+        return { ...prev, points: d.points! };
+      });
+    };
+    window.addEventListener("does-live:charge", onCharge);
+    return () => window.removeEventListener("does-live:charge", onCharge);
+  }, []);
 
   const logout = useCallback(async () => {
     await fetch("/api/auth/user/me", {

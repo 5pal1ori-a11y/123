@@ -145,6 +145,23 @@ export function ChargePageClient({
     }
   }, [methods, method]);
 
+  // 충전이 승인되면 서버가 실시간 연결로 바로 알려 준다 (몇 초마다 묻는 방식보다 빠름)
+  useEffect(() => {
+    if (!pending) return;
+    const onCharge = (e: Event) => {
+      const d = (e as CustomEvent<{ chargeId?: string }>).detail;
+      if (d?.chargeId !== pending.id) return;
+      void refresh();
+      setPending(null);
+      setWaiting(false);
+      setCryptoPayment(null);
+      setDone(true);
+      setChargeFailed(null);
+    };
+    window.addEventListener("does-live:charge", onCharge);
+    return () => window.removeEventListener("does-live:charge", onCharge);
+  }, [pending, refresh]);
+
   useEffect(() => {
     if (!pending || !waiting) return;
     const timer = setInterval(async () => {

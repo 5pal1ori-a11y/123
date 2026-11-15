@@ -67,8 +67,10 @@ export function LivePresenceBadge({ room }: { room: string }) {
       ws.onmessage = (e) => {
         if (typeof e.data !== "string" || e.data === "pong") return;
         try {
-          const data = JSON.parse(e.data) as { count?: number };
+          const data = JSON.parse(e.data) as { count?: number; type?: string };
           if (typeof data.count === "number") setCount(Math.max(1, data.count));
+          // 서버가 보낸 실시간 알림 (충전 완료 등) → 화면들이 바로 반응하게 이벤트로 넘긴다
+          if (data.type) window.dispatchEvent(new CustomEvent(`does-live:${data.type}`, { detail: data }));
         } catch {
           /* ignore */
         }

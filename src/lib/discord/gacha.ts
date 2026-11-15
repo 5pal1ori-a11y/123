@@ -38,7 +38,7 @@ export function gachaPanel(shop: Shop) {
     components: [
       container(
         [
-          mediaGallery([`${origin()}/brand/gacha-idle.gif`]),
+          mediaGallery([`${origin()}/brand/gacha-idle-2.gif`]),
           textDisplay(`## 랜덤뽑기\n한 번에 **${formatKRW(cfg.price)}** · 잔액에서 바로 차감돼요`),
           separator(true, 1),
           textDisplay(`### 상품 · 확률\n${lines}`),

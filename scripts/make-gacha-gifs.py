@@ -127,9 +127,18 @@ def machine(img, f, knob_angle, jiggle):
 
 def title(img, text, sub, color=(255, 255, 255), pop=1.0):
     d = ImageDraw.Draw(img)
-    f1 = font(int(64 * pop), 900)
-    f2 = font(22, 500)
     x = S(430)
+    room = S(W - 430 - 24)  # 오른쪽 끝까지 남는 폭 — 넘치면 글자를 줄인다
+    size1 = int(64 * pop)
+    f1 = font(size1, 900)
+    while size1 > 24 and d.textlength(text, font=f1) > room:
+        size1 -= 2
+        f1 = font(size1, 900)
+    size2 = 22
+    f2 = font(size2, 500)
+    while size2 > 12 and d.textlength(sub, font=f2) > room:
+        size2 -= 1
+        f2 = font(size2, 500)
     # 보라 그림자
     d.text((x + S(4), S(130) + S(5)), text, font=f1, fill=(90, 40, 170))
     d.text((x, S(130)), text, font=f1, fill=color)
@@ -393,7 +402,7 @@ def claw_idle(path):
         cy = 150 + math.sin(f / n * math.pi * 4) * 6
         claw(d, cx, cy, 0.7)
         glass_shine(img)
-        title(img, "랜덤뽑기", "버튼을 눌러 인형뽑기에 도전해 보세요")
+        title(img, "랜덤뽑기", "눌러서 인형뽑기에 도전!")
         d = ImageDraw.Draw(img)
         for i, (sx, sy) in enumerate([(400, 90), (690, 120), (660, 330)]):
             t = (math.sin(f / n * math.pi * 4 + i * 1.7) + 1) / 2
@@ -491,7 +500,7 @@ def claw_result(path, kind):
 
 
 out = sys.argv[1] if len(sys.argv) > 1 else "."
-claw_idle(os.path.join(out, "gacha-idle.gif"))
+claw_idle(os.path.join(out, "gacha-idle-2.gif"))
 claw_result(os.path.join(out, "gacha-win.gif"), "win")
 claw_result(os.path.join(out, "gacha-coin.gif"), "coin")
 claw_result(os.path.join(out, "gacha-none.gif"), "none")

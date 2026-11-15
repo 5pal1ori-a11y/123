@@ -2,6 +2,7 @@
  * 입장 환영 — StatusWatch(게이트웨이)가 GUILD_MEMBER_ADD 를 받으면 /api/discord/server-status(op: member_add)로 넘기고,
  * 여기서 환영 패널(GIF · 몇 번째 멤버 · 처음 오셨나요? · 웹사이트 열기)을 정해 둔 채널에 올린다.
  */
+import { appEmoji } from "@/lib/discord/app-emojis";
 import {
   actionRow,
   button,
@@ -67,7 +68,7 @@ export function welcomePanel(
     .join(" · ");
   const steps: string[] = [];
   let n = 1;
-  if (cfg.verifyChannelId) steps.push(`> ${n++}. <#${cfg.verifyChannelId}> 에서 ✅ 버튼을 눌러 인증해 주세요`);
+  if (cfg.verifyChannelId) steps.push(`> ${n++}. <#${cfg.verifyChannelId}> 에서 ${appEmoji("does_check")} 버튼을 눌러 인증해 주세요`);
   if (cfg.rulesChannelId) steps.push(`> ${n++}. <#${cfg.rulesChannelId}> 를 확인해 주세요`);
   if (cfg.shopChannelId) steps.push(`> ${n++}. <#${cfg.shopChannelId}> 에서 바로 구매할 수 있어요`);
   else steps.push(`> ${n++}. 아래 **웹사이트 열기** 에서 바로 구매할 수 있어요`);
@@ -80,12 +81,12 @@ export function welcomePanel(
         [
           mediaGallery([`${appOrigin()}/brand/welcome.gif`]),
           sectionText({
-            text: `⭐ <@${member.userId}> 님, **${shopName}** 에 오신 걸 환영해요.${info ? `\n-# ${info}` : ""}`,
+            text: `${appEmoji("does_star")} <@${member.userId}> 님, **${shopName}** 에 오신 걸 환영해요.${info ? `\n-# ${info}` : ""}`,
             accessory: thumbnail(avatarUrl(member.userId, member.avatar)),
           }),
           separator(true, 1),
-          textDisplay(`### 🟢 처음 오셨나요?\n${steps.join("\n")}`),
-          actionRow(button({ label: "웹사이트 열기", emoji: "⭐", url: cfg.siteUrl || DEFAULT_SITE })),
+          textDisplay(`### ${appEmoji("does_online")} 처음 오셨나요?\n${steps.join("\n")}`),
+          actionRow(button({ label: "웹사이트 열기", emoji: appEmoji("does_star"), url: cfg.siteUrl || DEFAULT_SITE })),
           separator(true, 1),
           textDisplay("-# 판매자·봇은 DM으로 결제·계정 정보·인증 코드를 절대 먼저 요구하지 않습니다 — 그런 DM은 사기입니다"),
         ],

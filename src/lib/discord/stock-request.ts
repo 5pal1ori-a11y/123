@@ -2,6 +2,7 @@
  * /재고요청 — 찾는 상품이 품절이거나 목록에 없을 때 손님이 요청을 남기는 패널.
  * 요청 내용은 지정한 채널(판매자만 볼 수 있는 채널)로 올라간다.
  */
+import { appEmoji } from "@/lib/discord/app-emojis";
 import {
   actionRow,
   cid,
@@ -33,7 +34,7 @@ const recent = new Map<string, number>();
 function publicNotice(userId: string, name: string, note?: string) {
   const panel = v2Public([
     container([
-      textDisplay(`📥 <@${userId}> 님이 **${name.slice(0, 100)}** 재고를 요청했어요`),
+      textDisplay(`${appEmoji("does_inbox")} <@${userId}> 님이 **${name.slice(0, 100)}** 재고를 요청했어요`),
       ...(note ? [textDisplay(`> ${note.slice(0, 300)}`)] : []),
       textDisplay("-# 재고 요청순이 많은 제품부터 처리합니다."),
     ]),
@@ -105,7 +106,7 @@ async function deliver(shopId: string, userId: string, what: string, note?: stri
   const r = await postChannelMessage(
     channelId,
     {
-      content: `📥 **재고 요청** <@${userId}>\n상품: **${what.slice(0, 200)}**${note ? `\n메모: ${note.slice(0, 500)}` : ""}`,
+      content: `${appEmoji("does_inbox")} **재고 요청** <@${userId}>\n상품: **${what.slice(0, 200)}**${note ? `\n메모: ${note.slice(0, 500)}` : ""}`,
       allowed_mentions: { parse: [] },
     },
     shopId,

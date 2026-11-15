@@ -11,6 +11,7 @@ import {
   v2Message,
   type DiscordInteraction,
 } from "@/lib/discord/components";
+import { appEmoji } from "@/lib/discord/app-emojis";
 import { BANNER_PATHS } from "@/lib/gif/banners";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
@@ -47,7 +48,7 @@ function giveawayMessage(g: Giveaway) {
   const kids: unknown[] = [
     mediaGallery([banner]),
     textDisplay(`-# ${g.ended ? "종료된" : "진행 중인"} Giveaway`),
-    textDisplay(`## 🎁 ${g.prize}`),
+    textDisplay(`## ${appEmoji("does_gift")} ${g.prize}`),
   ];
   if (g.description) kids.push(textDisplay(g.description));
   kids.push(
@@ -70,7 +71,7 @@ function giveawayMessage(g: Giveaway) {
     actionRow(
       button({
         label: g.ended ? "종료됨" : "참여하기",
-        emoji: "🎉",
+        emoji: appEmoji("does_party"),
         customId: cid(g.shopSlug, "gw_join", g.id),
         disabled: g.ended,
       }),
@@ -149,7 +150,7 @@ export async function handleGiveawayJoin(shop: Shop, giveawayId: string, userId:
   }
   const count = Number(res.data.count) || 0;
   return res.data.joined
-    ? plainEphemeral(`**${g.prize}** 이벤트에 참여했어요! 행운을 빌어요 🍀 (현재 ${count}명)\n-# 버튼을 한 번 더 누르면 참여가 취소돼요.`)
+    ? plainEphemeral(`**${g.prize}** 이벤트에 참여했어요! 행운을 빌어요 ${appEmoji("does_clover")} (현재 ${count}명)\n-# 버튼을 한 번 더 누르면 참여가 취소돼요.`)
     : plainEphemeral(`참여를 취소했어요. (현재 ${count}명)`);
 }
 
@@ -179,7 +180,7 @@ export async function finishGiveaway(id: string) {
 
   if (g.messageId) await editChannelMessage(g.channelId, g.messageId, giveawayMessage(g), shop?.id);
   const announce = g.winnerIds.length
-    ? `## 🎉 당첨을 축하합니다!\n**${g.prize}**\n${g.winnerIds.map((uid) => `<@${uid}>`).join(" ")}\n-# 주최자 <@${g.hostId}> 에게 연락해 경품을 받아 가세요.`
+    ? `## ${appEmoji("does_party")} 당첨을 축하합니다!\n**${g.prize}**\n${g.winnerIds.map((uid) => `<@${uid}>`).join(" ")}\n-# 주최자 <@${g.hostId}> 에게 연락해 경품을 받아 가세요.`
     : `## 이벤트 종료\n**${g.prize}** 이벤트에 참여자가 없어 당첨자가 없어요.`;
   await postChannelMessage(
     g.channelId,

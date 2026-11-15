@@ -1,4 +1,5 @@
 import { formatKRW } from "@/lib/utils";
+import { appEmoji } from "@/lib/discord/app-emojis";
 import { getShopBank } from "@/lib/bank";
 import { shopUrl } from "@/lib/domain";
 import { editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
@@ -866,7 +867,7 @@ export async function handleCouponSubmit(shopSlug: string, discordId: string, co
   if (!result.ok) return plainEphemeral(`쿠폰을 쓸 수 없어요 · ${result.error}`);
   await persistAsync();
   return plainEphemeral(
-    `🎟️ 쿠폰 사용 완료! 자판기 잔액 **${formatKRW(result.amount)}** 충전\n-# 현재 잔액 ${formatKRW(result.balance)}`,
+    `${appEmoji("does_ticket")} 쿠폰 사용 완료! 자판기 잔액 **${formatKRW(result.amount)}** 충전\n-# 현재 잔액 ${formatKRW(result.balance)}`,
   );
 }
 

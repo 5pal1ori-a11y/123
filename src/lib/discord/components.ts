@@ -158,6 +158,12 @@ export function actionRow(...components: unknown[]) {
   return { type: ComponentType.ACTION_ROW, components };
 }
 
+/** "<a:이름:ID>" 같은 커스텀 이모지면 id 를, 아니면 일반 이모지 이름을 넘긴다 */
+function parseEmoji(v: string) {
+  const m = /^<(a?):(\w+):(\d+)>$/.exec(v.trim());
+  return m ? { id: m[3], name: m[2], animated: m[1] === "a" } : { name: v };
+}
+
 /** DOES 봇 버튼은 링크를 빼고 모두 secondary(회색) 하나로 통일한다 — style 은 LINK 여부만 본다 */
 export function button(opts: {
   customId?: string;
@@ -176,7 +182,7 @@ export function button(opts: {
     ...(isLink
       ? { url: (opts.url ?? "").slice(0, 512) }
       : { custom_id: (opts.customId ?? "btn").slice(0, 100) }),
-    ...(opts.emoji ? { emoji: { name: opts.emoji } } : {}),
+    ...(opts.emoji ? { emoji: parseEmoji(opts.emoji) } : {}),
   };
 }
 

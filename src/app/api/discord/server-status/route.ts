@@ -38,6 +38,7 @@ async function statusWatchEnabled() {
 export async function POST(request: Request) {
   if (!(await hasInternalSecret(request))) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   await initStore();
+  await (await import("@/lib/discord/app-emojis")).ensureAppEmojis();
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad request" }, { status: 400 });
   const shop = getShopBySlug(MFA_SHOP_SLUG);

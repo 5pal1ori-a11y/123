@@ -30,7 +30,7 @@ function stockLabel(p: ProductWithStock) {
 }
 
 function productLine(p: ProductWithStock) {
-  return `${p.availableCount > 0 ? appEmoji("does_stock_ok") : appEmoji("does_stock_sold")} **${p.name}** · ${formatKRW(p.price)} · ${stockLabel(p)}`;
+  return `${p.availableCount > 0 ? appEmoji("does_check") : appEmoji("does_sold")} **${p.name}** · ${formatKRW(p.price)} · ${stockLabel(p)}`;
 }
 
 function groupByCategory(products: ProductWithStock[]) {

@@ -13,6 +13,7 @@ import {
   textDisplay,
   type DiscordInteraction,
 } from "@/lib/discord/components";
+import { appEmoji } from "@/lib/discord/app-emojis";
 import { verifyOrigin } from "@/lib/domain";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
 import { computeSuspicionScore } from "@/lib/verify-bot/analytics";
@@ -177,7 +178,7 @@ export async function handleVerifyBotInteraction(interaction: DiscordInteraction
       textDisplay("## 인증하기"),
       separator(true, 1),
       textDisplay("아래 **인증하기** 버튼을 누르면 바로 인증이 완료되고 역할이 지급돼요."),
-      actionRow(button({ label: "인증하기", emoji: "✅", customId: cid(slug, "vf_click") })),
+      actionRow(button({ label: "인증하기", emoji: appEmoji("does_check"), customId: cid(slug, "vf_click") })),
     ]);
   }
 
@@ -308,7 +309,7 @@ export async function handleVerifyButton(interaction: DiscordInteraction) {
   if (!guild?.verifiedRoleId || !guild.enabled) return errorV2("인증이 아직 설정되지 않았어요. 관리자에게 알려 주세요.");
   if (guild.blacklistUserIds.includes(actor.id)) return errorV2("인증할 수 없는 계정이에요. 관리자에게 문의해 주세요.");
   if (actor.roles.includes(guild.verifiedRoleId)) {
-    return ephemeralV2([textDisplay("이미 인증된 계정이에요 ✅")]);
+    return ephemeralV2([textDisplay(`이미 인증된 계정이에요 ${appEmoji("does_check")}`)]);
   }
   const { addMemberRole } = await import("@/lib/verify-bot/rest");
   const r = await addMemberRole(guildId, actor.id, guild.verifiedRoleId);
@@ -324,7 +325,7 @@ export async function handleVerifyButton(interaction: DiscordInteraction) {
         flags: MessageFlags.IS_COMPONENTS_V2,
         components: [
           container([
-            textDisplay(`✅ <@${actor.id}> 님이 인증했어요`),
+            textDisplay(`${appEmoji("does_check")} <@${actor.id}> 님이 인증했어요`),
             textDisplay(`-# ${actor.username} · ${actor.id} · <t:${now}:F>`),
           ]),
         ],
@@ -332,5 +333,5 @@ export async function handleVerifyButton(interaction: DiscordInteraction) {
       }).then(() => undefined),
     );
   }
-  return ephemeralV2([textDisplay("## 인증 완료 ✅"), textDisplay(`<@&${guild.verifiedRoleId}> 역할이 지급됐어요.`)]);
+  return ephemeralV2([textDisplay(`## 인증 완료 ${appEmoji("does_check")}`), textDisplay(`<@&${guild.verifiedRoleId}> 역할이 지급됐어요.`)]);
 }

@@ -11,6 +11,7 @@ import {
   textDisplay,
   thumbnail,
 } from "@/lib/discord/components";
+import { appEmoji } from "@/lib/discord/app-emojis";
 import { discordRest, postChannelMessage } from "@/lib/discord/rest";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
 import { shopUrl } from "@/lib/domain";
@@ -127,7 +128,7 @@ export function postRandomBoxLog(
     textDisplay(input.jackpot ? "## 랜덤박스 잭팟" : "## 랜덤박스"),
     separator(true, 1),
     textDisplay(`**당첨자**\n${input.mention} (${input.name})`),
-    textDisplay(`**금액**\n${input.jackpot ? `🎰 ${amount}` : amount}`),
+    textDisplay(`**금액**\n${input.jackpot ? `${appEmoji("does_jackpot")} ${amount}` : amount}`),
     ...(input.already ? [textDisplay("-# 오늘은 이미 열어 본 상자예요.")] : []),
     separator(true, 1),
     textDisplay(`-# ${ts}`),

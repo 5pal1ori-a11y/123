@@ -105,6 +105,8 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
   if (interaction.type === InteractionType.PING) {
     return { type: InteractionResponseType.PONG };
   }
+  // 직접 그린 봇 이모지 ID 를 준비 (처음 한 번만 KV 를 읽고, 이후에는 메모리)
+  await (await import("@/lib/discord/app-emojis")).ensureAppEmojis();
 
   const actor = actorFromInteraction(interaction);
   if (!actor) return plainEphemeral("사용자를 확인할 수 없어요.");

@@ -13,6 +13,7 @@ import {
   textDisplay,
   v2Public,
 } from "@/lib/discord/components";
+import { appEmoji } from "@/lib/discord/app-emojis";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { postChannelMessage } from "@/lib/discord/rest";
 import { shopUrl } from "@/lib/domain";
@@ -102,7 +103,7 @@ function capeKids(slug: string, products: ProductWithStock[]) {
     if (!list.length) continue;
     list.forEach((p) => used.add(p.id));
     const lines = list.map(
-      (p) => `${p.availableCount > 0 ? "🟢" : "⚫"} **${capeName(p.name)}** · ${formatKRW(p.price)} · ${stockText(p)}`,
+      (p) => `${p.availableCount > 0 ? appEmoji("does_check") : appEmoji("does_sold")} **${capeName(p.name)}** · ${formatKRW(p.price)} · ${stockText(p)}`,
     );
     kids.push(textDisplay(`### ${group.title}\n${lines.join("\n")}`));
   }

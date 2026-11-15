@@ -86,7 +86,7 @@ export function AdminUsersPanel({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pointsDelta, setPointsDelta] = useState("");
 
-  // 접속 상태: 30초마다 갱신
+  // 접속 상태: 15초마다 갱신
   const [presence, setPresence] = useState<Record<string, Presence>>({});
   const idsKey = useMemo(() => users.map((u) => u.id).join(","), [users]);
   useEffect(() => {
@@ -107,7 +107,7 @@ export function AdminUsersPanel({
       }
     };
     void load();
-    const timer = setInterval(load, 30_000);
+    const timer = setInterval(load, 15_000);
     return () => {
       alive = false;
       clearInterval(timer);
@@ -174,6 +174,12 @@ export function AdminUsersPanel({
                   >
                     <p className="font-medium text-white">
                       {u.name || "이름 없음"}
+                      {presence[u.id]?.online ? (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 align-middle text-[10px] font-bold text-emerald-400">
+                          <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
+                          접속중
+                        </span>
+                      ) : null}
                       {u.isSubAdmin ? (
                         <span className="ml-2 text-[10px] font-semibold uppercase text-accent">
                           부관리자

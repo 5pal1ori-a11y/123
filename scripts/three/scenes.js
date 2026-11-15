@@ -185,8 +185,8 @@ function studio(s, o = {}) {
   s.environment = envTex;
   s.environmentIntensity = o.env ?? 0.42;
 
-  s.add(new THREE.HemisphereLight(0xe6ecff, 0x2a1b40, 0.7));
-  const key = new THREE.DirectionalLight(0xfff6ea, 2.0);
+  s.add(new THREE.HemisphereLight(0xe6ecff, 0x2a1b40, o.hemi ?? 0.7));
+  const key = new THREE.DirectionalLight(0xfff6ea, o.key ?? 2.0);
   key.position.set(3.5, 7, 6);
   key.castShadow = true;
   key.shadow.mapSize.set(2048, 2048);
@@ -950,6 +950,177 @@ SCENES.trophy = (s) => {
   });
 };
 
+/* 관리자 상태 구슬 */
+SCENES.status = (s, o) => {
+  const col = o.online ? 0x22c55e : 0xef4444;
+  const orb = new THREE.Group();
+  const ball = mesh(new THREE.SphereGeometry(0.85, 64, 48), new THREE.MeshPhysicalMaterial({ color: col, roughness: 0.12, clearcoat: 1, transmission: 0.35, thickness: 1, emissive: col, emissiveIntensity: 0.35 }));
+  const inner = mesh(new THREE.SphereGeometry(0.45, 32, 24), glow(col, o.online ? 2.2 : 1.2), false, false);
+  const cap = mesh(new THREE.CylinderGeometry(0.42, 0.55, 0.28, 48), chrome(0xd8dbe8, 0.2));
+  cap.position.y = -0.92;
+  orb.add(ball, inner, cap);
+  orb.position.y = 1.15;
+  s.add(orb);
+  const rings = [0, 1, 2].map(() => {
+    const r = mesh(new THREE.TorusGeometry(1, 0.02, 8, 96), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }), false, false);
+    r.position.y = 1.15;
+    s.add(r);
+    return r;
+  });
+  const pl = new THREE.PointLight(col, 6, 5);
+  pl.position.set(0, 1.2, 1.2);
+  s.add(pl);
+  return bannerFrame(s, { glow: o.online ? 0x15803d : 0xb91c1c, ring: col, ring2: o.online ? 0x60a5fa : 0xf472b6, rim: col }, (t) => {
+    orb.position.y = 1.15 + Math.sin(t * TAU) * 0.08;
+    orb.rotation.y = t * TAU;
+    inner.material.emissiveIntensity = (o.online ? 2.2 : 1.0) + Math.sin(t * TAU * 2) * 0.6;
+    rings.forEach((r, i) => {
+      const k = (t * 2 + i / 3) % 1;
+      r.scale.setScalar(0.9 + k * 1.1);
+      r.material.opacity = o.online ? 0.7 * (1 - k) : 0.25 * (1 - k);
+      r.rotation.set(Math.PI / 2 - 0.25, 0, 0);
+    });
+  });
+};
+
+/* 문의 티켓 말풍선 */
+SCENES.bubble = (s) => {
+  const g = new THREE.Group();
+  const sh = new THREE.Shape();
+  const w = 1.1, h = 0.72, r = 0.32;
+  sh.moveTo(-w + r, -h);
+  sh.lineTo(-0.15, -h);
+  sh.lineTo(-0.42, -h - 0.42);
+  sh.lineTo(-0.48, -h);
+  sh.lineTo(-w + r, -h);
+  sh.moveTo(-w + r, -h);
+  sh.lineTo(w - r, -h);
+  sh.quadraticCurveTo(w, -h, w, -h + r);
+  sh.lineTo(w, h - r);
+  sh.quadraticCurveTo(w, h, w - r, h);
+  sh.lineTo(-w + r, h);
+  sh.quadraticCurveTo(-w, h, -w, h - r);
+  sh.lineTo(-w, -h + r);
+  sh.quadraticCurveTo(-w, -h, -w + r, -h);
+  const tail = new THREE.Shape();
+  tail.moveTo(-0.6, -h + 0.05);
+  tail.lineTo(-0.15, -h + 0.05);
+  tail.lineTo(-0.62, -h - 0.45);
+  tail.closePath();
+  const body = mesh(extrude(sh, 0.3, 0.12, 6), plastic(0x38bdf8, { r: 0.22 }));
+  const tl = mesh(new THREE.ExtrudeGeometry(tail, { depth: 0.3, bevelEnabled: true, bevelSize: 0.1, bevelThickness: 0.12, bevelSegments: 6 }), plastic(0x38bdf8, { r: 0.22 }));
+  tl.position.z = -0.15;
+  g.add(body, tl);
+  const dots = [-0.5, 0, 0.5].map((x) => {
+    const d = mesh(new THREE.SphereGeometry(0.15, 24, 16), plastic(0xffffff));
+    d.position.set(x, 0, 0.28);
+    g.add(d);
+    return d;
+  });
+  const qb = new THREE.Group();
+  const qd = mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.12, 40), plastic(0xfbbf24, { e: 0xf59e0b, ei: 0.2 }));
+  qd.rotation.x = Math.PI / 2;
+  const qt = text3d("?", 0.3, 0.05, plastic(0xffffff));
+  qt.position.z = 0.08;
+  qb.add(qd, qt);
+  qb.position.set(1.05, 0.72, 0.25);
+  g.add(qb);
+  g.position.y = 1.25;
+  s.add(g);
+  return bannerFrame(s, { glow: 0x0369a1, ring: 0x38bdf8, rim: 0x38bdf8 }, (t) => {
+    g.rotation.y = Math.sin(t * TAU) * 0.35;
+    g.position.y = 1.25 + Math.sin(t * TAU) * 0.08;
+    dots.forEach((d, i) => (d.position.y = Math.max(0, Math.sin(t * TAU * 2 - i * 0.9)) * 0.18));
+    qb.rotation.z = Math.sin(t * TAU * 2) * 0.2;
+  });
+};
+
+/* FRESH MFA: 방패 + 체크 + 잎 */
+SCENES.shield = (s) => {
+  const sh = new THREE.Shape();
+  sh.moveTo(0, 1.1);
+  sh.bezierCurveTo(0.45, 0.95, 0.8, 0.95, 0.95, 0.9);
+  sh.bezierCurveTo(0.95, 0.1, 0.7, -0.6, 0, -1.1);
+  sh.bezierCurveTo(-0.7, -0.6, -0.95, 0.1, -0.95, 0.9);
+  sh.bezierCurveTo(-0.8, 0.95, -0.45, 0.95, 0, 1.1);
+  const g = new THREE.Group();
+  const outer = mesh(extrude(sh, 0.28, 0.1, 8), plastic(0x22c55e, { r: 0.2 }));
+  const inner = mesh(extrude(sh, 0.1, 0.05, 4), plastic(0xbbf7d0, { r: 0.3 }));
+  inner.scale.setScalar(0.78);
+  inner.position.z = 0.22;
+  const chk = mesh(tube([[-0.38, 0.0, 0.36], [-0.1, -0.3, 0.36], [0.42, 0.35, 0.36]], 0.11, 48), plastic(0x15803d, { r: 0.2 }));
+  g.add(outer, inner, chk);
+  g.position.y = 1.2;
+  s.add(g);
+  const leafS = new THREE.Shape();
+  leafS.moveTo(0, -0.22);
+  leafS.quadraticCurveTo(0.18, 0, 0, 0.22);
+  leafS.quadraticCurveTo(-0.18, 0, 0, -0.22);
+  const leaves = [0, 1, 2, 3, 4].map((i) => {
+    const l = mesh(extrude(leafS, 0.03, 0.02, 2), plastic([0x4ade80, 0x22c55e, 0x86efac][i % 3]));
+    s.add(l);
+    return l;
+  });
+  return bannerFrame(s, { glow: 0x15803d, ring: 0x22c55e, rim: 0x4ade80 }, (t) => {
+    g.rotation.y = Math.sin(t * TAU) * 0.45;
+    g.position.y = 1.2 + Math.sin(t * TAU * 2) * 0.06;
+    leaves.forEach((l, i) => {
+      const k = (t + i / 5) % 1;
+      l.position.set(Math.sin(i * 2.3) * 1.5 + Math.sin(k * TAU * 2) * 0.2, 2.8 - k * 2.8, 0.5 + Math.cos(i) * 0.4);
+      l.rotation.set(k * 6 + i, k * 4, k * 8);
+    });
+  });
+};
+
+/* 망토 진열대 */
+SCENES.capes = (s) => {
+  const cols = [[0x7c3aed, 0xfbbf24], [0xef4444, 0xfde68a], [0x0ea5e9, 0xe0f2fe], [0x22c55e, 0x14532d], [0xf472b6, 0xffffff]];
+  const rail = mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 16), chrome());
+  rail.rotation.z = Math.PI / 2;
+  rail.position.y = 1.95;
+  s.add(rail);
+  for (const x of [-1.6, 1.6]) {
+    const post = mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.0, 16), chrome());
+    post.position.set(x, 0.98, 0);
+    s.add(post);
+  }
+  const capes = cols.map(([a, b], i) => {
+    const tex = canvasTex(10, 16, (c) => {
+      c.fillStyle = "#" + a.toString(16).padStart(6, "0");
+      c.fillRect(0, 0, 10, 16);
+      c.fillStyle = "#" + b.toString(16).padStart(6, "0");
+      if (i % 2) { c.fillRect(0, 6, 10, 3); c.fillRect(4, 0, 2, 16); }
+      else { c.fillRect(3, 4, 4, 4); c.fillRect(2, 10, 6, 2); }
+    }, true);
+    const geo = new THREE.PlaneGeometry(0.52, 0.95, 6, 10);
+    const m = mesh(geo, new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, roughness: 0.8 }));
+    m.userData.base = geo.attributes.position.array.slice();
+    const piv = new THREE.Group();
+    piv.position.set(-1.2 + i * 0.6, 1.9, 0);
+    m.position.y = -0.5;
+    piv.add(m);
+    const hook = mesh(new THREE.TorusGeometry(0.07, 0.015, 8, 20, Math.PI * 1.5), chrome());
+    hook.position.y = 0.03;
+    piv.add(hook);
+    s.add(piv);
+    return { piv, m };
+  });
+  return bannerFrame(s, { glow: 0xb45309, ring: 0xfbbf24, rim: 0xffc53d }, (t) => {
+    capes.forEach(({ piv, m }, i) => {
+      piv.rotation.y = -0.5 + Math.sin(t * TAU + i * 0.9) * 0.25;
+      const p = m.geometry.attributes.position;
+      const b = m.userData.base;
+      for (let k = 0; k < p.count; k++) {
+        const y = b[k * 3 + 1];
+        const d = (0.475 - y) / 0.95;
+        p.setZ(k, Math.sin(t * TAU * 2 + i + y * 4) * 0.08 * d);
+      }
+      p.needsUpdate = true;
+      m.geometry.computeVertexNormals();
+    });
+  });
+};
+
 /* ─────────── 결과: 출석 (달력에 고무도장 쾅) ─────────── */
 SCENES.checkin = (s, o) => {
   const st = studio(s, { glow: o.gold ? 0xd97706 : 0x7c3aed, ring: o.gold ? 0xfbbf24 : 0xa855f7, podiumR: 1.9, podiumY: -1.35, haloSize: 9, hy: 0 });
@@ -1297,111 +1468,271 @@ function stoneTex(seed, ore, crack = 0, dark = false) {
     }
   }, true);
 }
+/* 광석 벽용 텍스처 (금 · 레드스톤 · 다이아) */
+function oreWallTex(seed, ore) {
+  return canvasTex(16, 16, (c) => {
+    const r = rng(seed);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const v = 46 + ((r() * 26) | 0);
+      c.fillStyle = `rgb(${v},${v + 3},${v + 14})`;
+      c.fillRect(x, y, 1, 1);
+    }
+    const col = { gold: ["#7a5a10", "#f5c542", "#fff2a8"], red: ["#5a0e0e", "#e11d2a", "#ff8a8a"], dia: ["#1b4f63", "#4fe0f5", "#cffaff"] }[ore];
+    if (!col) return;
+    for (const [x, y] of [[3, 3], [10, 2], [7, 8], [12, 11], [2, 12]]) {
+      c.fillStyle = col[0];
+      c.fillRect(x - 1, y - 1, 4, 3);
+      c.fillStyle = col[1];
+      c.fillRect(x, y, 2, 2);
+      c.fillStyle = col[2];
+      c.fillRect(x, y, 1, 1);
+    }
+  }, true);
+}
+function torchCells() {
+  const cells = [];
+  for (let y = 6; y < 16; y++) cells.push([7, y, y > 12 ? "#6b4423" : "#9a6232"], [8, y, y > 12 ? "#5a3a1e" : "#8a5a2c"]);
+  cells.push([7, 5, "#ffd23f"], [8, 5, "#ffb020"], [7, 4, "#fff3a0"], [8, 4, "#ffd23f"], [7, 3, "#ffe680"]);
+  return cells;
+}
+function xpOrb() {
+  const g = new THREE.Group();
+  const core = mesh(new THREE.IcosahedronGeometry(0.09, 2), new THREE.MeshStandardMaterial({ color: 0xc8ff6a, emissive: 0x9cff3a, emissiveIntensity: 2.2, roughness: 0.3 }), false, false);
+  g.add(core);
+  addSprite(g, radialTex, new THREE.Color(0x9cff3a), 0.5, [0, 0, 0], 0.7);
+  return g;
+}
+function raysTex() {
+  return canvasTex(512, 512, (c, w) => {
+    const m = w / 2;
+    for (let i = 0; i < 16; i++) {
+      const a0 = (i / 16) * TAU, a1 = a0 + TAU / 40;
+      const g = c.createRadialGradient(m, m, 0, m, m, m);
+      g.addColorStop(0, "rgba(255,255,255,0.9)");
+      g.addColorStop(1, "rgba(255,255,255,0)");
+      c.fillStyle = g;
+      c.beginPath();
+      c.moveTo(m, m);
+      c.arc(m, m, m, a0, a1);
+      c.closePath();
+      c.fill();
+    }
+  });
+}
+function raysPlane(s, color, size, pos) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: raysTex(), color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  m.position.set(...pos);
+  s.add(m);
+  return m;
+}
+function motes(s, count, seed, box, color = 0xbfd8ff) {
+  const r = rng(seed);
+  const list = [];
+  for (let i = 0; i < count; i++) {
+    const sp = addSprite(s, radialTex, new THREE.Color(color), 0.06 + r() * 0.08, [box.x0 + r() * (box.x1 - box.x0), box.y0 + r() * (box.y1 - box.y0), box.z0 + r() * (box.z1 - box.z0)], 0.3 + r() * 0.5);
+    sp.userData = { y: sp.position.y, x: sp.position.x, ph: r() * TAU };
+    list.push(sp);
+  }
+  return (t) => list.forEach((m) => {
+    const u = m.userData;
+    m.position.y = u.y + Math.sin(t * TAU + u.ph) * 0.12;
+    m.position.x = u.x + Math.cos(t * TAU + u.ph) * 0.08;
+  });
+}
+
 SCENES.mine = (s, o) => {
-  const st = studio(s, { glow: 0x2563eb, podium: false, haloSize: 10, hy: 0.4, rim: 0x60a5fa, rim2: 0x38bdf8 });
-  const floorTex = stoneTex(4, false, 0, true);
-  const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.9 });
-  for (let x = -5; x <= 5; x++) for (let z = -3; z <= 1; z++) {
-    const b = mesh(new THREE.BoxGeometry(1, 1, 1), floorMat, false, true);
-    b.position.set(x - 0.6, -1.7 - (((x * 7 + z * 3) % 3) === 0 ? 0.04 : 0), z);
+  const st = studio(s, { glow: 0x1d4ed8, podium: false, haloSize: 12, hy: 0.6, hx: -0.3, rim: 0x60a5fa, rim2: 0x38bdf8, top: "#0c1638", bot: "#05060f", bokeh: 0, key: 1.1, hemi: 0.25, env: 0.18 });
+  s.fog = new THREE.Fog(0x070b1f, 7, 15);
+  // 동굴 벽 (광석 섞인 돌)
+  const plain = [5, 6, 7].map((k) => new THREE.MeshStandardMaterial({ map: oreWallTex(k, null), roughness: 0.95 }));
+  const ores = {
+    gold: new THREE.MeshStandardMaterial({ map: oreWallTex(11, "gold"), roughness: 0.8, emissive: 0x3a2a00, emissiveIntensity: 0.3 }),
+    red: new THREE.MeshStandardMaterial({ map: oreWallTex(12, "red"), roughness: 0.8, emissive: 0x4a0000, emissiveIntensity: 0.6 }),
+    dia: new THREE.MeshStandardMaterial({ map: oreWallTex(13, "dia"), roughness: 0.8, emissive: 0x00303a, emissiveIntensity: 0.6 }),
+  };
+  const r = rng(77);
+  const box1 = new THREE.BoxGeometry(1, 1, 1);
+  for (let x = -7; x <= 7; x++) for (let y = 0; y < 7; y++) {
+    const pick = r();
+    const mat = pick < 0.05 ? ores.dia : pick < 0.1 ? ores.gold : pick < 0.15 ? ores.red : plain[(((x + y * 3) % 3) + 3) % 3];
+    const b = mesh(box1, mat, false, true);
+    b.position.set(x * 1.0 - 0.3, -1.7 + y + 0.5, -3.2 - ((x * 5 + y * 7) % 3 === 0 ? 0.25 : 0));
     s.add(b);
   }
+  // 바닥 블록
+  const floorMats = [8, 9, 10].map((k) => new THREE.MeshStandardMaterial({ map: oreWallTex(k, null), roughness: 0.95 }));
+  for (let x = -7; x <= 7; x++) for (let z = -3; z <= 2; z++) {
+    const b = mesh(box1, floorMats[(((x * 7 + z * 13) % 3) + 3) % 3], false, true);
+    b.userData.floor = true;
+    b.position.set(x - 0.3, -2.2 - (((x * 7 + z * 3) % 4) === 0 ? 0.05 : 0), z);
+    s.add(b);
+  }
+  // 횃불 두 개 (깜빡이는 따뜻한 빛)
+  const torchLights = [];
+  const torchGlows = [];
+  for (const [tx, ty] of [[-3.3, 0.8], [2.9, 0.9]]) {
+    const tq = voxelSprite(torchCells(), 0.07, 0.07, 1.6);
+    tq.position.set(tx, ty, -2.55);
+    tq.rotation.z = tx < 0 ? -0.25 : 0.25;
+    s.add(tq);
+    const pl = new THREE.PointLight(0xffa040, 9, 7, 1.4);
+    pl.position.set(tx, ty + 0.5, -2.2);
+    s.add(pl);
+    torchGlows.push(addSprite(s, radialTex, new THREE.Color(0xff9a30), 1.8, [tx, ty + 0.35, -2.4], 0.45));
+    torchLights.push(pl);
+  }
+  if (o.dbg) s.traverse((m) => { if (m.isMesh && m.geometry === box1 && (o.dbg === "nofloor") === !!m.userData.floor) m.visible = false; });
+  const dust = motes(s, 14, 5, { x0: -4, x1: 4, y0: -1.4, y1: 2.2, z0: -2, z1: 1.5 });
+
   const texs = [0, 1, 2, 3].map((k) => stoneTex(3, true, k));
   const blockMat = new THREE.MeshStandardMaterial({ map: texs[0], roughness: 0.85 });
   const block = mesh(new THREE.BoxGeometry(2, 2, 2), blockMat);
-  block.position.set(-0.6, -0.2, 0);
+  block.position.set(-0.6, -0.7, 0);
   s.add(block);
-  // 곡괭이: 손잡이 끝(픽셀 1,14)이 회전축
-  const pick = new THREE.Group();
-  const spr = voxelSprite(pickaxeCells(), 0.15, 0.15);
-  spr.position.set(-6.5 * 0.15, 6.5 * 0.15, 0);
-  pick.add(spr);
-  pick.position.set(2.15, -1.25, 0.9);
-  s.add(pick);
+  const blockGlow = addSprite(s, radialTex, new THREE.Color(0x4fe0f5), 3.6, [-0.6, -0.6, -1.2], 0.25);
+  const spot = new THREE.SpotLight(0xdbe8ff, 40, 14, 0.5, 0.6, 1.2);
+  spot.position.set(1.5, 4.5, 4);
+  spot.target.position.set(-0.3, -1, 0);
+  spot.castShadow = true;
+  spot.shadow.mapSize.set(1024, 1024);
+  s.add(spot, spot.target);
+
+  // 곡괭이 + 잔상 두 개
+  const makePick = (op) => {
+    const pk = new THREE.Group();
+    const spr = voxelSprite(pickaxeCells(), 0.15, 0.15);
+    if (op < 1) spr.traverse((m) => { if (m.material) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = op; m.material.depthWrite = false; } });
+    spr.position.set(-6.5 * 0.15, 6.5 * 0.15, 0);
+    pk.add(spr);
+    pk.position.set(2.15, -1.75, 0.9);
+    s.add(pk);
+    return pk;
+  };
+  const pick = makePick(1);
+  const ghosts = [makePick(0.28), makePick(0.12)];
+
   const shards = [];
-  const r = rng(31);
   const shardMat = new THREE.MeshStandardMaterial({ map: texs[3], roughness: 0.85 });
-  for (let i = 0; i < 40; i++) {
-    const m = mesh(new THREE.BoxGeometry(0.28, 0.28, 0.28), shardMat);
-    m.userData = { p: new THREE.Vector3((r() - 0.5) * 1.8, (r() - 0.5) * 1.8, (r() - 0.5) * 1.8), v: new THREE.Vector3((r() - 0.5) * 6, 2 + r() * 4, (r() - 0.5) * 4 + 1), rv: r() * 12 };
+  for (let i = 0; i < 46; i++) {
+    const m = mesh(new THREE.BoxGeometry(0.24, 0.24, 0.24), shardMat);
+    m.userData = { p: new THREE.Vector3((r() - 0.5) * 1.8, (r() - 0.5) * 1.8, (r() - 0.5) * 1.8), v: new THREE.Vector3((r() - 0.5) * 6, 2 + r() * 4, (r() - 0.5) * 3 + 1.2), rv: r() * 12 };
     m.visible = false;
     s.add(m);
     shards.push(m);
   }
-  const dia = voxelSprite(diamondCells(), 0.11, 0.11, 0.0);
+  const dia = voxelSprite(diamondCells(), 0.11, 0.11, 0.05);
   dia.visible = false;
   s.add(dia);
-  const conf = o.kind === "win" ? confetti(s, 60, 9, { x0: -3.6, x1: 3.6, z0: -1, z1: 2, y0: -1.2, y1: 2.8 }) : null;
+  const diaShadow = mesh(new THREE.CircleGeometry(0.6, 32), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }), false, false);
+  diaShadow.rotation.x = -Math.PI / 2;
+  diaShadow.position.set(-0.6, -1.69, 0.4);
+  diaShadow.visible = false;
+  s.add(diaShadow);
+  const rays = raysPlane(s, new THREE.Color(o.kind === "win" ? 0x8fe8ff : 0x8888aa), 6, [-0.6, -0.2, -0.6]);
+  const orbs = [];
+  for (let i = 0; i < 9; i++) {
+    const ob = xpOrb();
+    ob.userData = { a: (i / 9) * TAU + r() * 0.4, sp: 1.2 + r() * 1.2, up: 1.6 + r() * 1.5 };
+    ob.visible = false;
+    s.add(ob);
+    orbs.push(ob);
+  }
+  const cobble = mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), new THREE.MeshStandardMaterial({ map: stoneTex(9, false, 2), roughness: 0.9 }));
+  cobble.visible = false;
+  s.add(cobble);
+  const conf = o.kind === "win" ? confetti(s, 60, 9, { x0: -3.6, x1: 3.6, z0: -1, z1: 2, y0: -1.6, y1: 2.8 }) : null;
   const puff = o.kind === "none" ? smoke(s, 11) : null;
   const light = new THREE.PointLight(0x9fe7ff, 0, 8);
-  light.position.set(-0.6, 0.6, 2);
+  light.position.set(-0.6, 0.3, 2);
   s.add(light);
-  const sp = sparkles(s, [[-1.9, 1.3, 1.4, 0.5, 0], [0.7, 1.4, 1.4, 0.45, 2], [-1.6, -0.8, 1.6, 0.4, 4], [0.6, -0.6, 1.6, 0.38, 1]], 0xd8fbff);
+  const sp = sparkles(s, [[-1.9, 0.9, 1.4, 0.5, 0], [0.7, 1.0, 1.4, 0.45, 2], [-1.6, -1.2, 1.6, 0.4, 4], [0.6, -1.0, 1.6, 0.38, 1]], 0xd8fbff);
   const chips = [];
-  for (let i = 0; i < 10; i++) {
-    const m = mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), plastic(i % 2 ? 0x4fe0f5 : 0x9aa0b0), false);
+  for (let i = 0; i < 12; i++) {
+    const m = mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), plastic(i % 3 ? 0x9aa0b0 : 0x4fe0f5, { e: i % 3 ? 0 : 0x4fe0f5, ei: 0.6 }), false);
     m.userData = { a: Math.PI * (0.05 + r() * 0.45), sp: 0.8 + r() };
     m.visible = false;
     s.add(m);
     chips.push(m);
   }
-  cam(0.35, 0.7, 8.0, 0.35, 0.0, 0);
-  // rotation.z: -0.5 (들어 올림) → 0.75 (블록 오른쪽 면을 찍음)
+  cam(1.1, 1.0, 8.6, 0.2, -0.45, 0);
   const swingAt = (down) => -1.0 + easeIn(down) * 0.62;
-  const flyChips = (k) =>
-    chips.forEach((m) => {
-      const u = m.userData;
-      m.visible = k > 0 && k < 1;
-      m.position.set(0.45 + Math.cos(u.a) * u.sp * k, 0.3 + Math.sin(u.a) * u.sp * k * 1.5 - 2 * k * k, 1.1);
-      m.rotation.set(k * 9, k * 7, 0);
-    });
+  const setPick = (down, prevDown) => {
+    pick.rotation.z = swingAt(down);
+    ghosts[0].rotation.z = swingAt(prevDown[0]);
+    ghosts[1].rotation.z = swingAt(prevDown[1]);
+    const moving = Math.abs(prevDown[0] - down) > 0.05;
+    ghosts.forEach((g) => (g.visible = moving));
+  };
+  const flyChips = (k) => chips.forEach((m) => {
+    const u = m.userData;
+    m.visible = k > 0 && k < 1;
+    m.position.set(0.45 + Math.cos(u.a) * u.sp * k, -0.2 + Math.sin(u.a) * u.sp * k * 1.5 - 2 * k * k, 1.1);
+    m.rotation.set(k * 9, k * 7, 0);
+  });
   return (t) => {
     st.anim(t);
+
     block.rotation.y = 0.45;
     if (o.kind === "idle") {
+      const dn = (tt) => { const ph = ((tt * 2) % 1 + 1) % 1; return ph < 0.55 ? ph / 0.55 : 1 - (ph - 0.55) / 0.45; };
+      setPick(dn(t), [dn(t - 0.025), dn(t - 0.05)]);
       const ph = (t * 2) % 1;
-      const down = ph < 0.55 ? ph / 0.55 : 1 - (ph - 0.55) / 0.45;
-      pick.rotation.z = swingAt(down);
-      const hit = ph > 0.5 && ph < 0.62;
-      block.position.x = -0.6 - (hit ? 0.06 : 0);
+      block.position.x = -0.6 - (ph > 0.5 && ph < 0.62 ? 0.06 : 0);
       flyChips(ph > 0.52 ? seg(ph, 0.52, 0.85) : 0);
       sp(t, 0.6);
       return;
     }
     if (t < 0.48) {
+      const dn = (tt) => { const ph = (Math.max(0, tt) % 0.16) / 0.16; return ph < 0.6 ? ph / 0.6 : 1 - (ph - 0.6) / 0.4; };
+      setPick(dn(t), [dn(t - 0.012), dn(t - 0.024)]);
       const ph = (t % 0.16) / 0.16;
       const hits = Math.floor(t / 0.16);
-      const down = ph < 0.6 ? ph / 0.6 : 1 - (ph - 0.6) / 0.4;
-      pick.rotation.z = swingAt(down);
       const hitting = ph > 0.58 && ph < 0.72;
       blockMat.map = texs[Math.min(3, hits + (ph > 0.6 ? 1 : 0))];
       block.position.x = -0.6 - (hitting ? 0.08 : 0);
       block.scale.setScalar(hitting ? 0.97 : 1);
+      blockGlow.material.opacity = 0.25 + (hitting ? 0.25 : 0);
       flyChips(ph > 0.58 ? seg(ph, 0.58, 0.95) : 0);
       sp(t, 0);
     } else {
       block.visible = false;
+      blockGlow.material.opacity = 0;
       flyChips(0);
-      pick.rotation.z = swingAt(0);
+      setPick(0, [0, 0]);
       const k = seg(t, 0.48, 0.78);
       shards.forEach((m) => {
         const u = m.userData;
         m.visible = k < 1;
-        m.position.set(-0.6 + u.p.x + u.v.x * k, -0.2 + u.p.y + u.v.y * k - 9 * k * k, u.p.z + u.v.z * k);
+        m.position.set(-0.6 + u.p.x + u.v.x * k, -0.7 + u.p.y + u.v.y * k - 9 * k * k, u.p.z + u.v.z * k);
         m.rotation.set(u.rv * k, u.rv * k * 0.7, 0);
         m.scale.setScalar(Math.max(0.01, 1 - k * 0.7));
       });
       if (o.kind === "win") {
         const p = easeBack(seg(t, 0.52, 0.68));
-        dia.visible = t > 0.52;
+        dia.visible = diaShadow.visible = t > 0.52;
         dia.scale.setScalar(1.15 * Math.max(0.05, p));
-        dia.position.set(-0.6, 0.15 + Math.sin(t * TAU * 2) * 0.1, 0.4);
-        dia.rotation.y = Math.sin(t * TAU * 1.5) * 0.7;
-        light.intensity = 5 * p;
+        const bob = Math.sin(t * TAU * 2) * 0.12;
+        dia.position.set(-0.6, -0.55 + bob, 0.4);
+        dia.rotation.y = t * TAU * 1.2;
+        diaShadow.scale.setScalar(0.8 - bob);
+        rays.material.opacity = 0.55 * seg(t, 0.52, 0.62);
+        rays.rotation.z = 0.3;
+        light.intensity = 6 * p;
+        orbs.forEach((ob) => {
+          const u = ob.userData;
+          const kk = seg(t, 0.55, 0.95);
+          ob.visible = kk > 0 && kk < 1;
+          ob.position.set(-0.6 + Math.cos(u.a) * u.sp * kk, -0.6 + u.up * kk - 3 * kk * kk, 0.6 + Math.sin(u.a) * 0.8 * kk + kk);
+        });
         conf(t, t > 0.55 ? 1 : 0);
         sp(t, t > 0.55 ? 1 : 0);
-      } else if (puff) {
-        puff(-0.6, -0.4, 0.6, seg(t, 0.5, 1));
+      } else {
+        const p = easeBack(seg(t, 0.55, 0.7));
+        cobble.visible = t > 0.55;
+        cobble.scale.setScalar(Math.max(0.05, p));
+        cobble.position.set(-0.6, -1.3 + Math.sin(t * TAU * 2) * 0.06, 0.4);
+        cobble.rotation.set(0.3, t * TAU, 0);
+        if (puff) puff(-0.6, -0.9, 0.6, seg(t, 0.5, 1));
         sp(t, 0);
       }
     }
@@ -1476,10 +1807,30 @@ function stripeTex() {
 }
 SCENES.claw = (s, o) => {
   const st = studio(s, { glow: 0xbe185d, podium: false, haloSize: 9, hx: -1.2, hy: 0.4, rim: 0xff7ad0 });
-  const floorDisc = mesh(new THREE.CircleGeometry(8, 64), new THREE.ShadowMaterial({ opacity: 0.5 }), false, true);
+  const floorDisc = mesh(new THREE.CircleGeometry(9, 96), new THREE.MeshPhysicalMaterial({ color: 0x0d0a1c, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.06 }), false, true);
   floorDisc.rotation.x = -Math.PI / 2;
   floorDisc.position.y = -1.6;
   s.add(floorDisc);
+  for (const [x, rr, c] of [[-1.3, 1.55, 0xf472b6], [1.85, 1.05, 0x60a5fa]]) {
+    const ring = mesh(new THREE.TorusGeometry(rr, 0.03, 12, 128), glow(c, 3), false, false);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(x, -1.58, 0.1);
+    s.add(ring);
+  }
+  // 결과 받침대
+  const ped = new THREE.Group();
+  const pedBase = mesh(new THREE.CylinderGeometry(0.95, 1.0, 0.3, 64), plastic(0x2a2150, { r: 0.25 }));
+  pedBase.position.y = -1.45;
+  const pedRing = mesh(new THREE.TorusGeometry(0.96, 0.025, 12, 96), glow(0xa855f7, 3), false, false);
+  pedRing.rotation.x = Math.PI / 2;
+  pedRing.position.y = -1.3;
+  ped.add(pedBase, pedRing);
+  ped.position.set(1.85, 0, 0.1);
+  s.add(ped);
+  // 스포트라이트 빛기둥
+  const beam = mesh(new THREE.CylinderGeometry(0.25, 0.95, 3.6, 48, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd9a8, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), false, false);
+  beam.position.set(1.85, 0.4, 0.1);
+  s.add(beam);
   const SC = 0.66;
   const M2 = new THREE.Group();
   M2.position.set(-1.3, -0.12, 0);
@@ -1492,20 +1843,38 @@ SCENES.claw = (s, o) => {
     post.position.set(x, 0.4, z);
     M2.add(post);
   }
+  const leds = [];
+  for (const x of [-W / 2, W / 2]) for (let i = 0; i < 9; i++) {
+    const l = mesh(new THREE.SphereGeometry(0.05, 10, 8), glow(i % 2 ? 0x60a5fa : 0xf472b6, 2), false, false);
+    l.position.set(x, -0.9 + i * 0.33, D / 2 + 0.1);
+    M2.add(l);
+    leds.push(l);
+  }
   const roof = mesh(rbox(W + 0.36, 0.48, D + 0.36, 0.12), pink);
   roof.position.y = 0.4 + H / 2 + 0.22;
   M2.add(roof);
-  const signBoard = mesh(rbox(W + 0.1, 0.8, 0.2, 0.18), plastic(0xfdf2f8, { r: 0.35 }));
-  signBoard.position.set(0, roof.position.y + 0.6, D / 2 - 0.05);
-  M2.add(signBoard);
+  const archS = new THREE.Shape();
+  archS.moveTo(-(W + 0.2) / 2, 0);
+  archS.lineTo(-(W + 0.2) / 2, 0.3);
+  archS.absellipse(0, 0.3, (W + 0.2) / 2, 0.62, Math.PI, 0, true);
+  archS.lineTo((W + 0.2) / 2, 0);
+  archS.closePath();
+  const arch = mesh(new THREE.ExtrudeGeometry(archS, { depth: 0.24, bevelEnabled: true, bevelSize: 0.06, bevelThickness: 0.06, bevelSegments: 5, curveSegments: 48 }), plastic(0xfdf2f8, { r: 0.3 }));
+  arch.position.set(0, roof.position.y + 0.22, D / 2 - 0.3);
+  M2.add(arch);
+  const archRim = mesh(new THREE.ExtrudeGeometry(archS, { depth: 0.12, bevelEnabled: true, bevelSize: 0.1, bevelThickness: 0.03, bevelSegments: 3, curveSegments: 48 }), plastic(0xec4899, { r: 0.3 }));
+  archRim.position.set(0, roof.position.y + 0.22, D / 2 - 0.36);
+  archRim.scale.set(1.04, 1.06, 1);
+  M2.add(archRim);
+  const signBoard = { position: new THREE.Vector3(0, roof.position.y + 0.62, D / 2 - 0.05) };
   const logo = text3d("DOES", 0.36, 0.1, plastic(0xa855f7, { e: 0x7e22ce, ei: 0.25 }));
   logo.position.set(0, signBoard.position.y, D / 2 + 0.12);
   M2.add(logo);
   const bulbs = [];
   for (let i = 0; i < 14; i++) {
-    const a = (i / 14) * TAU;
-    const b = mesh(new THREE.SphereGeometry(0.06, 12, 8), glow(0xffe08a, 2));
-    b.position.set(Math.cos(a) * (W / 2 + 0.02), signBoard.position.y + Math.sin(a) * 0.36, D / 2 + 0.08);
+    const b = mesh(new THREE.SphereGeometry(0.075, 12, 8), glow(0xffe08a, 2));
+    const aa = Math.PI * (i / 13);
+    b.position.set(-Math.cos(aa) * ((W + 0.2) / 2 + 0.02), roof.position.y + 0.52 + Math.sin(aa) * 0.62, D / 2 + 0.02);
     M2.add(b);
     bulbs.push(b);
   }
@@ -1559,6 +1928,10 @@ SCENES.claw = (s, o) => {
   for (let i = 0; i < 30; i++) {
     const [a, b] = CAP_COLS[i % CAP_COLS.length];
     const c = capsuleMesh(0.19, a, b);
+    c.userData.a.material = new THREE.MeshPhysicalMaterial({ color: a, roughness: 0.08, transmission: 0.55, thickness: 0.4, clearcoat: 1, transparent: true });
+    const toy = mesh(i % 2 ? new THREE.IcosahedronGeometry(0.09, 1) : extrude(starShape(0.1, 0.045), 0.04, 0.015, 2), plastic([0xffd23f, 0x60a5fa, 0xf472b6, 0x22c55e][i % 4]), false, false);
+    toy.position.y = 0.04;
+    c.add(toy);
     c.position.set(-W / 2 + 0.98 + r() * (W - 1.18), -0.74 + r() * 0.2 + (i > 18 ? 0.3 : 0), -D / 2 + 0.25 + r() * (D - 0.5));
     c.rotation.set(r() * TAU, r() * TAU, 0);
     M2.add(c);
@@ -1596,7 +1969,7 @@ SCENES.claw = (s, o) => {
   M2.add(claw);
   const RX = 1.85;
   const big = capsuleMesh(0.55, 0xa855f7, 0xfafaff);
-  big.position.set(RX, -0.2, 0.6);
+  big.position.set(RX, -0.62, 0.3);
   s.add(big);
   let prize = null;
   if (o.kind === "win" || o.kind === "nitro") prize = diamondMesh(o.kind === "nitro" ? 0xd38cff : 0x8fdcff, 0.62);
@@ -1621,8 +1994,9 @@ SCENES.claw = (s, o) => {
   plight.position.set(RX, 0.4, 1.8);
   s.add(plight);
   const halo2 = addSprite(s, radialTex, new THREE.Color(pcol), 4.5, [RX, 0.1, -1], 0);
+  const rays = raysPlane(s, new THREE.Color(pcol), 5.5, [RX, 0.15, -0.8]);
   const sp = sparkles(s, [[RX - 1.1, 1.0, 1, 0.5, 0], [RX + 1.0, 0.8, 1, 0.45, 2], [RX + 0.8, -0.9, 1.2, 0.4, 4], [RX - 0.9, -0.7, 1.2, 0.35, 1]], 0xfff3c4);
-  cam(0.15, 0.35, 8.2, 0.15, 0.15, 0);
+  cam(0.9, 0.75, 8.4, 0.25, 0.1, 0);
 
   const setClaw = (x, y, open) => {
     claw.position.set(x, 0, 0.3);
@@ -1638,6 +2012,8 @@ SCENES.claw = (s, o) => {
   return (t) => {
     st.anim(t);
     bulbs.forEach((b, i) => (b.material.emissiveIntensity = (Math.floor(t * 30) + i) % 3 === 0 ? 3 : 0.4));
+    leds.forEach((l, i) => (l.material.emissiveIntensity = (Math.floor(t * 24) + i) % 4 === 0 ? 3.5 : 0.6));
+    beam.material.opacity = 0.035;
     if (o.kind === "idle") {
       setClaw(Math.sin(t * TAU) * 0.8, 0.95 + Math.sin(t * TAU * 2) * 0.05, 0.6);
       joy.rotation.z = -Math.cos(t * TAU) * 0.35;
@@ -1663,14 +2039,14 @@ SCENES.claw = (s, o) => {
     big.visible = t >= 0.68;
     if (t >= 0.68 && t < 0.78) {
       const k = easeOut(seg(t, 0.68, 0.78));
-      big.position.set(lerp(doorX, RX, k), -1.1 + Math.sin(k * Math.PI) * 1.3 + k * 0.9, lerp(1.1, 0.6, k));
+      big.position.set(lerp(doorX, RX, k), -1.1 + Math.sin(k * Math.PI) * 1.3 + k * 0.48, lerp(1.1, 0.3, k));
       big.rotation.set(k * 8, 0, k * 6);
       big.scale.setScalar(lerp(0.45, 1, k));
       sp(t, 0);
     } else if (t >= 0.78) {
       big.scale.setScalar(1);
       const shake = t < 0.84 ? Math.sin(t * 90) * 0.12 : 0;
-      big.position.set(RX, -0.2, 0.6);
+      big.position.set(RX, -0.62, 0.3);
       big.rotation.set(0, 0, shake);
       const op2 = easeOut(seg(t, 0.84, 0.9));
       big.userData.a.position.set(-op2 * 0.15, op2 * 0.85, 0);
@@ -1679,11 +2055,14 @@ SCENES.claw = (s, o) => {
       big.userData.band.visible = op2 < 0.1;
       big.userData.shine.visible = op2 < 0.1;
       halo2.material.opacity = o.kind === "none" ? 0 : 0.6 * op2;
+      rays.material.opacity = o.kind === "none" ? 0 : 0.5 * op2;
+      rays.rotation.z = t * 1.6;
+      beam.material.opacity = 0.035 + 0.05 * op2;
       if (prize) {
         const p = easeBack(seg(t, 0.85, 0.95));
         prize.visible = t > 0.85;
         prize.scale.setScalar(Math.max(0.05, p));
-        prize.position.set(RX, 0.3 + Math.sin(t * TAU * 3) * 0.05, 0.75);
+        prize.position.set(RX, 0.05 + Math.sin(t * TAU * 3) * 0.06, 0.45);
         prize.rotation.set(o.kind === "mc" ? 0.45 : 0.2, Math.sin(t * TAU * 1.2) * 0.8 + 0.4, 0);
         plight.intensity = 26 * p;
       }

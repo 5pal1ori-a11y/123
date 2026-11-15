@@ -557,7 +557,7 @@ export function handleReferralCommand(shopSlug: string) {
   const panel = v2Public([
     container(
       [
-        mediaGallery([`${appOrigin()}/brand/referral.png`]),
+        mediaGallery([`${appOrigin()}/brand/referral-3d.gif`]),
         textDisplay("### 친구를 초대하고 보상 받기"),
         textDisplay("친구가 내 코드로 가입하면, 그 친구가 결제할 때마다 **결제액의 일부**가 내 포인트로 들어와요."),
         actionRow(button({ customId: cid(shop.slug, "ref_mine"), label: "내 추천인 코드 보기" })),
@@ -581,7 +581,7 @@ export function handleReferralMine(shopSlug: string, discordId: string) {
   return v2Ephemeral([
     container(
       [
-        mediaGallery([`${appOrigin()}/brand/referral.png`]),
+        mediaGallery([`${appOrigin()}/brand/referral-3d.gif`]),
         textDisplay("### 내 추천인 코드"),
         textDisplay(`# \`${summary.code}\``),
         separator(true, 1),

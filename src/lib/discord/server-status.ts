@@ -31,7 +31,7 @@ export function buildServerStatusPanel(shopId: string) {
   const since = last ? Math.floor(new Date(last.since).getTime() / 1000) : null;
   const now = Math.floor(Date.now() / 1000);
   // 디스코드가 같은 주소 이미지를 오래 캐시하므로 상태마다 다른 파일을 쓴다
-  const image = `${appOrigin()}/brand/${online ? "admin-online" : "admin-offline"}.png`;
+  const image = `${appOrigin()}/brand/${online ? "admin-online-3d" : "admin-offline-3d"}.gif`;
 
   return {
     flags: MessageFlags.IS_COMPONENTS_V2,

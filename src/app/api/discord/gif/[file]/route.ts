@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 /** DOES 봇 결과 GIF — 봇이 DOES_FORWARD_KEY 로 서명한 주소만 그려 준다 */
 const MAX_AMOUNT = 1_000_000_000;
 /** 그림이 바뀌면 봇과 함께 앞에 새 버전을 넣는다 — 디스코드가 주소별로 이미지를 오래 캐시함 */
-const SIG_VERSIONS = ["gif3", "gif2", "gif"] as const;
+const SIG_VERSIONS = ["gif4", "gif3", "gif2", "gif"] as const;
 
 function notFound() {
   return new Response("not found", { status: 404 });
@@ -21,7 +21,7 @@ function hqName(payload: string) {
   m = /^gamble-(w|l)-\d{1,10}$/.exec(payload);
   if (m) return m[1] === "w" ? "3d-gamble-win.gif" : "3d-gamble-lose.gif";
   m = /^raffle-(nitro|mc|charge|none)$/.exec(payload);
-  if (m) return `3d-raffle-${m[1]}.gif`;
+  if (m) return `3d2-raffle-${m[1]}.gif`;
   return null;
 }
 

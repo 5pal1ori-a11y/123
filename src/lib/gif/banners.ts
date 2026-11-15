@@ -269,8 +269,8 @@ void koWidth;
 
 /** 그림이 바뀌면 숫자를 올린다 — 디스코드가 주소별로 이미지를 오래 캐시함 */
 export const BANNER_PATHS = {
-  freshMfa: "/api/discord/banner/fresh-mfa-1.gif",
-  capes: "/api/discord/banner/capes-1.gif",
+  freshMfa: "/brand/fresh-mfa-3d.gif",
+  capes: "/brand/capes-3d.gif",
   giveaway: "/brand/giveaway-3d.gif",
   giveawayEnd: "/brand/giveaway-end-3d.gif",
   stockRequest: "/brand/stock-request-3d.gif",

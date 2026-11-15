@@ -72,7 +72,7 @@ async function greetNewTickets(shopId: string, token: string) {
       fresh.map((t) =>
         postTicketChannelMessage(t.channelId, {
           flags: MessageFlags.IS_COMPONENTS_V2,
-          components: [container([mediaGallery([`${appOrigin()}/brand/ticket.png`]), textDisplay(GREETING)])],
+          components: [container([mediaGallery([`${appOrigin()}/brand/ticket-3d.gif`]), textDisplay(GREETING)])],
           allowed_mentions: { parse: [] },
         }),
       ),

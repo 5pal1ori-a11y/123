@@ -23,7 +23,7 @@ function sameSig(a: string, b: string) {
 
 export async function GET(_request: Request, ctx: { params: Promise<{ file: string }> }) {
   const { file } = await ctx.params;
-  if (/^idle(-[a-z0-9]+)?\.gif$/.test(file)) return (await serveBrandAsset("3d-mine-idle.gif")) ?? gif(renderIdleBoxGif());
+  if (/^idle(-[a-z0-9]+)?\.gif$/.test(file)) return (await serveBrandAsset("3d2-mine-idle.gif")) ?? gif(renderIdleBoxGif());
 
   const m = /^(\d{1,5})-([0-9a-f]{16})\.gif$/.exec(file);
   if (!m) return new Response("not found", { status: 404 });
@@ -33,5 +33,5 @@ export async function GET(_request: Request, ctx: { params: Promise<{ file: stri
   }
   if (!randomBoxGifSigs(amount).some((sig) => sameSig(m[2]!, sig))) return new Response("not found", { status: 404 });
   // 고화질로 미리 만든 그림 (금액은 메시지 글자로 보인다)
-  return (await serveBrandAsset(amount > 0 ? "3d-mine-win.gif" : "3d-mine-none.gif")) ?? gif(renderOpenBoxGif(amount));
+  return (await serveBrandAsset(amount > 0 ? "3d2-mine-win.gif" : "3d2-mine-none.gif")) ?? gif(renderOpenBoxGif(amount));
 }

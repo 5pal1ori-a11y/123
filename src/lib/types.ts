@@ -132,8 +132,6 @@ export type ShopSettings = {
   serverStatusUserId?: string | null;
   /** /재고요청 — 손님 요청을 받을 채널 */
   stockRequestChannelId?: string | null;
-  /** /재고요청 패널에 보여 줄 판매자 (없으면 상점 주인) */
-  stockRequestSellerId?: string | null;
   /** /환영설정 — 새 멤버 환영 패널 */
   welcome?: {
     channelId: string;

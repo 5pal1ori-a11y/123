@@ -246,14 +246,7 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
     if (name === "재고요청") {
       const ch = interaction.data?.options?.find((o) => o.name === "받을채널")?.value;
       const { handleStockRequestCommand } = await import("@/lib/discord/stock-request");
-      const seller = interaction.data?.options?.find((o) => o.name === "판매자")?.value;
-      return handleStockRequestCommand(
-        shop.slug,
-        actor.roles,
-        perms,
-        typeof ch === "string" ? ch : null,
-        typeof seller === "string" ? seller : null,
-      );
+      return handleStockRequestCommand(shop.slug, actor.roles, perms, typeof ch === "string" ? ch : null);
     }
     if (name === "랜덤박스") {
       return handleRandomBoxCommand(shop.slug, actor.roles, perms);

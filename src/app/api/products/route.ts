@@ -47,6 +47,10 @@ const createSchema = z.object({
   stockBoardHidden: z.boolean().optional(),
   productKind: z.enum(["general", "mc_account", "mc_cape"]).optional(),
   capeType: z.string().regex(/^[a-z0-9]{2,24}$/).nullable().optional(),
+  buyerInput: z
+    .object({ kind: z.enum(["url", "email", "text"]), label: z.string().min(1).max(40) })
+    .nullable()
+    .optional(),
   mcCapes: z.array(z.string().regex(/^[a-z0-9_-]{2,32}$/)).max(60).nullable().optional(),
   discountPercent: z.number().int().min(0).max(90).nullable().optional(),
   mcNickname: z

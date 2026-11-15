@@ -1,5 +1,6 @@
 "use client";
 
+import { BUYER_INPUT_PRESETS } from "@/lib/buyer-input";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ImageIcon, Package, Pencil, Plus, Search, Trash2, Boxes } from "lucide-react";
@@ -31,6 +32,9 @@ export type NewProductForm = {
   productKind: "general" | "mc_account";
   mcNickname: string;
   discountPercent: string;
+  /** 구매 시 받을 정보 프리셋 id (none · invite · email · text) */
+  buyerInput: string;
+  buyerInputLabel: string;
 };
 
 type AdminProductsPanelProps = {
@@ -105,6 +109,8 @@ export function AdminProductsPanel({
     productKind: "general",
     mcNickname: "",
     discountPercent: "",
+    buyerInput: "none",
+    buyerInputLabel: "",
   });
 
   function startEdit(p: ProductWithStock) {
@@ -128,6 +134,8 @@ export function AdminProductsPanel({
       productKind: p.productKind === "mc_account" ? "mc_account" : "general",
       mcNickname: p.mcNickname ?? "",
       discountPercent: p.discountPercent ? String(p.discountPercent) : "",
+      buyerInput: !p.buyerInput ? "none" : p.buyerInput.kind === "url" ? "invite" : p.buyerInput.kind === "email" ? "email" : "text",
+      buyerInputLabel: p.buyerInput?.label ?? "",
     });
     setTab("edit");
   }
@@ -207,6 +215,11 @@ export function AdminProductsPanel({
       productKind: newProduct.productKind,
       mcNickname: isMc ? mcNickname : null,
       discountPercent: newProduct.discountPercent.trim() ? Number(newProduct.discountPercent) : null,
+      buyerInput: (() => {
+        const preset = BUYER_INPUT_PRESETS.find((x) => x.id === newProduct.buyerInput)?.spec ?? null;
+        if (!preset) return null;
+        return { kind: preset.kind, label: newProduct.buyerInputLabel.trim() || preset.label };
+      })(),
     };
     try {
       if (tab === "edit" && editId) {
@@ -257,6 +270,8 @@ export function AdminProductsPanel({
         productKind: newProduct.productKind,
         mcNickname: "",
         discountPercent: "",
+        buyerInput: "none",
+        buyerInputLabel: "",
       });
       setSlugTouched(false);
       setTab("list");
@@ -548,6 +563,31 @@ export function AdminProductsPanel({
                       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500">% 할인</span>
                     </div>
                   </div>
+                </Field>
+                <Field label="구매 시 받을 정보">
+                  <select
+                    value={newProduct.buyerInput}
+                    onChange={(e) => setNewProduct({ ...newProduct, buyerInput: e.target.value, buyerInputLabel: "" })}
+                    className="toss-admin-field"
+                  >
+                    {BUYER_INPUT_PRESETS.map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.label}
+                      </option>
+                    ))}
+                  </select>
+                  {newProduct.buyerInput !== "none" ? (
+                    <input
+                      value={newProduct.buyerInputLabel}
+                      onChange={(e) => setNewProduct({ ...newProduct, buyerInputLabel: e.target.value })}
+                      maxLength={40}
+                      className="toss-admin-field mt-2"
+                      placeholder={`손님에게 보일 이름 (비우면: ${BUYER_INPUT_PRESETS.find((x) => x.id === newProduct.buyerInput)?.spec?.label ?? ""})`}
+                    />
+                  ) : null}
+                  <p className="mt-1 text-[11px] text-neutral-500">
+                    서버부스트는 서버 초대 링크, 유튜브 프리미엄은 이메일을 고르면 구매 화면에 입력 칸이 생겨요. 받은 값은 주문 목록과 디스코드 관리자 로그에 남아요.
+                  </p>
                 </Field>
                 <Field label="카테고리">
                   <select

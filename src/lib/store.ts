@@ -1602,6 +1602,7 @@ export function createProduct(
     mcNickname?: string | null;
     capeType?: string | null;
     mcCapes?: string[] | null;
+    buyerInput?: Product["buyerInput"];
     discountPercent?: number | null;
   },
 ): Product {
@@ -1647,6 +1648,7 @@ export function createProduct(
     discountPercent: clampDiscount(input.discountPercent),
     productKind: input.productKind === "mc_account" ? "mc_account" : input.productKind === "mc_cape" ? "mc_cape" : "general",
     capeType: input.productKind === "mc_cape" ? input.capeType?.trim() || null : null,
+    buyerInput: cleanBuyerInput(input.buyerInput),
     mcCapes: input.productKind === "mc_account" && Array.isArray(input.mcCapes) ? cleanCapeList(input.mcCapes) : null,
     mcNickname: input.productKind === "mc_account" ? input.mcNickname?.trim() || null : null,
     createdAt: new Date().toISOString(),
@@ -1687,6 +1689,7 @@ export function updateProduct(
       | "mcNickname"
       | "capeType"
       | "mcCapes"
+      | "buyerInput"
       | "discountPercent"
     >
   >,
@@ -1750,6 +1753,9 @@ export function updateProduct(
   if (patch.productKind !== undefined) {
     product.productKind =
       patch.productKind === "mc_account" ? "mc_account" : patch.productKind === "mc_cape" ? "mc_cape" : "general";
+  }
+  if (patch.buyerInput !== undefined) {
+    product.buyerInput = cleanBuyerInput(patch.buyerInput);
   }
   if (patch.mcCapes !== undefined) {
     product.mcCapes = Array.isArray(patch.mcCapes) ? cleanCapeList(patch.mcCapes) : null;
@@ -2051,6 +2057,27 @@ export function updateInventoryCode(
   pushLog(actor, "inventory.update", { id, productId: item.productId }, shopId);
   persist(store);
   return { ok: true };
+}
+
+function cleanBuyerInput(v: Product["buyerInput"] | undefined): Product["buyerInput"] {
+  if (!v || !["url", "email", "text"].includes(v.kind)) return null;
+  const label = String(v.label ?? "").trim().slice(0, 40);
+  return label ? { kind: v.kind, label } : null;
+}
+
+/** 주문에 손님이 넣은 정보를 붙인다 */
+export function setOrderBuyerInput(shopId: string, orderIds: string[], input: { label: string; value: string }) {
+  const store = getStore();
+  const want = new Set(orderIds);
+  let n = 0;
+  for (const o of store.orders) {
+    if (o.shopId === shopId && want.has(o.id)) {
+      o.buyerInput = { label: input.label.slice(0, 40), value: input.value.slice(0, 300) };
+      n += 1;
+    }
+  }
+  if (n) persist(store);
+  return n;
 }
 
 function cleanCapeList(list: string[]) {

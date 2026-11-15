@@ -12,6 +12,7 @@ import { shopPath, useShopBase } from "@/lib/shop-nav";
 import { useShopUser } from "@/components/shop/user-context";
 import { UserAuthPanel } from "@/components/shop/user-auth-panel";
 import { TERMS_REQUIRED_MESSAGE, TermsConsent } from "@/components/shop/terms-consent";
+import { placeholderFor } from "@/lib/buyer-input";
 
 type OrderPayload = { id?: string; dispensedCode: string | null; orderUuid?: string };
 
@@ -64,6 +65,10 @@ export function CheckoutClient({
   }
   const [copied, setCopied] = useState(false);
   const [agree, setAgree] = useState(false);
+  /** 서버부스트 → 서버 초대 링크, 유튜브 프리미엄 → 이메일 처럼 구매할 때 받는 정보 */
+  const [extra, setExtra] = useState("");
+  const needExtra = Boolean(product.buyerInput);
+  const extraMissing = needExtra && !extra.trim();
 
   const discount = Math.max(0, Math.min(90, eventDiscountPercent + productDiscountPercent(product)));
   const unit = discount > 0 ? Math.round(product.price * (1 - discount / 100)) : product.price;
@@ -87,13 +92,18 @@ export function CheckoutClient({
       setError(TERMS_REQUIRED_MESSAGE);
       return;
     }
+    if (extraMissing) {
+      setError(`${product.buyerInput!.label}을(를) 넣어 주세요.`);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
+      const buyerInputs = needExtra ? { [product.id]: extra.trim() } : undefined;
       const body =
         qty === 1
-          ? { productId: product.id, agreeTerms: true }
-          : { items: [{ productId: product.id, quantity: qty }], agreeTerms: true };
+          ? { productId: product.id, agreeTerms: true, buyerInputs }
+          : { items: [{ productId: product.id, quantity: qty }], agreeTerms: true, buyerInputs };
 
       const res = await fetch("/api/purchase/points", {
         method: "POST",
@@ -139,6 +149,10 @@ export function CheckoutClient({
       setError(TERMS_REQUIRED_MESSAGE);
       return;
     }
+    if (extraMissing) {
+      setError(`${product.buyerInput!.label}을(를) 넣어 주세요.`);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -152,6 +166,7 @@ export function CheckoutClient({
           paymentMethod: "transfer",
           quantity: qty,
           agreeTerms: true,
+          buyerInputs: needExtra ? { [product.id]: extra.trim() } : undefined,
         }),
       });
       const created = await createRes.json();
@@ -321,10 +336,27 @@ export function CheckoutClient({
               재고가 부족해요. 수량을 줄이거나 다른 상품을 선택해 주세요.
             </p>
           ) : null}
+          {product.buyerInput ? (
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold text-white">
+                {product.buyerInput.label} <span className="text-red-300">*</span>
+              </span>
+              <input
+                value={extra}
+                onChange={(e) => setExtra(e.target.value)}
+                type={product.buyerInput.kind === "email" ? "email" : product.buyerInput.kind === "url" ? "url" : "text"}
+                inputMode={product.buyerInput.kind === "email" ? "email" : product.buyerInput.kind === "url" ? "url" : "text"}
+                placeholder={placeholderFor(product.buyerInput)}
+                maxLength={300}
+                className="h-12 w-full rounded-xl border border-white/15 bg-black/30 px-4 text-[15px] text-white outline-none focus:border-white/40"
+              />
+              <span className="block text-xs text-neutral-400">구매 후 이 정보로 처리해 드려요. 정확하게 적어 주세요.</span>
+            </label>
+          ) : null}
           <TermsConsent checked={agree} onChange={(v) => { setAgree(v); if (v) setError(null); }} className="text-neutral-200" />
           <button
             type="button"
-            disabled={busy || soldOut || !agree || user.points < total}
+            disabled={busy || soldOut || !agree || extraMissing || user.points < total}
             onClick={() => void payWithPoints()}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-sm font-bold text-black disabled:opacity-40"
           >

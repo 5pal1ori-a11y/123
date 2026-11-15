@@ -564,6 +564,8 @@ export type Product = {
   /** 상품 종류 (기본: 기타상품) */
   productKind?: ProductKind;
   /** 마크계정상품: 계정 닉네임 (관리자 전용 — 공개 목록에서는 제거됨) */
+  /** 구매할 때 손님에게 받는 정보 (서버 초대 링크 · 이메일 등). 없으면 받지 않음 */
+  buyerInput?: { kind: "url" | "email" | "text"; label: string } | null;
   /** 마크계정상품: 관리자가 직접 지정한 망토 종류 목록 (없으면 닉네임으로 자동 감지) */
   mcCapes?: string[] | null;
   /** 망토상품: 망토 종류 (예: aurora) */
@@ -619,6 +621,8 @@ export type Order = {
   accessToken: string | null;
   createdAt: string;
   paidAt: string | null;
+  /** 구매할 때 손님이 넣은 정보 (상품의 buyerInput) */
+  buyerInput?: { label: string; value: string } | null;
 };
 
 export type SystemLog = {

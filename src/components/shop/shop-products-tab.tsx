@@ -14,9 +14,9 @@ export type ProductSection = "general" | "mc_account" | "mc_cape";
 export type ShopListingSummary = { rating: number | null; reviewCount: number; sold: number };
 
 const SECTIONS: { id: ProductSection; label: string; short: string }[] = [
-  { id: "general", label: "기타상품", short: "기타상품" },
   { id: "mc_account", label: "마인크래프트 계정", short: "마크 계정" },
   { id: "mc_cape", label: "마인크래프트 망토", short: "마크 망토" },
+  { id: "general", label: "기타상품", short: "기타상품" },
 ];
 
 export function ShopProductsTab({

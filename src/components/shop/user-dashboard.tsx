@@ -188,7 +188,7 @@ export function UserDashboard({
   const [liveStock, setLiveStock] = useState<Record<string, { count: number; status: StockStatus }>>({});
   const [salesCounts, setSalesCounts] = useState<Record<string, number>>({});
   const [shopSummary, setShopSummary] = useState<ShopListingSummary | null>(null);
-  const [productSection, setProductSection] = useState<ProductSection>("general");
+  const [productSection, setProductSection] = useState<ProductSection>("mc_account");
   const [loginHistory, setLoginHistory] = useState<
     { id: string; ip: string; deviceLabel: string; createdAt: string }[]
   >([]);

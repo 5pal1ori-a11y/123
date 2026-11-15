@@ -14,7 +14,8 @@ import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { isProduction, sanitizeOrder } from "@/lib/security";
 import { DISCORD_LINK_REQUIRED, isMfaShopSlug } from "@/lib/discord/does-env";
 import { getUserSession } from "@/lib/session-server";
-import { createOrder, getProductById, initStore, listOrders, persistAsync } from "@/lib/store";
+import { createOrder, getProductById, initStore, listOrders, persistAsync, setOrderBuyerInput } from "@/lib/store";
+import { checkBuyerInput } from "@/lib/buyer-input";
 
 const bodySchema = z.object({
   productId: z.string().min(1),
@@ -74,6 +75,15 @@ export async function POST(request: Request) {
     const parsed = bodySchema.safeParse(json);
     if (!parsed.success) return badRequest("잘못된 요청입니다.");
 
+    const orderProduct = getProductById(parsed.data.productId);
+    let buyerInput: { label: string; value: string } | null = null;
+    if (orderProduct?.buyerInput) {
+      const raw = (json as { buyerInputs?: Record<string, unknown> }).buyerInputs?.[parsed.data.productId];
+      const checked = checkBuyerInput(orderProduct, raw);
+      if (!checked.ok) return NextResponse.json({ error: checked.error, code: "buyer_input_required" }, { status: 400 });
+      if (checked.value) buyerInput = { label: orderProduct.buyerInput.label, value: checked.value };
+    }
+
     if (parsed.data.paymentMethod === "demo" && isProduction()) {
       return badRequest("데모 결제는 사용할 수 없습니다.");
     }
@@ -86,6 +96,10 @@ export async function POST(request: Request) {
     });
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 409 });
+    }
+    if (buyerInput) {
+      setOrderBuyerInput(shop.id, [result.order.id], buyerInput);
+      result.order.buyerInput = buyerInput;
     }
     await persistAsync();
 

@@ -2024,6 +2024,25 @@ export function addInventoryCodes(
 }
 
 /** 재고 삭제 — 판매된 재고는 주문 기록이라 지우지 않는다 */
+/** 판매 전 재고의 내용(지급 정보)을 고친다. 판매된 재고는 기록이라 고치지 않는다 */
+export function updateInventoryCode(
+  shopId: string,
+  id: string,
+  codeValue: string,
+  actor = "admin",
+): { ok: true } | { ok: false; error: string } {
+  const store = getStore();
+  const item = store.inventories.find((i) => i.shopId === shopId && i.id === id);
+  if (!item) return { ok: false, error: "재고를 찾을 수 없어요." };
+  if (item.status === "sold") return { ok: false, error: "이미 판매된 재고는 고칠 수 없어요." };
+  const v = codeValue.trim();
+  if (!v) return { ok: false, error: "내용이 비어 있어요." };
+  item.codeValue = v;
+  pushLog(actor, "inventory.update", { id, productId: item.productId }, shopId);
+  persist(store);
+  return { ok: true };
+}
+
 export function deleteInventoryItems(
   shopId: string,
   ids: string[],

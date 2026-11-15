@@ -50,6 +50,31 @@ function deliveryText(f: Form) {
     .join(" | ");
 }
 
+/** deliveryText 로 만든 한 줄을 다시 칸별로 나눈다 */
+function parseDelivery(code: string): Pick<Form, "email" | "password" | "recoveryEmail" | "recoveryCode" | "memo"> {
+  const out = { email: "", password: "", recoveryEmail: "", recoveryCode: "", memo: "" };
+  const keys: Record<string, keyof typeof out> = {
+    이메일: "email",
+    비밀번호: "password",
+    "복구 이메일": "recoveryEmail",
+    "복구 코드": "recoveryCode",
+    메모: "memo",
+  };
+  let matched = false;
+  for (const part of code.split(" | ")) {
+    const i = part.indexOf(": ");
+    if (i < 0) continue;
+    const k = keys[part.slice(0, i).trim()];
+    if (k) {
+      out[k] = part.slice(i + 2).trim();
+      matched = true;
+    }
+  }
+  // 직접 넣은 다른 형식이면 통째로 메모에 둔다 (지우지 않게)
+  if (!matched) out.memo = code;
+  return out;
+}
+
 function randomSlug() {
   return `mc-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
@@ -72,9 +97,46 @@ export function AdminMcProductsPanel({
   const list = useMemo(() => products.filter((p) => p.productKind === "mc_account"), [products]);
   const [form, setForm] = useState<Form>({ ...EMPTY, category: categories[0]?.name ?? "" });
   const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState<{ id: string; nickname: string; price: string; discount: string; tag: string } | null>(
-    null,
-  );
+  const [editing, setEditing] = useState<{
+    id: string;
+    nickname: string;
+    price: string;
+    discount: string;
+    tag: string;
+    /** 판매 전 재고(지급 정보) — 불러오기 전 undefined, 없으면 null */
+    invId?: string | null;
+    invNote?: string;
+    acct?: Pick<Form, "email" | "password" | "recoveryEmail" | "recoveryCode" | "memo">;
+    acctOrig?: string;
+    acctNick?: string;
+  } | null>(null);
+
+  /** 수정 창을 열면 그 상품의 판매 전 재고를 불러와 칸에 채운다 */
+  async function openEdit(base: { id: string; nickname: string; price: string; discount: string; tag: string }) {
+    setEditing({ ...base });
+    try {
+      const res = await fetch(`/api/inventory?productId=${encodeURIComponent(base.id)}`, {
+        credentials: "include",
+        headers: shopHeaders(shopSlug, false),
+        cache: "no-store",
+      });
+      const data = (await res.json().catch(() => ({}))) as { inventories?: { id: string; codeValue: string; status: string }[] };
+      const list = data.inventories ?? [];
+      const item = list.find((i) => i.status === "available") ?? null;
+      if (!item) {
+        setEditing((e) =>
+          e && e.id === base.id
+            ? { ...e, invId: null, invNote: list.some((i) => i.status === "sold") ? "이미 판매된 계정이라 지급 정보는 고칠 수 없어요." : list.length ? "결제 대기 중인 재고라 지금은 고칠 수 없어요." : "등록된 지급 정보가 없어요. 아래에 넣으면 새로 추가돼요.", acct: list.length ? undefined : { email: "", password: "", recoveryEmail: "", recoveryCode: "", memo: "" } }
+            : e,
+        );
+        return;
+      }
+      const acct = parseDelivery(item.codeValue);
+      setEditing((e) => (e && e.id === base.id ? { ...e, invId: item.id, acct, acctOrig: JSON.stringify(acct), acctNick: base.nickname } : e));
+    } catch {
+      setEditing((e) => (e && e.id === base.id ? { ...e, invId: null, invNote: "지급 정보를 불러오지 못했어요." } : e));
+    }
+  }
 
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -150,6 +212,15 @@ export function AdminMcProductsPanel({
         discountPercent: discount || null,
         tags: editing.tag.trim() ? [editing.tag.trim().slice(0, 32)] : [],
       });
+      // 지급 정보(이메일·비밀번호·복구코드)가 바뀌었으면 재고도 고친다
+      const acct = editing.acct;
+      const blankNew = editing.invId === null && acct && !acct.email.trim() && !acct.password.trim();
+      if (acct && !blankNew && (JSON.stringify(acct) !== editing.acctOrig || editing.nickname !== editing.acctNick)) {
+        if (!acct.email.trim() || !acct.password.trim()) throw new Error("이메일과 비밀번호는 꼭 넣어 주세요.");
+        const code = deliveryText({ ...EMPTY, ...acct, nickname });
+        if (editing.invId) await api("/api/inventory", "PATCH", { id: editing.invId, code });
+        else if (editing.invId === null) await api("/api/inventory", "POST", { productId: editing.id, codes: [code] });
+      }
       onMessage("수정했어요");
       setEditing(null);
       await onReload();
@@ -282,7 +353,7 @@ export function AdminMcProductsPanel({
                     className="admin-icon-btn"
                     title="수정"
                     onClick={() =>
-                      setEditing({
+                      void openEdit({
                         id: p.id,
                         nickname: p.mcNickname ?? "",
                         price: String(p.price),
@@ -302,7 +373,7 @@ export function AdminMcProductsPanel({
           </ul>
         )}
         <p className="mt-3 text-[11px] text-neutral-500">
-          계정 정보(이메일·비밀번호)는 상품의 재고로 저장돼 구매 즉시 구매자에게 지급돼요. 바꾸려면 상품 → 재고 탭에서 지우고 다시 넣어 주세요.
+          계정 정보(이메일·비밀번호)는 상품의 재고로 저장돼 구매 즉시 구매자에게 지급돼요. 연필 버튼으로 바로 고칠 수 있어요.
         </p>
       </section>
 
@@ -333,6 +404,36 @@ export function AdminMcProductsPanel({
                     <span className="text-xs text-neutral-400">태그</span>
                     <input className={field} value={editing.tag} onChange={(e) => setEditing({ ...editing, tag: e.target.value })} />
                   </label>
+                </div>
+                <div className="grid gap-2 border-t border-white/10 pt-3">
+                  <span className="text-xs font-semibold text-neutral-300">지급 정보 (구매자에게 전달)</span>
+                  {editing.invNote ? <p className="text-xs text-amber-300">{editing.invNote}</p> : null}
+                  {editing.invId === undefined ? (
+                    <p className="flex items-center gap-2 text-xs text-neutral-500">
+                      <Loader2 className="size-3 animate-spin" /> 불러오는 중…
+                    </p>
+                  ) : editing.acct ? (
+                    <>
+                      {(
+                        [
+                          ["email", "이메일 *"],
+                          ["password", "비밀번호 *"],
+                          ["recoveryEmail", "복구 이메일"],
+                          ["recoveryCode", "복구 코드"],
+                          ["memo", "메모"],
+                        ] as const
+                      ).map(([k, label]) => (
+                        <label key={k} className="space-y-1">
+                          <span className="text-xs text-neutral-400">{label}</span>
+                          <input
+                            className={`${field} font-mono`}
+                            value={editing.acct![k]}
+                            onChange={(e) => setEditing({ ...editing, acct: { ...editing.acct!, [k]: e.target.value } })}
+                          />
+                        </label>
+                      ))}
+                    </>
+                  ) : null}
                 </div>
                 <div className="flex justify-end gap-2">
                   <button type="button" className="toss-admin-ghost" onClick={() => setEditing(null)}>

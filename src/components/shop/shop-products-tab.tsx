@@ -1,14 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { motion } from "framer-motion";
-import { Check, Copy, ShoppingBag } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import type { ProductWithStock, ShopEvent, ShopTier, StockStatus } from "@/lib/types";
 import { calcProductPrice } from "@/lib/pricing";
 import { formatKRW } from "@/lib/utils";
 import { shopPath, useShopBase } from "@/lib/shop-nav";
-import { StockBadge } from "@/components/ui/stock-badge";
-import { WishHeartButton } from "@/components/ui/wish-heart-button";
 import { PanelPrimaryBtn, PanelStats } from "@/components/admin/admin-panel-ui";
 import { McAccountCard } from "./mc-account-card";
 import { CapeGallery, type CapeStock } from "@/components/capes/cape-gallery";
@@ -154,7 +150,48 @@ export function ShopProductsTab({
           ))}
         </div>
         {productSection === "mc_cape" ? (
-          <CapeGallery stock={capeStock} />
+          <CapeGallery
+            stock={capeStock}
+            renderCard={(cape, open, idx) => {
+              const p = products.find((x) => x.productKind === "mc_cape" && x.capeType === cape.type);
+              const stub = {
+                id: `cape-${cape.type}`,
+                slug: "",
+                name: `${cape.title} 망토`,
+                price: 0,
+                productKind: "mc_cape",
+                capeType: cape.type,
+                availableCount: 0,
+                stockStatus: "sold_out",
+                createdAt: new Date().toISOString(),
+                tags: [],
+              } as unknown as ProductWithStock;
+              const prod = p ?? stub;
+              const live = p ? liveStock[p.id] : undefined;
+              const stockStatus = p ? (live?.status ?? p.stockStatus) : "sold_out";
+              const { finalPrice, totalDiscountPercent } = p
+                ? calcProductPrice(p, tier, eventByProduct.get(p.id) ?? null)
+                : { finalPrice: 0, totalDiscountPercent: 0 };
+              return (
+                <McAccountCard
+                  key={cape.type}
+                  product={{ ...prod, name: `${cape.title} 망토` }}
+                  index={idx}
+                  shopName={shopName}
+                  priceText={p ? finalPrice.toLocaleString("ko-KR") : "-"}
+                  originalPriceText={p && totalDiscountPercent > 0 ? p.price.toLocaleString("ko-KR") : null}
+                  discountPercent={totalDiscountPercent}
+                  stockStatus={stockStatus}
+                  sold={p ? (shopSummary?.sold ?? salesCounts[p.id] ?? 0) : 0}
+                  rating={shopSummary?.rating ?? null}
+                  wishlisted={p ? wishlistIds.has(p.id) : false}
+                  onToggleWishlist={() => p && onToggleWishlist(p.id)}
+                  onAddToCart={() => p && onAddToCart?.(p.id)}
+                  onView={open}
+                />
+              );
+            }}
+          />
         ) : (
         <>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -194,7 +231,7 @@ export function ShopProductsTab({
 
         {filteredProducts.length === 0 ? (
           <p className="py-12 text-center text-sm text-neutral-500">검색 결과가 없어요</p>
-        ) : productSection === "mc_account" ? (
+        ) : (
           <>
             {[
               { key: "on", title: null as string | null, list: onSaleMc },
@@ -241,111 +278,6 @@ export function ShopProductsTab({
               ),
             )}
           </>
-        ) : (
-          <ul className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {filteredProducts.map((p, idx) => {
-              const ev = eventByProduct.get(p.id);
-              const live = liveStock[p.id];
-              const stockStatus = live?.status ?? p.stockStatus;
-              const stockCount = live?.count ?? p.availableCount;
-              const soldOut = stockStatus === "sold_out";
-              const { finalPrice, totalDiscountPercent } = calcProductPrice(p, tier, ev ?? null);
-              const wishlisted = wishlistIds.has(p.id);
-              return (
-                <motion.li
-                  key={p.id}
-                  layout
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(idx * 0.03, 0.24), duration: 0.32 }}
-                  whileHover={{ y: -2 }}
-                  className="flex flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.02] p-4"
-                >
-                  <Link
-                    href={shopPath(base, `/product/${p.slug}`)}
-                    className={`min-w-0 flex-1 ${soldOut ? "opacity-55" : ""}`}
-                  >
-                    {p.thumbnail?.trim() ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={p.thumbnail.trim()}
-                        alt=""
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                        className="mb-3 aspect-[16/9] w-full rounded-xl border border-white/10 bg-white/[0.03] object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                      />
-                    ) : null}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <span className="text-[17px] font-bold leading-snug text-white hover:text-accent">{p.name}</span>
-                        <StockBadge status={stockStatus} />
-                      </div>
-                    </div>
-                    <p className="mt-1.5 text-[13px] text-neutral-500">
-                      {p.category ? `${p.category} · ` : ""}
-                      {p.fulfillment === "manual" ? "수동지급 · " : ""}
-                      재고 {p.fulfillment === "manual" ? "판매중" : `${stockCount}개`}
-                    </p>
-                    {ev || (tier && tier.discountPercent > 0) ? (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {ev ? (
-                          <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold text-orange-400">
-                            이벤트 {ev.discountPercent}%
-                          </span>
-                        ) : null}
-                        {tier && tier.discountPercent > 0 ? (
-                          <span
-                            className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                            style={{ backgroundColor: `${tier.color}22`, color: tier.color }}
-                          >
-                            {tier.name} {tier.discountPercent}%
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {p.description ? (
-                      <p className="mt-1.5 line-clamp-3 text-[14px] leading-relaxed text-neutral-500">{p.description}</p>
-                    ) : null}
-                    <div className="mt-2 flex items-baseline gap-2">
-                      {totalDiscountPercent > 0 ? (
-                        <span className="text-sm text-neutral-500 line-through">{formatKRW(p.price)}</span>
-                      ) : null}
-                      <p className="text-lg font-extrabold text-white">{formatKRW(finalPrice)}</p>
-                    </div>
-                  </Link>
-                  <div className="mt-3 flex items-center gap-2">
-                    <WishHeartButton
-                      active={wishlisted}
-                      onToggle={() => onToggleWishlist(p.id)}
-                      size="sm"
-                      className="!rounded-xl"
-                    />
-                    <motion.button
-                      type="button"
-                      disabled={soldOut}
-                      whileTap={{ scale: 0.92 }}
-                      onClick={() => onAddToCart?.(p.id)}
-                      className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2.5 text-xs font-semibold text-neutral-200 disabled:opacity-35"
-                    >
-                      <span className="inline-flex items-center gap-1">
-                        <ShoppingBag className="size-3.5" />
-                        담기
-                      </span>
-                    </motion.button>
-                    <Link
-                      href={shopPath(base, `/product/${p.slug}`)}
-                      className="flex flex-1 items-center justify-center rounded-xl bg-white px-3 py-2.5 text-xs font-semibold text-black transition active:scale-[0.98]"
-                    >
-                      {soldOut ? "상세 보기" : "구매하기"}
-                    </Link>
-                  </div>
-                </motion.li>
-              );
-            })}
-          </ul>
         )}
         </>
         )}

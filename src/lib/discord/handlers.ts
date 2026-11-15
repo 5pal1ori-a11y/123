@@ -1466,6 +1466,7 @@ export async function handleStockCommand(
   if (!shop) return plainEphemeral("상점 없음");
   await refreshMfaStockIfStale(shop.id);
   const { buildStockPanel, refreshStockBoard } = await import("@/lib/discord/stock-board");
+  await (await import("@/lib/discord/app-emojis")).ensureAppEmojis(shop.id);
   if (!channelId) return v2Ephemeral(buildStockPanel(shop.id, "view").components);
 
   const settings = getShopSettings(shop.id);
@@ -1493,6 +1494,7 @@ export async function handleStockView(shopSlug: string, update: boolean) {
   if (!shop) return plainEphemeral("상점 없음");
   await refreshMfaStockIfStale(shop.id);
   const { buildStockPanel } = await import("@/lib/discord/stock-board");
+  await (await import("@/lib/discord/app-emojis")).ensureAppEmojis(shop.id);
   const { components } = buildStockPanel(shop.id, "view");
   return update ? v2Update(components) : v2Ephemeral(components);
 }

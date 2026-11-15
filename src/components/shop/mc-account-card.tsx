@@ -3,10 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { BarChart3, ExternalLink, Heart, ShoppingCart, Star, User } from "lucide-react";
+import { BarChart3, ExternalLink, Heart, Package, ShoppingCart, Star, User } from "lucide-react";
 import type { ProductWithStock, StockStatus } from "@/lib/types";
 import type { McAccountInfo, McCapeInfo } from "@/lib/mc-account";
 import { useCapeFace } from "@/components/capes/cape-face";
+import { CAPE_BY_TYPE } from "@/lib/capes-data";
+
+/** 카드를 누르면 그 카드에만 윤곽선 (한 번에 하나) */
+const SELECT_EVENT = "does-card-select";
 import { shopPath, useShopBase } from "@/lib/shop-nav";
 
 function timeAgo(iso: string) {
@@ -108,6 +112,7 @@ export function McAccountCard({
   wishlisted,
   onToggleWishlist,
   onAddToCart,
+  onView,
 }: {
   product: ProductWithStock;
   index: number;
@@ -121,8 +126,21 @@ export function McAccountCard({
   wishlisted: boolean;
   onToggleWishlist: () => void;
   onAddToCart?: () => void;
+  /** 있으면 이미지 · 상세보기 를 눌렀을 때 이동 대신 이 동작 (망토 3D 보기) */
+  onView?: () => void;
 }) {
   const base = useShopBase();
+  const isMc = product.productKind === "mc_account";
+  const isCape = product.productKind === "mc_cape";
+  const capeHash = isCape && product.capeType ? CAPE_BY_TYPE[product.capeType]?.hash ?? null : null;
+  const capeSrc = useCapeFace(capeHash);
+  const [selected, setSelected] = useState(false);
+  useEffect(() => {
+    const on = (e: Event) => setSelected((e as CustomEvent<string>).detail === product.id);
+    window.addEventListener(SELECT_EVENT, on);
+    return () => window.removeEventListener(SELECT_EVENT, on);
+  }, [product.id]);
+  const select = () => window.dispatchEvent(new CustomEvent(SELECT_EVENT, { detail: product.id }));
   const href = shopPath(base, `/product/${product.slug}`);
   const soldOut = stockStatus === "sold_out";
   const [info, setInfo] = useState<McAccountInfo | null>(null);
@@ -130,6 +148,7 @@ export function McAccountCard({
   const ver = encodeURIComponent(product.mcVersion ?? "0");
 
   useEffect(() => {
+    if (!isMc) return;
     let alive = true;
     fetch(`/api/mc-account/${encodeURIComponent(product.id)}?v=${ver}`)
       .then((r) => (r.ok ? (r.json() as Promise<McAccountInfo>) : null))
@@ -138,7 +157,7 @@ export function McAccountCard({
     return () => {
       alive = false;
     };
-  }, [product.id, ver]);
+  }, [product.id, ver, isMc]);
 
   const skinSrc = product.thumbnail?.trim() || `/api/mc-account/${encodeURIComponent(product.id)}?asset=skin&v=${ver}`;
   const capes = info?.capes ?? [];
@@ -153,11 +172,19 @@ export function McAccountCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.24), duration: 0.32 }}
-      className="mc-card mf-dark flex flex-col rounded-[14px] border border-[#1c2436] bg-[#0b1020] p-3"
+      onClickCapture={select}
+      className="mc-card mf-dark flex flex-col rounded-[14px] border bg-[#0b1020] p-3 transition-[border-color,box-shadow] duration-200 [&_a]:outline-none [&_button]:outline-none"
+      style={
+        selected
+          ? { borderColor: "#818cf8", boxShadow: "0 0 0 1px #818cf8, 0 0 22px rgba(129,140,248,0.35)" }
+          : { borderColor: "#1c2436" }
+      }
     >
       {/* 스킨 영역 */}
       <div className="relative h-[210px] rounded-[10px]">
-        <Link href={href} className="absolute inset-0 flex items-end justify-center overflow-hidden rounded-[10px]">
+        <ViewWrap href={href} onView={onView} className="absolute inset-0 flex items-end justify-center overflow-hidden rounded-[10px]">
+          {isMc ? (
+            <>
           {!skinFailed ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -175,7 +202,31 @@ export function McAccountCard({
           ) : (
             <User className="mb-16 size-16 text-[rgba(255,255,255,0.1)]" />
           )}
-        </Link>
+            </>
+          ) : isCape ? (
+            capeSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={capeSrc}
+                alt={product.name}
+                className="mb-6 h-[170px] w-auto self-center"
+                style={{ imageRendering: "pixelated", ...(soldOut ? { filter: "grayscale(1) brightness(0.55)" } : null) }}
+              />
+            ) : null
+          ) : product.thumbnail?.trim() ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.thumbnail.trim()}
+              alt=""
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className="h-full w-full rounded-[10px] object-cover"
+              style={soldOut ? { filter: "grayscale(1) brightness(0.55)" } : undefined}
+            />
+          ) : (
+            <Package className="mb-16 size-16 self-center text-[rgba(255,255,255,0.15)]" />
+          )}
+        </ViewWrap>
 
         <div className="pointer-events-none absolute left-0 top-0 flex max-w-[calc(100%-72px)] items-center gap-2">
           <span
@@ -186,7 +237,7 @@ export function McAccountCard({
             }`}
           >
             <span className={`size-1 rounded-full ${soldOut ? "bg-[#fca5a5]" : "bg-[#a5b4fc]"}`} />
-            {soldOut ? "SOLD" : "판매중"}
+            {soldOut ? "SOLD" : "AVAILABLE"}
           </span>
           {rating !== null ? (
             <span className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[11px] font-bold text-[#fcd34d]">
@@ -262,6 +313,9 @@ export function McAccountCard({
 
       {/* 망토 (왼쪽 하단) */}
       <div className="mt-2.5 flex min-h-[26px] flex-wrap items-center gap-1">
+        {!isMc ? (
+          <span className="text-[11px] font-semibold text-[#737373]">{isCape ? "망토 리딤 코드" : product.category || "기타상품"}</span>
+        ) : null}
         {shownCapes.map((c, i) => (
           <CapeIcon
             key={`${c.source}-${i}`}
@@ -279,13 +333,14 @@ export function McAccountCard({
 
       {/* 버튼 */}
       <div className="mt-3 flex gap-2">
-        <Link
+        <ViewWrap
           href={href}
+          onView={onView}
           className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[10px] border border-[#243052] bg-[#121a30] text-[13px] font-bold text-[#e0e7ff] transition hover:bg-[#18223d]"
         >
           <ExternalLink className="size-3.5" />
           상세보기
-        </Link>
+        </ViewWrap>
         <a
           href={href}
           target="_blank"
@@ -306,5 +361,30 @@ export function McAccountCard({
         </button>
       </div>
     </motion.li>
+  );
+}
+
+function ViewWrap({
+  href,
+  onView,
+  className,
+  children,
+}: {
+  href: string;
+  onView?: () => void;
+  className: string;
+  children: React.ReactNode;
+}) {
+  if (onView) {
+    return (
+      <button type="button" onClick={onView} className={className}>
+        {children}
+      </button>
+    );
+  }
+  return (
+    <Link href={href} className={className}>
+      {children}
+    </Link>
   );
 }

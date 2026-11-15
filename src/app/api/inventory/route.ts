@@ -9,7 +9,7 @@ import {
   serverError,
   unauthorized,
 } from "@/lib/api";
-import { addInventoryCodes, deleteInventoryItems, initStore, listInventories, persistAsync } from "@/lib/store";
+import { addInventoryCodes, deleteInventoryItems, initStore, updateInventoryCode, listInventories, persistAsync } from "@/lib/store";
 import { notifyRestockWatchers } from "@/lib/store-ext";
 import { postRestockLog } from "@/lib/discord/logs";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
@@ -76,6 +76,28 @@ export async function POST(request: Request) {
     }
     await persistAsync();
     return NextResponse.json(result, { status: 201 });
+  } catch (err) {
+    return serverError(err);
+  }
+}
+
+const patchSchema = z.object({ id: z.string().min(1), code: z.string().min(1).max(4000) });
+
+/** 판매 전 재고 한 개의 내용을 고친다 */
+export async function PATCH(request: Request) {
+  await initStore();
+  const shop = requireShop(request);
+  if (!isShop(shop)) return shop;
+  if (!isShopAdmin(request, shop)) return unauthorized();
+  const denied = forbidUnlessStaffCan(request, shop, "products");
+  if (denied) return denied;
+  try {
+    const parsed = patchSchema.safeParse(await request.json());
+    if (!parsed.success) return badRequest("수정할 내용을 확인해 주세요.");
+    const r = updateInventoryCode(shop.id, parsed.data.id, parsed.data.code);
+    if (!r.ok) return badRequest(r.error);
+    await persistAsync();
+    return NextResponse.json({ ok: true });
   } catch (err) {
     return serverError(err);
   }

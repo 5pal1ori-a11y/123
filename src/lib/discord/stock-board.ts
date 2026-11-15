@@ -18,6 +18,7 @@ import {
 } from "@/lib/store";
 import type { ProductWithStock } from "@/lib/types";
 import { formatKRW } from "@/lib/utils";
+import { appEmoji, ensureAppEmojis } from "@/lib/discord/app-emojis";
 
 /** V2 메시지 하나의 글자 수 한도(4000) 안에 상품 목록을 담는다 */
 const TEXT_BUDGET = 3300;
@@ -29,7 +30,7 @@ function stockLabel(p: ProductWithStock) {
 }
 
 function productLine(p: ProductWithStock) {
-  return `${p.availableCount > 0 ? "🟢" : "⚫"} **${p.name}** · ${formatKRW(p.price)} · ${stockLabel(p)}`;
+  return `${p.availableCount > 0 ? appEmoji("does_stock_ok") : appEmoji("does_stock_sold")} **${p.name}** · ${formatKRW(p.price)} · ${stockLabel(p)}`;
 }
 
 function groupByCategory(products: ProductWithStock[]) {
@@ -88,13 +89,11 @@ export function buildStockPanel(shopId: string, mode: "board" | "view") {
   }
 
   kids.push(separator(true, 1));
-  kids.push(textDisplay("-# 자판기 상품은 충전 후 바로 구매할 수 있어요."));
   kids.push(
     actionRow(
       ...(mode === "view"
         ? [button({ label: "새로고침", customId: cid(slug, "stock_refresh") })]
         : []),
-      button({ label: "자판기", customId: cid(slug, "stock_vending") }),
       button({ label: "사이트에서 보기", url: shopUrl(slug, "/dashboard"), style: ButtonStyle.LINK }),
     ),
   );
@@ -106,6 +105,7 @@ export async function refreshStockBoard(shopId: string) {
   const settings = getShopSettings(shopId);
   if (!settings.discordBotEnabled || !settings.discordStockChannelId) return { ok: false as const };
   const channelId = settings.discordStockChannelId;
+  await ensureAppEmojis(shopId);
   const payload = buildStockPanel(shopId, "board");
   if (settings.discordStockMessageId) {
     const edited = await editChannelMessage(channelId, settings.discordStockMessageId, payload, shopId);

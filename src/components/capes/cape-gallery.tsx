@@ -134,7 +134,14 @@ const MODES: { id: ViewMode; label: string }[] = [
   { id: "elytra", label: "Elytra" },
 ];
 
-export function CapeGallery({ stock }: { stock?: CapeStock }) {
+export function CapeGallery({
+  stock,
+  renderCard,
+}: {
+  stock?: CapeStock;
+  /** 있으면 카드 모양을 바꾼다 (상점 상품 카드). open 을 부르면 3D 보기 창이 열린다 */
+  renderCard?: (cape: CapeEntry, open: () => void, index: number) => React.ReactNode;
+}) {
   const [skin, setSkin] = useState<SavedSkin | null>(null);
   const [nick, setNick] = useState("");
   const [busy, setBusy] = useState(false);
@@ -244,11 +251,17 @@ export function CapeGallery({ stock }: { stock?: CapeStock }) {
         </div>
       </div>
 
+      {renderCard ? (
+        <ul className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {list.map((c, i) => renderCard(c, () => setOpen(c), i))}
+        </ul>
+      ) : (
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {list.map((c) => (
           <CapeCard key={c.type} cape={c} stock={stock ? (stock[c.type] ?? { count: 0, price: 0, href: null }) : undefined} onOpen={() => setOpen(c)} />
         ))}
       </div>
+      )}
       {list.length === 0 ? <p className="py-16 text-center text-neutral-500">검색 결과가 없어요</p> : null}
 
       {open ? (

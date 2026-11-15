@@ -23,7 +23,6 @@ import {
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { postChannelMessage } from "@/lib/discord/rest";
 import { SELLABLE_CAPES } from "@/lib/sellable-capes";
-import { shopUrl } from "@/lib/domain";
 import { getShopBySlug, getShopSettings, listProducts, persistAsync, updateShopSettings } from "@/lib/store";
 
 function appOrigin() {
@@ -81,8 +80,6 @@ export function handleStockRequestCommand(
     kids.push(actionRow(stringSelect({ customId: cid(shop.slug, "sr_pick"), placeholder: "요청할 상품을 골라 주세요", options })));
   }
   kids.push(actionRow(button({ customId: cid(shop.slug, "sr_custom"), label: "직접 적어서 요청", emoji: appEmoji("does_mail") })));
-  // 판매자: 웹사이트 상점 (상품 카드의 '판매자 DOES' 와 같은 표시)
-  kids.push(textDisplay(`**판매자** [${shop.name}](${shopUrl(shop.slug, "/")}) · 웹사이트에서 바로 구매할 수 있어요`));
   kids.push(
     textDisplay("-# 재고 요청순이 많은 제품부터 처리합니다 · 목록에 없으면 직접 적어서 요청해 주세요"),
   );

@@ -12,7 +12,7 @@ import {
   textDisplay,
   type DiscordInteraction,
 } from "@/lib/discord/components";
-import { appEmoji } from "@/lib/discord/app-emojis";
+import { plainEmoji } from "@/lib/discord/app-emojis";
 import { shopUrl } from "@/lib/domain";
 import { islandView, syncIsland } from "@/lib/island/server";
 import { getUserByDiscordId } from "@/lib/store";
@@ -47,14 +47,14 @@ export async function handleIslandCommand(shop: Shop, interaction: DiscordIntera
       allowed_mentions: { parse: [] },
       components: [
         container([
-          textDisplay(`## ${appEmoji("does_island")} ${name}의 섬 · Lv.${view.level}`),
+          textDisplay(`## ${plainEmoji("does_island")} ${name}의 섬 · Lv.${view.level}`),
           textDisplay(`${mention} 님의 스카이블럭 섬이에요.`),
           mediaGallery([image]),
           separator(true, 1),
           textDisplay(
             [
-              `${appEmoji("does_gem")} 거래 **${s.orders}** · ${appEmoji("does_tree")} 후기 **${s.reviews}** · ${appEmoji("does_sprout")} 출석 **${s.attendance}**`,
-              `${appEmoji("does_gift")} 이벤트 **${s.events}** · ${appEmoji("does_flag")} 인증 **${s.verified ? "완료" : "-"}** · ${appEmoji("does_brick")} 블록 **${view.blocks.length}**`,
+              `${plainEmoji("does_gem")} 거래 **${s.orders}** · ${plainEmoji("does_tree")} 후기 **${s.reviews}** · ${plainEmoji("does_sprout")} 출석 **${s.attendance}**`,
+              `${plainEmoji("does_gift")} 이벤트 **${s.events}** · ${plainEmoji("does_flag")} 인증 **${s.verified ? "완료" : "-"}** · ${plainEmoji("does_brick")} 블록 **${view.blocks.length}**`,
             ].join("\n"),
           ),
           textDisplay(`-# ${shop.name} · 활동으로 섬을 키워보세요`),

@@ -43,6 +43,15 @@ export function appEmoji(name: AppEmojiName) {
   return cache[name] ?? FALLBACK[name];
 }
 
+/**
+ * 명령·버튼에 대한 답장(웹훅) 글자용 — 디스코드는 채널에서 @everyone 에게 '외부 이모지 사용' 권한이 없으면
+ * 답장 글자 속 커스텀 이모지를 :이름: 으로 보여 준다. 그래서 답장 글자에는 일반 이모지를 쓴다.
+ * (버튼 이모지 · 봇이 채널에 직접 올리는 메시지는 이 제한이 없어 appEmoji 를 쓴다)
+ */
+export function plainEmoji(name: AppEmojiName) {
+  return FALLBACK[name];
+}
+
 /** 버튼 emoji 칸에 넣을 값 (components.button 이 <a:이름:ID> 를 알아본다) */
 export const buttonEmoji = appEmoji;
 

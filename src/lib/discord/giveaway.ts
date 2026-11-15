@@ -11,7 +11,7 @@ import {
   v2Message,
   type DiscordInteraction,
 } from "@/lib/discord/components";
-import { appEmoji } from "@/lib/discord/app-emojis";
+import { appEmoji, plainEmoji } from "@/lib/discord/app-emojis";
 import { BANNER_PATHS } from "@/lib/gif/banners";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
@@ -150,7 +150,7 @@ export async function handleGiveawayJoin(shop: Shop, giveawayId: string, userId:
   }
   const count = Number(res.data.count) || 0;
   return res.data.joined
-    ? plainEphemeral(`**${g.prize}** 이벤트에 참여했어요! 행운을 빌어요 ${appEmoji("does_clover")} (현재 ${count}명)\n-# 버튼을 한 번 더 누르면 참여가 취소돼요.`)
+    ? plainEphemeral(`**${g.prize}** 이벤트에 참여했어요! 행운을 빌어요 ${plainEmoji("does_clover")} (현재 ${count}명)\n-# 버튼을 한 번 더 누르면 참여가 취소돼요.`)
     : plainEphemeral(`참여를 취소했어요. (현재 ${count}명)`);
 }
 

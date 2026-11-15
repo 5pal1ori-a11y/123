@@ -13,7 +13,7 @@ import {
   textDisplay,
   type DiscordInteraction,
 } from "@/lib/discord/components";
-import { appEmoji } from "@/lib/discord/app-emojis";
+import { appEmoji, plainEmoji } from "@/lib/discord/app-emojis";
 import { verifyOrigin } from "@/lib/domain";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
 import { computeSuspicionScore } from "@/lib/verify-bot/analytics";
@@ -309,7 +309,7 @@ export async function handleVerifyButton(interaction: DiscordInteraction) {
   if (!guild?.verifiedRoleId || !guild.enabled) return errorV2("인증이 아직 설정되지 않았어요. 관리자에게 알려 주세요.");
   if (guild.blacklistUserIds.includes(actor.id)) return errorV2("인증할 수 없는 계정이에요. 관리자에게 문의해 주세요.");
   if (actor.roles.includes(guild.verifiedRoleId)) {
-    return ephemeralV2([textDisplay(`이미 인증된 계정이에요 ${appEmoji("does_check")}`)]);
+    return ephemeralV2([textDisplay(`이미 인증된 계정이에요 ${plainEmoji("does_check")}`)]);
   }
   const { addMemberRole } = await import("@/lib/verify-bot/rest");
   const r = await addMemberRole(guildId, actor.id, guild.verifiedRoleId);
@@ -333,5 +333,5 @@ export async function handleVerifyButton(interaction: DiscordInteraction) {
       }).then(() => undefined),
     );
   }
-  return ephemeralV2([textDisplay(`## 인증 완료 ${appEmoji("does_check")}`), textDisplay(`<@&${guild.verifiedRoleId}> 역할이 지급됐어요.`)]);
+  return ephemeralV2([textDisplay(`## 인증 완료 ${plainEmoji("does_check")}`), textDisplay(`<@&${guild.verifiedRoleId}> 역할이 지급됐어요.`)]);
 }

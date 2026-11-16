@@ -1440,9 +1440,11 @@ SCENES.slot = (s, o) => {
   const sp = sparkles(s, [[-2.1, 1.6, 1, 0.5, 0], [2.3, 1.2, 1, 0.45, 2], [2.1, -1.0, 1.2, 0.4, 4]], 0xffe6a0);
   const symbolAngle = (i) => (o.symOffset ?? Math.PI * 1.5) + ((i + 0.5) / 4) * TAU;
   cam(0, 0.5, 8.0, 0, 0.25, 0);
-  return (t) => {
+  return (t0) => {
+    // spin: 결과 없이 계속 도는 연출 (기다리는 화면용)
+    const t = o.spin ? (t0 * 0.3) % 0.3 + 0.02 : t0;
     st.anim(t);
-    const done = t >= 0.58;
+    const done = !o.spin && t >= 0.58;
     g.rotation.y = -0.2 + Math.sin(t * TAU) * 0.05;
     lever.rotation.x = t < 0.1 ? easeOut(t / 0.1) * 1.0 : 1.0 * (1 - easeOut(seg(t, 0.1, 0.2)));
     reels.forEach((reel, i) => {

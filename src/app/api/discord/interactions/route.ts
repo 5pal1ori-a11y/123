@@ -232,10 +232,51 @@ async function editOriginalInteraction(
   }
 }
 
+/** 결과를 바로 보여 주지 않고 '여는 중…' 을 5초 보여 준 뒤 공개하는 동작 */
+function suspenseFor(interaction: DiscordInteraction): { title: string; gif: string } | null {
+  const origin = "https://doesmc.xyz";
+  if (interaction.type === 2) {
+    const name = interaction.data?.name ?? "";
+    if (name === "출석") return { title: "🎁 출석 상자를 여는 중…", gif: `${origin}/brand/suspense-checkin-3d.gif` };
+    if (name === "도박") return { title: "🎰 슬롯을 돌리는 중…", gif: `${origin}/brand/suspense-gamble-3d.gif` };
+    return null;
+  }
+  const parsed = parseCid(interaction.data?.custom_id ?? "");
+  if (parsed?.action === "gacha_draw") return { title: "🎁 뽑는 중…", gif: `${origin}/brand/gacha3d2-idle.gif` };
+  if (parsed?.action === "rbox_open") return { title: "⛏️ 상자를 여는 중…", gif: `${origin}/api/discord/rbox/idle-3d2.gif` };
+  return null;
+}
+
+const SUSPENSE_MS = 5000;
+
 async function processDeferred(interaction: DiscordInteraction) {
   try {
     await initStore({ force: true });
+    const suspense = suspenseFor(interaction);
+    const started = Date.now();
+    if (suspense) {
+      await editOriginalInteraction(interaction.application_id, interaction.token, {
+        content: null,
+        embeds: [],
+        flags: MessageFlags.IS_COMPONENTS_V2,
+        components: [
+          {
+            type: 17,
+            accent_color: 0xa855f7,
+            components: [
+              { type: 12, items: [{ media: { url: suspense.gif } }] },
+              { type: 10, content: `## ${suspense.title}` },
+              { type: 10, content: "-# 5초 뒤에 결과가 나와요" },
+            ],
+          },
+        ],
+      }).catch(() => null);
+    }
     const response = await handleDiscordInteraction(interaction);
+    if (suspense) {
+      const wait = SUSPENSE_MS - (Date.now() - started);
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    }
     const type = (response as { type?: number }).type;
     const data = (response as { data?: Record<string, unknown> }).data;
 

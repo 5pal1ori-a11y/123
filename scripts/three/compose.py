@@ -217,6 +217,19 @@ def claw_result(name, kind):
     save_gif(frames, os.path.join(OUT, f"{name}.gif"), durs, (600, 338))
 
 
+def suspense(name, scene, opts, title, n=30):
+    """결과 전 5초 동안 보여 주는 '여는 중…' GIF (결과가 드러나지 않게)"""
+    if not want(name):
+        return
+    frames = []
+    for f, im in enumerate(render(scene, W, H, n, {**RESULT_VIEW, **opts})):
+        cv = canvas_from(im, W, H)
+        dots = "." * (1 + (f // 5) % 3)
+        title_center(cv, title + dots, 20, 7, W, color=(255, 255, 255))
+        frames.append(cv.img)
+    save_gif(frames, os.path.join(OUT, f"{name}.gif"), [80] * n, (W, H))
+
+
 def guide(name, steps, w=960, h=300, per=20):
     """여러 단계를 차례로 보여 주는 안내 GIF — 단계마다 3D 장면 + STEP 표시 + 진행 막대"""
     if not want(name):
@@ -276,6 +289,8 @@ if __name__ == "__main__":
     banner("review-3d", 960, 300, "stars", "이용후기", "실제 구매 고객님들의 솔직한 후기")
     banner("inquiry-3d", 960, 300, "bubble", "문의하기", "궁금한 점은 티켓으로 편하게 물어보세요", line=((56, 189, 248), (3, 105, 161)))
     banner("about-3d", 960, 300, "logo", "도스 소개", "마인크래프트 정품 계정 전문 상점 · DOES")
+    suspense("suspense-gamble-3d", "slot", {"win": True, "spin": True}, "슬롯 돌리는 중")
+    suspense("suspense-checkin-3d", "gift", {}, "출석 상자 여는 중")
     guide(
         "verify-guide-3d",
         [

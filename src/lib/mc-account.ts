@@ -79,8 +79,9 @@ export const MC_ACCOUNT_CATEGORIES = ["일반 계정", "OG 계정", "Minecon", "
 export type McAccountCategory = (typeof MC_ACCOUNT_CATEGORIES)[number];
 export const MC_RESALE_CATEGORY: McAccountCategory = "대리판매";
 
-/** 예전 카테고리(정품계정 · 마크 계정 등)는 '일반 계정' 으로 본다 */
-export function mcAccountCategory(category: string | null | undefined): McAccountCategory {
+/** 목록에 없는 카테고리(예전 정품계정 · 지운 카테고리 등)는 첫 번째 일반 카테고리로 본다 */
+export function mcAccountCategory(category: string | null | undefined, list: readonly string[] = MC_ACCOUNT_CATEGORIES): string {
   const c = (category ?? "").trim();
-  return (MC_ACCOUNT_CATEGORIES as readonly string[]).includes(c) ? (c as McAccountCategory) : "일반 계정";
+  if (list.includes(c)) return c;
+  return list.find((x) => x !== MC_RESALE_CATEGORY) ?? list[0] ?? "일반 계정";
 }

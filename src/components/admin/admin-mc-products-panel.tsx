@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Loader2, Pencil, Plus, Trash2, User, X } from "lucide-react";
 import { shopHeaders } from "@/lib/shop-client";
-import { MC_ACCOUNT_CATEGORIES, MC_NICKNAME_RE, maskMcNickname, mcAccountCategory } from "@/lib/mc-account";
+import { MC_NICKNAME_RE, MC_RESALE_CATEGORY, maskMcNickname, mcAccountCategory } from "@/lib/mc-account";
+import { useMcCategories } from "@/lib/use-mc-categories";
 import { productDiscountPercent } from "@/lib/pricing";
 import { CAPES } from "@/lib/capes-data";
 import { CapeFaceImg } from "@/components/capes/cape-face";
@@ -100,6 +101,20 @@ export function AdminMcProductsPanel({
   const [form, setForm] = useState<Form>({ ...EMPTY, category: "일반 계정" });
   void categories;
   const [busy, setBusy] = useState(false);
+  const { categories: mcCats, setCategories: setMcCats } = useMcCategories(shopSlug);
+  const [newCat, setNewCat] = useState("");
+
+  async function saveCats(next: string[], ok: string) {
+    try {
+      const res = await fetch("/api/mc-categories", { method: "PUT", credentials: "include", headers: shopHeaders(shopSlug), body: JSON.stringify({ categories: next }) });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; categories?: string[] };
+      if (!res.ok) throw new Error(data.error || "저장하지 못했어요");
+      setMcCats(data.categories ?? next);
+      onMessage(ok);
+    } catch (err) {
+      onMessage(err instanceof Error ? err.message : "저장하지 못했어요");
+    }
+  }
   /** MFA MARKET 연동 — 켜면 계정 정보를 MFA 재고로 보내고, 팔리면 구매자에게 16자리 코드가 간다 */
   const [useMfa, setUseMfa] = useState(true);
   const [editing, setEditing] = useState<{
@@ -360,6 +375,61 @@ export function AdminMcProductsPanel({
   return (
     <div className="space-y-5">
       <section className="admin-bento p-4 sm:p-5">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="text-lg font-bold">마크 계정 카테고리</h3>
+          <span className="text-xs text-neutral-500">상점 「마인크래프트 계정」 탭 순서대로 보여요</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {mcCats.map((c, i) => (
+            <span key={c} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold">
+              {i > 0 ? (
+                <button type="button" title="앞으로" className="text-neutral-500 hover:text-white" onClick={() => {
+                  const next = [...mcCats];
+                  [next[i - 1], next[i]] = [next[i]!, next[i - 1]!];
+                  void saveCats(next, "순서를 바꿨어요");
+                }}>‹</button>
+              ) : null}
+              {c}
+              {c === MC_RESALE_CATEGORY ? (
+                <span className="text-[10px] font-normal text-neutral-500">신청용 · 고정</span>
+              ) : (
+                <button
+                  type="button"
+                  title="삭제"
+                  className="text-neutral-500 hover:text-red-400"
+                  onClick={() => {
+                    if (!confirm(`「${c}」 카테고리를 지울까요? 이 카테고리 계정은 「${mcCats.find((x) => x !== c && x !== MC_RESALE_CATEGORY) ?? "첫 카테고리"}」 에 보여요.`)) return;
+                    void saveCats(mcCats.filter((x) => x !== c), "카테고리를 지웠어요");
+                  }}
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </span>
+          ))}
+          <form
+            className="flex items-center gap-1.5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const name = newCat.trim();
+              if (!name) return;
+              if (mcCats.includes(name)) return onMessage("이미 있는 카테고리예요");
+              // 대리판매는 항상 맨 뒤 근처에 두고 새 카테고리는 그 앞에 넣는다
+              const at = mcCats.indexOf(MC_RESALE_CATEGORY);
+              const next = at >= 0 ? [...mcCats.slice(0, at), name, ...mcCats.slice(at)] : [...mcCats, name];
+              setNewCat("");
+              void saveCats(next, `「${name}」 카테고리를 추가했어요`);
+            }}
+          >
+            <input className="toss-admin-field h-9 w-36 py-1 text-sm" value={newCat} onChange={(e) => setNewCat(e.target.value)} maxLength={20} placeholder="새 카테고리" />
+            <button type="submit" className="toss-admin-primary inline-flex h-9 items-center gap-1 px-3 text-sm">
+              <Plus className="size-4" /> 추가
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section className="admin-bento p-4 sm:p-5">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold">마크 계정 등록</h3>
           <span className="text-xs text-neutral-500">등록하면 상점 「마인크래프트 계정」 탭에 스킨 카드로 올라가요</span>
@@ -403,7 +473,7 @@ export function AdminMcProductsPanel({
           <label className="space-y-1">
             <span className="text-xs text-neutral-400">카테고리</span>
             <select className={field} value={form.category} onChange={set("category")}>
-              {MC_ACCOUNT_CATEGORIES.map((c) => (
+              {mcCats.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -473,7 +543,7 @@ export function AdminMcProductsPanel({
                       {" · "}
                       {p.availableCount > 0 ? "판매중" : "판매됨/재고 없음"}
                       {" · "}
-                      {mcAccountCategory(p.category)}
+                      {mcAccountCategory(p.category, mcCats)}
                       {p.mfaProduct ? " · MFA 연동" : ""}
                       {p.tags?.[0] ? ` · ${p.tags[0]}` : ""}
                     </p>
@@ -489,7 +559,7 @@ export function AdminMcProductsPanel({
                         price: String(p.price),
                         discount: d ? String(d) : "",
                         tag: p.tags?.[0] ?? "",
-                        category: mcAccountCategory(p.category),
+                        category: mcAccountCategory(p.category, mcCats),
                         showName: Boolean(p.mcShowName),
                         capes: p.mcCapes ?? null,
                         mfaProduct: p.mfaProduct ?? null,
@@ -543,7 +613,7 @@ export function AdminMcProductsPanel({
                   <label className="space-y-1">
                     <span className="text-xs text-neutral-400">카테고리</span>
                     <select className={field} value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })}>
-                      {MC_ACCOUNT_CATEGORIES.map((c) => (
+                      {mcCats.map((c) => (
                         <option key={c} value={c}>
                           {c}
                         </option>

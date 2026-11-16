@@ -3,7 +3,7 @@
  * 신청 목록은 KV(resale:v1:<shopId>)에 둔다. 승인 · 거절 시 신청자에게 디스코드 DM + 사이트 알림을 보낸다.
  */
 import { randomUUID } from "crypto";
-import { MC_NICKNAME_RE, maskMcNickname, type McAccountCategory } from "@/lib/mc-account";
+import { MC_NICKNAME_RE, maskMcNickname } from "@/lib/mc-account";
 import { kvGetJson, kvPutJson, withLock } from "@/lib/world/kv";
 
 export {
@@ -41,8 +41,8 @@ export type ResaleInput = {
   price: number;
 };
 
-export function validateResaleInput(input: ResaleInput): string | null {
-  if (!(RESALE_TYPES as readonly string[]).includes(input.accountType)) return "상품 유형을 골라 주세요.";
+export function validateResaleInput(input: ResaleInput, types: readonly string[] = RESALE_TYPES): string | null {
+  if (!types.includes(input.accountType)) return "상품 유형을 골라 주세요.";
   if (!MC_NICKNAME_RE.test(input.ign.trim())) return "닉네임은 영문·숫자·_ 3~16자예요.";
   if (!Number.isInteger(input.price) || input.price < 1000 || input.price > 10_000_000) return "판매 가격은 1,000원 ~ 10,000,000원 사이로 적어 주세요.";
   if (input.description.length > 1000) return "설명은 1000자까지 적을 수 있어요.";
@@ -62,7 +62,7 @@ export async function createResaleRequest(
     userId: user.id,
     userName: user.name,
     discordId: user.discordId,
-    accountType: input.accountType as McAccountCategory,
+    accountType: input.accountType,
     ign: input.ign.trim(),
     showName: Boolean(input.showName),
     capes: input.capes.filter((c) => capeSet.has(c)).slice(0, 12),

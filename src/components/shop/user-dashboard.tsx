@@ -1,7 +1,8 @@
 "use client";
 
 import { UserPremiumTab } from "./user-premium-tab";
-import { MC_ACCOUNT_CATEGORIES, mcAccountCategory } from "@/lib/mc-account";
+import { mcAccountCategory } from "@/lib/mc-account";
+import { useMcCategories } from "@/lib/use-mc-categories";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -246,18 +247,19 @@ export function UserDashboard({
     return { general: products.length - mc - cape, mc_account: mc, mc_cape: SELLABLE_CAPES.length };
   }, [products]);
 
+  const { categories: mcCategories } = useMcCategories(shopSlug);
   const productCategories = useMemo(() => {
     // 마크 계정은 정해진 카테고리 탭 (일반 · OG · Minecon · Hypixel · 대리판매 · 기타)
-    if (productSection === "mc_account") return ["all", ...MC_ACCOUNT_CATEGORIES];
+    if (productSection === "mc_account") return ["all", ...mcCategories];
     const set = new Set(sectionProducts.map((p) => p.category).filter(Boolean));
     return ["all", ...Array.from(set).sort()];
-  }, [sectionProducts, productSection]);
+  }, [sectionProducts, productSection, mcCategories]);
 
   const filteredProducts = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
     let list = sectionProducts.filter((p) => {
       if (productCategory !== "all") {
-        const cat = p.productKind === "mc_account" ? mcAccountCategory(p.category) : p.category;
+        const cat = p.productKind === "mc_account" ? mcAccountCategory(p.category, mcCategories) : p.category;
         if (cat !== productCategory) return false;
       }
       if (!q) return true;
@@ -278,7 +280,7 @@ export function UserDashboard({
       list = [...list].sort((a, b) => (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0));
     }
     return list;
-  }, [sectionProducts, productQuery, productCategory, productSort, tier, eventByProduct, salesCounts]);
+  }, [sectionProducts, productQuery, productCategory, productSort, tier, eventByProduct, salesCounts, mcCategories]);
 
   const recentOrders = useMemo(() => orders.slice(0, 3), [orders]);
 

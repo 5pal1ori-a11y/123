@@ -1,20 +1,18 @@
 /** 대리판매 — 클라이언트 · 서버 공용 (외부 의존 없음) */
-import { MC_ACCOUNT_CATEGORIES, MC_RESALE_CATEGORY, type McAccountCategory } from "@/lib/mc-account";
+import { CAPES } from "@/lib/capes-data";
+import { MC_ACCOUNT_CATEGORIES, MC_RESALE_CATEGORY } from "@/lib/mc-account";
 
 export const RESALE_DEFAULT_FEE_PERCENT = 10;
 /** 신청 폼의 보유 망토 선택지 (capes-data 의 type) */
-export const RESALE_CAPE_CHOICES: { type: string; label: string }[] = [
-  { type: "2011", label: "2011" },
-  { type: "2012", label: "2012" },
-  { type: "2013", label: "2013" },
-  { type: "2015", label: "2015" },
-  { type: "2016", label: "2016" },
-  { type: "migrator_cape", label: "Migrator" },
-  { type: "vanilla_cape", label: "Vanilla" },
-  { type: "cherry", label: "Cherry" },
-];
+// 모든 망토 — 많이 찾는 마인콘 · 마이그레이터 등을 앞에 둔다
+const CAPE_FIRST = ["2011", "2012", "2013", "2015", "2016", "migrator_cape", "vanilla_cape", "cherry"];
+const CAPE_SHORT: Record<string, string> = { migrator_cape: "Migrator", vanilla_cape: "Vanilla", cherry: "Cherry" };
+export const RESALE_CAPE_CHOICES: { type: string; label: string; hash: string }[] = [
+  ...CAPE_FIRST.map((t) => CAPES.find((c) => c.type === t)).filter((c): c is (typeof CAPES)[number] => Boolean(c)),
+  ...CAPES.filter((c) => !CAPE_FIRST.includes(c.type)),
+].map((c) => ({ type: c.type, label: CAPE_SHORT[c.type] ?? (/^20\d\d$/.test(c.type) ? c.type : c.title), hash: c.hash }));
 /** 신청 폼의 상품 유형 (대리판매 탭 안에서도 어떤 계정인지 표시) */
-export const RESALE_TYPES = MC_ACCOUNT_CATEGORIES.filter((c) => c !== MC_RESALE_CATEGORY);
+export const RESALE_TYPES: string[] = MC_ACCOUNT_CATEGORIES.filter((c) => c !== MC_RESALE_CATEGORY);
 
 export type ResaleStatus = "pending" | "approved" | "rejected" | "cancelled";
 
@@ -24,7 +22,7 @@ export type ResaleRequest = {
   userId: string;
   userName: string;
   discordId: string | null;
-  accountType: McAccountCategory;
+  accountType: string;
   ign: string;
   showName: boolean;
   capes: string[];

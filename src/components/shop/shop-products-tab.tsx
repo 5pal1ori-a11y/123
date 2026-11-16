@@ -102,7 +102,7 @@ export function ShopProductsTab({
     for (const p of products) {
       if (p.productKind !== "mc_account") continue;
       mcCounts.all += 1;
-      const c = mcAccountCategory(p.category);
+      const c = mcAccountCategory(p.category, productCategories.filter((x) => x !== "all"));
       mcCounts[c] = (mcCounts[c] ?? 0) + 1;
     }
   }
@@ -253,7 +253,13 @@ export function ShopProductsTab({
             ) : null}
           </div>
         ) : null}
-        {resaleOpen ? <ResaleRequestModal shopSlug={shopSlug} onClose={() => setResaleOpen(false)} /> : null}
+        {resaleOpen ? (
+          <ResaleRequestModal
+            shopSlug={shopSlug}
+            types={productCategories.filter((x) => x !== "all" && x !== MC_RESALE_CATEGORY)}
+            onClose={() => setResaleOpen(false)}
+          />
+        ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <input
             value={productQuery}

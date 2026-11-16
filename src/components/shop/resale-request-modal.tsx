@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Eye, EyeOff, Loader2, PackagePlus, X } from "lucide-react";
 import { shopHeaders } from "@/lib/shop-client";
+import { CapeFaceImg } from "@/components/capes/cape-face";
 import { maskMcNickname, MC_NICKNAME_RE } from "@/lib/mc-account";
 import { RESALE_CAPE_CHOICES, RESALE_DEFAULT_FEE_PERCENT, RESALE_TYPES, resalePayout, type ResaleRequest } from "@/lib/resale-shared";
 
@@ -15,8 +16,10 @@ const STATUS: Record<ResaleRequest["status"], { label: string; cls: string }> = 
 };
 
 /** 대리판매 등록 신청 — 승인되면 「대리판매」 탭에 올라가고 디스코드 DM 으로 알려 준다 */
-export function ResaleRequestModal({ shopSlug, onClose }: { shopSlug: string; onClose: () => void }) {
-  const [type, setType] = useState<string>(RESALE_TYPES[0]);
+export function ResaleRequestModal({ shopSlug, types: typesProp, onClose }: { shopSlug: string; types?: string[]; onClose: () => void }) {
+  const types = typesProp?.length ? typesProp : RESALE_TYPES;
+  const [type, setType] = useState<string>(types[0] ?? "일반 계정");
+  const [capeQuery, setCapeQuery] = useState("");
   const [ign, setIgn] = useState("");
   const [showName, setShowName] = useState(false);
   const [capes, setCapes] = useState<string[]>([]);
@@ -114,7 +117,7 @@ export function ResaleRequestModal({ shopSlug, onClose }: { shopSlug: string; on
           <label className="grid gap-1.5">
             <span className="text-sm font-semibold">상품 유형 *</span>
             <select className={field} value={type} onChange={(e) => setType(e.target.value)}>
-              {RESALE_TYPES.map((t) => (
+              {types.map((t) => (
                 <option key={t} value={t}>
                   {t}
                 </option>
@@ -149,9 +152,17 @@ export function ResaleRequestModal({ shopSlug, onClose }: { shopSlug: string; on
           </div>
 
           <div className="grid gap-1.5">
-            <span className="text-sm font-semibold">보유 망토</span>
-            <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 p-3 sm:grid-cols-4">
-              {RESALE_CAPE_CHOICES.map((c) => {
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold">보유 망토 {capes.length ? <span className="text-xs text-neutral-400">· {capes.length}개 선택</span> : null}</span>
+              <input
+                className="toss-admin-field h-8 w-36 py-1 text-xs"
+                value={capeQuery}
+                onChange={(e) => setCapeQuery(e.target.value)}
+                placeholder="망토 검색"
+              />
+            </div>
+            <div className="grid max-h-56 grid-cols-2 gap-2 overflow-y-auto rounded-xl border border-white/10 p-3 sm:grid-cols-4">
+              {RESALE_CAPE_CHOICES.filter((c) => !capeQuery.trim() || c.label.toLowerCase().includes(capeQuery.trim().toLowerCase())).map((c) => {
                 const on = capes.includes(c.type);
                 return (
                   <button
@@ -163,7 +174,8 @@ export function ResaleRequestModal({ shopSlug, onClose }: { shopSlug: string; on
                     <span className={`flex size-5 items-center justify-center rounded-full border ${on ? "border-white bg-white text-black" : "border-white/30"}`}>
                       {on ? <Check className="size-3" /> : null}
                     </span>
-                    {c.label}
+                    <CapeFaceImg hash={c.hash} width={10} alt="" />
+                    <span className="truncate">{c.label}</span>
                   </button>
                 );
               })}

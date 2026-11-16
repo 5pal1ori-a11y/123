@@ -43,7 +43,9 @@ export async function POST(request: Request) {
   try {
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return badRequest("신청 내용을 확인해 주세요. 동의 체크도 필요해요.");
-    const err = validateResaleInput(parsed.data);
+    const { getMcCategories } = await import("@/lib/mc-categories");
+    const { MC_RESALE_CATEGORY } = await import("@/lib/mc-account");
+    const err = validateResaleInput(parsed.data, (await getMcCategories(shop.id)).filter((c) => c !== MC_RESALE_CATEGORY));
     if (err) return badRequest(err);
     const user = getUserById(session.user.id);
     const fee = (await premiumBenefits(shop.id, session.user.id)).resaleFeePercent;

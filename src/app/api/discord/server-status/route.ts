@@ -121,6 +121,17 @@ async function refreshRankingEvery10m(shopId: string) {
       import("@/lib/discord/stock-board"),
       import("@/lib/discord/handlers"),
     ]);
+  // 한 번만: 예전 마크 계정을 MFA MARKET 재고로 옮겨 16자리 코드로 지급되게 한다
+  {
+    const doneKey = `mfa-migrate-done:v1:${shopId}`;
+    if (!(await kvGetJson<unknown>(doneKey))) {
+      await kvPutJson(doneKey, { startedAt: new Date().toISOString() });
+      const r = await import("@/lib/mfa-migrate")
+        .then(({ migrateMcAccountsToMfa }) => migrateMcAccountsToMfa(shopId))
+        .catch((err) => ({ error: String(err) }));
+      await kvPutJson(doneKey, { at: new Date().toISOString(), result: r });
+    }
+  }
   // 프리미엄 플랜: 월 포인트 지급 · 만료 역할 회수
   await import("@/lib/premium")
     .then(async ({ premiumCron }) => {

@@ -33,7 +33,7 @@ const FALLBACK: Record<AppEmojiName, string> = {
 };
 
 /** v5: 2D 고퀄 그림으로 교체 — 예전 그림은 같은 이름이면 지우고 다시 올린다 */
-const KV_KEY = "does:app-emojis:v5";
+const KV_KEY = "does:app-emojis:v6";
 let cache: Partial<Record<AppEmojiName, string>> = {};
 let ensured = false;
 let inflight: Promise<void> | null = null;

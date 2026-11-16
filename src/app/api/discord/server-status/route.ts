@@ -121,15 +121,17 @@ async function refreshRankingEvery10m(shopId: string) {
       import("@/lib/discord/stock-board"),
       import("@/lib/discord/handlers"),
     ]);
-  // 한 번만: 예전 마크 계정을 MFA MARKET 재고로 옮겨 16자리 코드로 지급되게 한다
+  // 예전 마크 계정을 MFA MARKET 재고로 옮겨 16자리 코드로 지급되게 한다 (끝날 때까지 몇 개씩)
   {
-    const doneKey = `mfa-migrate-done:v1:${shopId}`;
+    const doneKey = `mfa-migrate-done:v2:${shopId}`;
     if (!(await kvGetJson<unknown>(doneKey))) {
-      await kvPutJson(doneKey, { startedAt: new Date().toISOString() });
       const r = await import("@/lib/mfa-migrate")
         .then(({ migrateMcAccountsToMfa }) => migrateMcAccountsToMfa(shopId))
-        .catch((err) => ({ error: String(err) }));
-      await kvPutJson(doneKey, { at: new Date().toISOString(), result: r });
+        .catch((err) => ({ error: String(err), remaining: -1 }));
+      const logKey = `mfa-migrate-log:${shopId}`;
+      const log = (await kvGetJson<unknown[]>(logKey)) ?? [];
+      await kvPutJson(logKey, [...log, { at: new Date().toISOString(), r }].slice(-30), 30 * 86_400);
+      if ("remaining" in r && r.remaining === 0) await kvPutJson(doneKey, { at: new Date().toISOString() });
     }
   }
   // 프리미엄 플랜: 월 포인트 지급 · 만료 역할 회수

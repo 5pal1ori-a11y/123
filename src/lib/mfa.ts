@@ -187,6 +187,13 @@ export async function mfaAdmin(
   return { status, data };
 }
 
+/** 관리자 API 를 재고 새로고침 없이 바로 부른다 (여러 건을 연달아 처리할 때) */
+export async function mfaAdminRaw(shopId: string, method: string, path: string, search = "", body?: unknown) {
+  const cfg = getMfaConfig(shopId);
+  if (!cfg) return { status: 400, data: { ok: false, error: "MFA MARKET 연동 설정이 없습니다." } as Record<string, unknown> };
+  return call<Record<string, unknown>>(cfg, `/api/partner/admin/${path}${search}`, { method, body });
+}
+
 export async function mfaRelease(cfg: MfaConfig, orderRef: string) {
   const { status, data } = await call<{ released: number; viewed: number }>(cfg, "/api/partner/release", {
     method: "POST",

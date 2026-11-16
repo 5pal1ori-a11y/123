@@ -134,12 +134,12 @@ async function refreshRankingEvery10m(shopId: string) {
       if ("remaining" in r && r.remaining === 0) await kvPutJson(doneKey, { at: new Date().toISOString() });
     }
   }
-  // DOES 서버에 봇 이모지(3D) + 망토 이모지 올리기 (10분마다 몇 개씩, 다 올리면 멈춤)
+  // DOES 서버에 2D 이모지 50종 + 망토 이모지 올리기 (10분마다 몇 개씩, 다 올리면 멈춤)
   {
     const { kvGetJson, kvPutJson } = await import("@/lib/world/kv");
-    const doneKey = "guild-emojis-done:v2";
+    const doneKey = "guild-emojis-done:v3";
     if (!(await kvGetJson<unknown>(doneKey))) {
-      const repKey = "guild-emojis-replaced:v2";
+      const repKey = "guild-emojis-replaced:v3";
       const replaced = new Set((await kvGetJson<string[]>(repKey)) ?? []);
       const r = await import("@/lib/discord/guild-emojis")
         .then(({ uploadGuildEmojis }) => uploadGuildEmojis(12, replaced))

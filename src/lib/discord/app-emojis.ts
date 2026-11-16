@@ -32,8 +32,8 @@ const FALLBACK: Record<AppEmojiName, string> = {
   does_sold: "⚫",
 };
 
-/** v4: 3D 고퀄 그림으로 교체 — 예전(v3) 픽셀 그림은 같은 이름이면 지우고 다시 올린다 */
-const KV_KEY = "does:app-emojis:v4";
+/** v5: 2D 고퀄 그림으로 교체 — 예전 그림은 같은 이름이면 지우고 다시 올린다 */
+const KV_KEY = "does:app-emojis:v5";
 let cache: Partial<Record<AppEmojiName, string>> = {};
 let ensured = false;
 let inflight: Promise<void> | null = null;
@@ -105,9 +105,9 @@ async function load() {
       const spec = BOT_EMOJI_IMAGES[name];
       let e = items.find((x) => x.name === name);
       if (e && saved?.appId === appId && saved.map[name]) {
-        /* v4 에서 이미 올린 것 */
+        /* 이번 버전에서 이미 올린 것 */
       } else if (e) {
-        // 예전 픽셀 그림 — 지우고 3D 그림으로 다시 올린다
+        // 예전 그림 — 지우고 새 그림으로 다시 올린다
         const del = await doesApi("DELETE", `/applications/${appId}/emojis/${e.id}`);
         if (del.ok || del.status === 404) e = undefined;
       }

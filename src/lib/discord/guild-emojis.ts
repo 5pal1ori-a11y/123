@@ -1,5 +1,5 @@
 /**
- * DOES 디스코드 서버(길드)에 커스텀 이모지를 올린다 — 봇 이모지(does_*) + 망토 49종(cape_*).
+ * DOES 디스코드 서버(길드)에 커스텀 이모지를 올린다 — 2D 이모지 50종(does_*) + 망토 49종(cape_*).
  * 그림은 public/emoji/ 에 있고, 사이트 주소에서 읽어 base64 로 올린다.
  * 이미 같은 이름이 있으면 건너뛰고, 서버 슬롯이 꽉 차면(30008) 그 종류(정지/움직이는)는 멈춘다.
  */
@@ -7,27 +7,56 @@ import { doesDiscordEnvAsync } from "@/lib/discord/does-env";
 import { MFA_DISCORD_GUILD_ID } from "@/lib/store";
 
 export const GUILD_EMOJIS: { name: string; file: string }[] = [
+  { name: "does_bell", file: "does_bell.png" },
   { name: "does_brick", file: "does_brick.png" },
+  { name: "does_calendar", file: "does_calendar.png" },
+  { name: "does_card", file: "does_card.png" },
+  { name: "does_cart", file: "does_cart.png" },
+  { name: "does_chart", file: "does_chart.png" },
   { name: "does_check", file: "does_check.gif" },
+  { name: "does_clock", file: "does_clock.png" },
   { name: "does_clover", file: "does_clover.png" },
+  { name: "does_coin", file: "does_coin.png" },
   { name: "does_cross", file: "does_cross.png" },
+  { name: "does_crown", file: "does_crown.png" },
+  { name: "does_discount", file: "does_discount.png" },
+  { name: "does_fire", file: "does_fire.png" },
   { name: "does_flag", file: "does_flag.png" },
   { name: "does_gem", file: "does_gem.gif" },
   { name: "does_gift", file: "does_gift.gif" },
+  { name: "does_heart", file: "does_heart.png" },
   { name: "does_inbox", file: "does_inbox.png" },
+  { name: "does_info", file: "does_info.png" },
   { name: "does_island", file: "does_island.png" },
   { name: "does_jackpot", file: "does_jackpot.gif" },
+  { name: "does_key", file: "does_key.png" },
+  { name: "does_lightning", file: "does_lightning.png" },
+  { name: "does_link", file: "does_link.png" },
+  { name: "does_lock", file: "does_lock.png" },
   { name: "does_mail", file: "does_mail.png" },
+  { name: "does_medal", file: "does_medal.png" },
+  { name: "does_megaphone", file: "does_megaphone.png" },
+  { name: "does_new", file: "does_new.png" },
   { name: "does_offline", file: "does_offline.png" },
   { name: "does_online", file: "does_online.gif" },
   { name: "does_party", file: "does_party.png" },
+  { name: "does_pickaxe", file: "does_pickaxe.png" },
   { name: "does_plus", file: "does_plus.png" },
+  { name: "does_question", file: "does_question.png" },
   { name: "does_robot", file: "does_robot.png" },
+  { name: "does_rocket", file: "does_rocket.png" },
+  { name: "does_shield", file: "does_shield.png" },
   { name: "does_sold", file: "does_sold.png" },
+  { name: "does_sparkles", file: "does_sparkles.png" },
   { name: "does_sprout", file: "does_sprout.png" },
   { name: "does_star", file: "does_star.gif" },
+  { name: "does_sword", file: "does_sword.png" },
   { name: "does_ticket", file: "does_ticket.png" },
   { name: "does_tree", file: "does_tree.png" },
+  { name: "does_trophy", file: "does_trophy.png" },
+  { name: "does_user", file: "does_user.png" },
+  { name: "does_verified", file: "does_verified.png" },
+  { name: "does_warning", file: "does_warning.png" },
   { name: "cape_aurora", file: "cape_aurora.png" },
   { name: "cape_moonlighttrail", file: "cape_moonlighttrail.png" },
   { name: "cape_mcexp", file: "cape_mcexp.png" },
@@ -88,7 +117,7 @@ function toBase64(buf: ArrayBuffer) {
   return btoa(s);
 }
 
-/** v2: does_* 는 3D 고퀄 그림 — 서버에 예전 픽셀 그림이 있으면 지우고 다시 올린다 (replaced 에 있는 이름은 이미 교체됨) */
+/** v3: does_* 는 2D 고퀄 그림 — 서버에 예전 픽셀 그림이 있으면 지우고 다시 올린다 (replaced 에 있는 이름은 이미 교체됨) */
 export async function uploadGuildEmojis(max = 12, replaced: Set<string> = new Set(), origin = "https://doesmc.xyz", guildId = MFA_DISCORD_GUILD_ID): Promise<GuildEmojiResult> {
   const token = (await doesDiscordEnvAsync()).botToken;
   const result: GuildEmojiResult = { added: [], removed: [], existed: 0, failed: [], slotsFull: [] };

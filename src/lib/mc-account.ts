@@ -67,9 +67,21 @@ export type McHypixel = {
   duels: { wins: number; kills: number };
 };
 
+export type McNameChange = {
+  /** 마지막으로 닉네임을 바꾼 때 (모르면 null) */
+  lastChangedAt: string | null;
+  /** 30일이 지나 지금 바꿀 수 있는지 */
+  available: boolean;
+  availableAt: string | null;
+};
+
+export type McDonutStats = { money: number | null; kills: number | null; deaths: number | null; playtimeHours: number | null; shards: number | null };
+
 export type McAccountInfo = {
   ok: boolean;
   capes: McCapeInfo[];
+  nameChange?: McNameChange | null;
+  donut?: McDonutStats | null;
   /** 하이픽셀 기록 (기록 없음 = null, 키 없음·조회 실패 = undefined) */
   hypixel?: McHypixel | null;
 };

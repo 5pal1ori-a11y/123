@@ -70,8 +70,16 @@ export async function GET(request: Request, context: { params: Promise<{ product
     }
   }
 
+  const { lookupDonutStats, lookupNameChange } = await import("@/lib/mc-extra-lookup");
+  const [nameChange, donut] = await Promise.all([
+    profile?.uuid ? lookupNameChange(profile.uuid) : Promise.resolve(null),
+    lookupDonutStats(profile?.name ?? product.mcNickname),
+  ]);
+
   const body: McAccountInfo = {
     ok: Boolean(profile?.uuid),
+    nameChange,
+    donut,
     ...(hypixel !== undefined ? { hypixel } : {}),
     capes: capeList.map(({ source, baseWidth, title, front, hash }) => ({
       source,

@@ -592,6 +592,8 @@ export type Product = {
   mcMaskedName?: string | null;
   /** 마크계정상품: true 면 공개 목록에 닉네임을 가리지 않고 그대로 보여 준다 (대리판매 신청자가 선택) */
   mcShowName?: boolean;
+  /** 마크계정상품: 관리자가 체크한 밴 여부 (null/없음 = 표시 안 함) */
+  mcStatus?: { hypixelBanned?: boolean | null; hypixelReason?: string | null; donutBanned?: boolean | null } | null;
   /** 대리판매로 올라온 상품 — 신청 id · 판매자(디스코드/회원) · 정산 정보 */
   resale?: { requestId: string; sellerUserId: string | null; sellerDiscordId: string | null; feePercent: number; payout: number } | null;
   /** 마크계정상품: 닉네임이 바뀌면 달라지는 짧은 값 — 스킨·망토 이미지 캐시를 새로 받게 한다 */

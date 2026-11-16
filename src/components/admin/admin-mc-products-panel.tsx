@@ -23,7 +23,19 @@ type Form = {
   recoveryEmail: string;
   recoveryCode: string;
   memo: string;
+  /** "" 표시 안 함 · "no" 밴 없음 · "yes" 밴 */
+  hyBan: string;
+  hyReason: string;
+  donutBan: string;
 };
+
+type Tri = "" | "no" | "yes";
+const triToBool = (v: string) => (v === "yes" ? true : v === "no" ? false : null);
+const boolToTri = (v: boolean | null | undefined): Tri => (v === true ? "yes" : v === false ? "no" : "");
+function statusPatch(hy: string, reason: string, donut: string) {
+  const st = { hypixelBanned: triToBool(hy), hypixelReason: hy === "yes" ? reason.trim() || null : null, donutBanned: triToBool(donut) };
+  return st.hypixelBanned === null && st.donutBanned === null ? null : st;
+}
 
 const EMPTY: Form = {
   nickname: "",
@@ -37,6 +49,9 @@ const EMPTY: Form = {
   recoveryEmail: "",
   recoveryCode: "",
   memo: "",
+  hyBan: "",
+  hyReason: "",
+  donutBan: "",
 };
 
 /** 구매자에게 지급될 계정 정보 한 줄 */
@@ -130,6 +145,9 @@ export function AdminMcProductsPanel({
     relist?: boolean;
     mfaProduct?: string | null;
     mfaAccountId?: number | null;
+    hyBan: string;
+    hyReason: string;
+    donutBan: string;
     /** 판매 전 재고(지급 정보) — 불러오기 전 undefined, 없으면 null */
     invId?: string | null;
     invNote?: string;
@@ -151,6 +169,9 @@ export function AdminMcProductsPanel({
     showName: boolean;
     capes?: string[] | null;
     mfaProduct?: string | null;
+    hyBan: string;
+    hyReason: string;
+    donutBan: string;
   }) {
     setEditing({ ...base });
     if (base.mfaProduct) {
@@ -272,6 +293,7 @@ export function AdminMcProductsPanel({
         fulfillment: "auto",
         purchaseLimitPerUser: null,
         ...(useMfa ? { mfaProduct: mfaName } : {}),
+        mcStatus: statusPatch(form.hyBan, form.hyReason, form.donutBan),
       });
       const productId = created.product?.id;
       let note = "";
@@ -326,6 +348,7 @@ export function AdminMcProductsPanel({
         mcCapes: editing.capes ?? null,
         category: editing.category,
         mcShowName: editing.showName,
+        mcStatus: statusPatch(editing.hyBan, editing.hyReason, editing.donutBan),
       });
       // 지급 정보(이메일·비밀번호·복구코드)가 바뀌었으면 재고도 고친다
       const acct = editing.acct;
@@ -488,6 +511,29 @@ export function AdminMcProductsPanel({
             <span className="text-xs text-neutral-400">상품 설명 (상세 페이지에 표시)</span>
             <textarea className={`${field} min-h-[72px] resize-y`} value={form.description} onChange={set("description")} />
           </label>
+
+          <div className="grid gap-2 sm:col-span-2 sm:grid-cols-3">
+            <label className="space-y-1">
+              <span className="text-xs text-neutral-400">Hypixel 밴</span>
+              <select className={field} value={form.hyBan} onChange={set("hyBan")}>
+                <option value="">표시 안 함</option>
+                <option value="no">밴 없음 (Unbanned)</option>
+                <option value="yes">밴 (Banned)</option>
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-neutral-400">Hypixel 밴 사유 (선택)</span>
+              <input className={field} value={form.hyReason} onChange={set("hyReason")} placeholder="cheating" maxLength={40} disabled={form.hyBan !== "yes"} />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-neutral-400">DonutSMP 밴</span>
+              <select className={field} value={form.donutBan} onChange={set("donutBan")}>
+                <option value="">표시 안 함</option>
+                <option value="no">밴 없음 (Unbanned)</option>
+                <option value="yes">밴 (Banned)</option>
+              </select>
+            </label>
+          </div>
           <label className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm sm:col-span-2">
             <input type="checkbox" checked={useMfa} onChange={(e) => setUseMfa(e.target.checked)} />
             MFA MARKET 연동 — 계정 정보를 MFA 재고로 보내고, 구매자에게는 16자리 코드로 지급해요
@@ -563,6 +609,9 @@ export function AdminMcProductsPanel({
                         showName: Boolean(p.mcShowName),
                         capes: p.mcCapes ?? null,
                         mfaProduct: p.mfaProduct ?? null,
+                        hyBan: boolToTri(p.mcStatus?.hypixelBanned),
+                        hyReason: p.mcStatus?.hypixelReason ?? "",
+                        donutBan: boolToTri(p.mcStatus?.donutBanned),
                       })
                     }
                   >
@@ -628,6 +677,29 @@ export function AdminMcProductsPanel({
                     </select>
                   </label>
                 </div>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            <label className="space-y-1">
+              <span className="text-xs text-neutral-400">Hypixel 밴</span>
+              <select className={field} value={editing.hyBan} onChange={(e) => setEditing({ ...editing, hyBan: e.target.value })}>
+                <option value="">표시 안 함</option>
+                <option value="no">밴 없음 (Unbanned)</option>
+                <option value="yes">밴 (Banned)</option>
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-neutral-400">Hypixel 밴 사유 (선택)</span>
+              <input className={field} value={editing.hyReason} onChange={(e) => setEditing({ ...editing, hyReason: e.target.value })} placeholder="cheating" maxLength={40} disabled={editing.hyBan !== "yes"} />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-neutral-400">DonutSMP 밴</span>
+              <select className={field} value={editing.donutBan} onChange={(e) => setEditing({ ...editing, donutBan: e.target.value })}>
+                <option value="">표시 안 함</option>
+                <option value="no">밴 없음 (Unbanned)</option>
+                <option value="yes">밴 (Banned)</option>
+              </select>
+            </label>
+          </div>
                 <div className="grid gap-2 border-t border-white/10 pt-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-neutral-300">망토</span>

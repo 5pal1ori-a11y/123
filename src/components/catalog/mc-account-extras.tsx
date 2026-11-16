@@ -156,3 +156,87 @@ export function McHypixelPanel({ info }: { info: McAccountInfo | null }) {
     </div>
   );
 }
+
+/** ACCOUNT DETAILS — 하이픽셀 · 도넛SMP 밴 여부(관리자 체크) · 닉네임 변경 가능 여부(이름 기록 30일) · 도넛 통계 */
+export function McAccountDetails({
+  status,
+  info,
+}: {
+  status: { hypixelBanned?: boolean | null; hypixelReason?: string | null; donutBanned?: boolean | null } | null | undefined;
+  info: McAccountInfo | null;
+}) {
+  type Row = { label: string; text: string; tone: "good" | "bad" | "info" };
+  const rows: Row[] = [];
+  if (typeof status?.hypixelBanned === "boolean") {
+    rows.push({
+      label: "Hypixel",
+      text: status.hypixelBanned ? `Banned${status.hypixelReason ? ` · ${status.hypixelReason}` : ""}` : "Unbanned",
+      tone: status.hypixelBanned ? "bad" : "good",
+    });
+  }
+  if (typeof status?.donutBanned === "boolean") {
+    rows.push({ label: "DonutSMP", text: status.donutBanned ? "Banned" : "Unbanned", tone: status.donutBanned ? "bad" : "good" });
+  }
+  const nc = info?.nameChange;
+  if (nc) {
+    rows.push({
+      label: "닉네임 변경",
+      text: nc.available ? "지금 변경 가능" : `${fmtDate(nc.availableAt)} 부터 가능`,
+      tone: nc.available ? "good" : "info",
+    });
+  }
+  const d = info?.donut;
+  if (!rows.length && !d) return null;
+  const pill = (r: Row) => {
+    const c =
+      r.tone === "good"
+        ? { bg: "rgba(34,197,94,0.12)", bd: "rgba(34,197,94,0.35)", fg: "#4ade80", icon: "✓" }
+        : r.tone === "bad"
+          ? { bg: "rgba(239,68,68,0.12)", bd: "rgba(239,68,68,0.4)", fg: "#f87171", icon: "⛔" }
+          : { bg: "rgba(148,163,184,0.12)", bd: "rgba(148,163,184,0.35)", fg: "#cbd5e1", icon: "⏳" };
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[12px] font-bold"
+        style={{ background: c.bg, borderColor: c.bd, color: c.fg }}
+      >
+        <span aria-hidden>{c.icon}</span>
+        {r.text}
+      </span>
+    );
+  };
+  return (
+    <div className="mt-5">
+      <div className="mb-2 flex items-center gap-3">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-500">Account details</p>
+        <span className="h-px flex-1 bg-white/10" />
+      </div>
+      {rows.length ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {rows.map((r) => (
+            <div key={r.label} className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+              <span className="text-sm font-semibold text-neutral-200">{r.label}</span>
+              {pill(r)}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {d ? (
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {(
+            [
+              ["도넛 돈", d.money],
+              ["킬", d.kills],
+              ["데스", d.deaths],
+              ["플레이 시간(h)", d.playtimeHours],
+            ] as const
+          ).map(([label, v]) => (
+            <div key={label} className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{label}</p>
+              <p className="mt-0.5 font-mono text-sm font-bold text-neutral-100">{v === null ? "-" : Math.round(v).toLocaleString("ko-KR")}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}

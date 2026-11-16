@@ -65,6 +65,7 @@ import { AdminTiersPanel } from "./admin-tiers-panel";
 import { AdminUsersPanel } from "./admin-users-panel";
 import { AdminMcProductsPanel } from "./admin-mc-products-panel";
 import { AdminResalePanel } from "./admin-resale-panel";
+import { AdminApiKeysCard } from "./admin-api-keys-card";
 import { AdminPremiumPanel } from "./admin-premium-panel";
 import { AdminCapeProductsPanel } from "./admin-cape-products-panel";
 import { AdminGachaPanel } from "./admin-gacha-panel";
@@ -1249,6 +1250,8 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
               }
             />
           )}
+
+          {tab === "mcProducts" && <AdminApiKeysCard shopSlug={shopSlug} onMessage={pushToast} />}
 
           {tab === "mcProducts" && <AdminResalePanel shopSlug={shopSlug} onReload={load} onMessage={pushToast} />}
 

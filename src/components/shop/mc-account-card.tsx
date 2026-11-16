@@ -186,10 +186,10 @@ export function McAccountCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.24), duration: 0.32 }}
       onClickCapture={select}
-      className={`mc-card mf-dark flex flex-col rounded-[14px] border bg-[#0b1020] p-3 transition-[border-color,box-shadow,transform] duration-200 [&_a]:outline-none [&_button]:outline-none ${selected ? "" : "hover:!border-[#4f5d86] hover:shadow-[0_0_0_1px_#4f5d86]"}`}
+      className={`mc-card mf-dark flex flex-col rounded-[14px] border bg-[#0b1020] p-3 transition-[border-color,box-shadow,transform] duration-200 [&_a]:outline-none [&_button]:outline-none ${selected ? "" : "hover:!border-white/70 hover:shadow-[0_0_0_1px_rgba(255,255,255,0.7)]"}`}
       style={
         selected
-          ? { borderColor: "#818cf8", boxShadow: "0 0 0 1px #818cf8, 0 0 22px rgba(129,140,248,0.35)" }
+          ? { borderColor: "#ffffff", boxShadow: "0 0 0 2px #ffffff, 0 0 26px rgba(255,255,255,0.45)" }
           : { borderColor: "#1c2436" }
       }
     >

@@ -1529,6 +1529,15 @@ export function verifyOrderAccess(order: Order, token: string | null | undefined
   return timingSafeEqual(a, b);
 }
 
+function cleanMcStatus(st: NonNullable<Product["mcStatus"]>): Product["mcStatus"] {
+  const out = {
+    hypixelBanned: typeof st.hypixelBanned === "boolean" ? st.hypixelBanned : null,
+    hypixelReason: st.hypixelBanned ? st.hypixelReason?.trim().slice(0, 40) || null : null,
+    donutBanned: typeof st.donutBanned === "boolean" ? st.donutBanned : null,
+  };
+  return out.hypixelBanned === null && out.donutBanned === null ? null : out;
+}
+
 function clampDiscount(v: number | null | undefined) {
   const d = Math.floor(Number(v ?? 0));
   return Number.isFinite(d) && d > 0 ? Math.min(90, d) : null;
@@ -1607,6 +1616,7 @@ export function createProduct(
     buyerInput?: Product["buyerInput"];
     discountPercent?: number | null;
     mcShowName?: boolean;
+    mcStatus?: Product["mcStatus"];
     resale?: Product["resale"];
   },
 ): Product {
@@ -1656,6 +1666,7 @@ export function createProduct(
     mcCapes: input.productKind === "mc_account" && Array.isArray(input.mcCapes) ? cleanCapeList(input.mcCapes) : null,
     mcNickname: input.productKind === "mc_account" ? input.mcNickname?.trim() || null : null,
     ...(input.productKind === "mc_account" && input.mcShowName ? { mcShowName: true } : {}),
+    ...(input.productKind === "mc_account" && input.mcStatus ? { mcStatus: cleanMcStatus(input.mcStatus) } : {}),
     ...(input.resale ? { resale: input.resale } : {}),
     createdAt: new Date().toISOString(),
   };
@@ -1698,6 +1709,7 @@ export function updateProduct(
       | "buyerInput"
       | "discountPercent"
       | "mcShowName"
+      | "mcStatus"
     >
   >,
 ): Product {
@@ -1772,6 +1784,11 @@ export function updateProduct(
   }
   if (patch.mcNickname !== undefined) {
     product.mcNickname = patch.mcNickname?.trim() || null;
+  }
+  if (patch.mcStatus !== undefined) {
+    const st = patch.mcStatus ? cleanMcStatus(patch.mcStatus) : null;
+    if (st) product.mcStatus = st;
+    else delete product.mcStatus;
   }
   if (patch.mcShowName !== undefined) {
     if (patch.mcShowName) product.mcShowName = true;

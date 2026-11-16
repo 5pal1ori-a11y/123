@@ -134,6 +134,19 @@ async function refreshRankingEvery10m(shopId: string) {
       if ("remaining" in r && r.remaining === 0) await kvPutJson(doneKey, { at: new Date().toISOString() });
     }
   }
+  // DOES 서버에 봇 이모지 + 망토 이모지 올리기 (10분마다 몇 개씩, 다 올리면 멈춤)
+  {
+    const { kvGetJson, kvPutJson } = await import("@/lib/world/kv");
+    const doneKey = "guild-emojis-done:v1";
+    if (!(await kvGetJson<unknown>(doneKey))) {
+      const r = await import("@/lib/discord/guild-emojis")
+        .then(({ uploadGuildEmojis }) => uploadGuildEmojis())
+        .catch((err) => ({ added: [], existed: 0, failed: [{ name: "-", reason: String(err) }], slotsFull: [] }));
+      const log = (await kvGetJson<unknown[]>("guild-emojis-log")) ?? [];
+      await kvPutJson("guild-emojis-log", [...log, { at: new Date().toISOString(), r }].slice(-30), 30 * 86_400);
+      if (!r.failed.length && r.added.length < 12) await kvPutJson(doneKey, { at: new Date().toISOString(), slotsFull: r.slotsFull });
+    }
+  }
   // 프리미엄 플랜: 월 포인트 지급 · 만료 역할 회수
   await import("@/lib/premium")
     .then(async ({ premiumCron }) => {

@@ -88,24 +88,29 @@ export function UserPremiumTab({
           const dark = p.id === "plus";
           const Icon = dark ? Gem : Crown;
           const current = me?.plan === p.id;
+          // 대시보드 테마(라이트/다크)가 글자색을 덮어쓰지 않게 직접 지정
+          const ink = dark ? "#ffffff" : "#0b0b0c";
+          const sub = dark ? "rgba(255,255,255,0.6)" : "rgba(11,11,12,0.55)";
           return (
             <article
               key={p.id}
-              className={`flex flex-col rounded-[22px] border p-6 transition hover:-translate-y-0.5 ${
-                dark
-                  ? "border-[#1f1f1f] bg-[#0b0b0c] text-white shadow-[0_18px_50px_-20px_rgba(0,0,0,0.6)]"
-                  : "border-[#e4e4e7] bg-[#f4f4f5] text-[#0b0b0c]"
-              }`}
+              className="flex flex-col rounded-[22px] border p-6 transition hover:-translate-y-0.5"
+              style={{
+                background: dark ? "#0b0b0c" : "#f4f4f5",
+                borderColor: dark ? "#1f1f1f" : "#e4e4e7",
+                color: ink,
+                boxShadow: dark ? "0 18px 50px -20px rgba(0,0,0,0.6)" : undefined,
+              }}
             >
               <Icon className={`size-7 ${dark ? "text-[#f5c542]" : "text-[#0b0b0c]"}`} strokeWidth={1.8} />
-              <h3 className="mt-5 text-lg font-extrabold tracking-wide">{p.name}</h3>
-              <p className={`mt-1.5 text-sm ${dark ? "text-white/60" : "text-black/55"}`}>{p.tagline}</p>
-              <p className="mt-4 text-[26px] font-extrabold tabular-nums">₩{p.price.toLocaleString("ko-KR")}</p>
-              <p className={`mt-1 text-sm ${dark ? "text-white/55" : "text-black/50"}`}>월 구독 · {PREMIUM_DAYS}일</p>
+              <h3 className="mt-5 text-lg font-extrabold tracking-wide" style={{ color: ink }}>{p.name}</h3>
+              <p className="mt-1.5 text-sm" style={{ color: sub }}>{p.tagline}</p>
+              <p className="mt-4 text-[26px] font-extrabold tabular-nums" style={{ color: ink }}>₩{p.price.toLocaleString("ko-KR")}</p>
+              <p className="mt-1 text-sm" style={{ color: sub }}>월 구독 · {PREMIUM_DAYS}일</p>
               <hr className={`my-5 ${dark ? "border-white/12" : "border-black/10"}`} />
               <ul className="grid flex-1 gap-3 text-[14px] font-semibold">
                 {p.perks.map((perk) => (
-                  <li key={perk} className="flex items-start gap-2">
+                  <li key={perk} className="flex items-start gap-2" style={{ color: ink }}>
                     <Check className={`mt-0.5 size-4 shrink-0 ${dark ? "text-[#f5c542]" : ""}`} strokeWidth={3} />
                     {perk}
                   </li>
@@ -115,9 +120,8 @@ export function UserPremiumTab({
                 type="button"
                 disabled={!loggedIn}
                 onClick={() => setConfirm(p)}
-                className={`mt-6 w-full rounded-xl py-3 text-[15px] font-bold transition disabled:opacity-40 ${
-                  dark ? "bg-white text-black hover:bg-white/90" : "bg-[#0b0b0c] text-white hover:bg-black/85"
-                }`}
+                className="mt-6 w-full rounded-xl py-3 text-[15px] font-bold transition hover:opacity-90 disabled:opacity-50"
+                style={{ background: dark ? "#ffffff" : "#0b0b0c", color: dark ? "#0b0b0c" : "#ffffff" }}
               >
                 {!loggedIn ? "로그인 후 구독" : current ? "기간 연장하기" : "구독하기"}
               </button>

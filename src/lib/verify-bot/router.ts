@@ -39,7 +39,7 @@ import {
 } from "@/lib/verify-bot/store";
 
 /** Discord 가 직접 받아 가므로 절대 URL 이어야 한다 (public/brand) */
-export const VERIFY_PANEL_BANNER = "https://doesmc.xyz/brand/does-verify-banner.jpg";
+export const VERIFY_PANEL_BANNER = "https://doesmc.xyz/brand/verify-guide-3d.gif";
 
 function isGuildAdmin(permissions?: string) {
   if (!permissions) return false;

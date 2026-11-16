@@ -1121,6 +1121,93 @@ SCENES.capes = (s) => {
   });
 };
 
+/* 재고현황: 쌓인 상자 + 체크 배지 */
+SCENES.crates = (s) => {
+  const crateTex = canvasTex(128, 128, (c) => {
+    c.fillStyle = "#c98a4b"; c.fillRect(0, 0, 128, 128);
+    c.fillStyle = "#a96d36";
+    for (let i = 0; i < 4; i++) c.fillRect(0, 8 + i * 32, 128, 4);
+    c.fillStyle = "#7c4a22"; c.fillRect(0, 0, 128, 10); c.fillRect(0, 118, 128, 10); c.fillRect(0, 0, 10, 128); c.fillRect(118, 0, 10, 128);
+  });
+  const mat = plastic(0xffffff, { map: crateTex, r: 0.55, cc: 0.3 });
+  const boxes = [[-0.7, 0.45, 0], [0.7, 0.45, 0.1], [0, 1.35, 0.05], [0.05, 0.45, -0.9]].map(([x, y, z], i) => {
+    const b = mesh(rbox(0.9, 0.9, 0.9, 0.08), mat);
+    b.position.set(x, y, z);
+    b.rotation.y = (i - 1) * 0.15;
+    s.add(b);
+    return b;
+  });
+  const badge = new THREE.Group();
+  const disc = mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.16, 48), plastic(0x22c55e, { r: 0.2 }));
+  disc.rotation.x = Math.PI / 2;
+  const chk = mesh(tube([[-0.18, 0.0, 0.1], [-0.05, -0.13, 0.1], [0.2, 0.15, 0.1]], 0.055, 32), plastic(0xffffff));
+  badge.add(disc, chk);
+  badge.position.set(1.15, 2.2, 0.4);
+  s.add(badge);
+  return bannerFrame(s, { glow: 0xb45309, ring: 0xfbbf24, ring2: 0x22c55e, rim: 0xffc53d }, (t) => {
+    boxes.forEach((b, i) => (b.position.y = [0.45, 0.45, 1.35, 0.45][i] + Math.max(0, Math.sin(t * TAU * 2 - i * 0.8)) * 0.08));
+    badge.rotation.y = Math.sin(t * TAU) * 0.6;
+    badge.scale.setScalar(1 + 0.1 * Math.pow(Math.max(0, Math.sin(t * TAU * 2)), 3));
+  });
+};
+
+/* 이용후기: 별 다섯 개 + 말풍선 */
+SCENES.stars = (s) => {
+  const starsG = [0, 1, 2, 3, 4].map((i) => {
+    const m = mesh(extrude(starShape(0.32, 0.14), 0.12, 0.06, 4), gold({ c: 0xffc53d, r: 0.18 }));
+    m.position.set(-1.2 + i * 0.6, 2.1, 0.3);
+    s.add(m);
+    return m;
+  });
+  const bub = new THREE.Group();
+  const body = mesh(rbox(2.2, 1.2, 0.3, 0.3), plastic(0xffffff, { r: 0.3 }));
+  const tail = mesh(new THREE.ConeGeometry(0.2, 0.4, 4), plastic(0xffffff, { r: 0.3 }));
+  tail.rotation.z = Math.PI;
+  tail.position.set(-0.6, -0.7, 0);
+  bub.add(body, tail);
+  for (let i = 0; i < 3; i++) {
+    const line = mesh(rbox(i === 2 ? 1.0 : 1.6, 0.12, 0.05, 0.05), plastic(0xe5e7eb, { r: 0.4 }));
+    line.position.set(i === 2 ? -0.3 : 0, 0.3 - i * 0.28, 0.17);
+    bub.add(line);
+  }
+  const heart = makeHeart(0.16, 0xf43f5e);
+  heart.position.set(0.85, -0.26, 0.2);
+  bub.add(heart);
+  bub.position.set(0, 0.95, 0.1);
+  s.add(bub);
+  return bannerFrame(s, { glow: 0xdb2777, ring: 0xf472b6, rim: 0xffc53d, spark: 0xfff3c4 }, (t) => {
+    starsG.forEach((m, i) => {
+      const k = Math.max(0, Math.sin(t * TAU * 2 - i * 0.6));
+      m.position.y = 2.1 + k * 0.12;
+      m.rotation.y = Math.sin(t * TAU + i) * 0.4;
+    });
+    bub.rotation.y = Math.sin(t * TAU) * 0.3;
+    heart.scale.setScalar(1 + 0.15 * Math.pow(Math.max(0, Math.sin(t * TAU * 3)), 4));
+  });
+};
+
+/* 도스소개: 입체 DOES 로고 + 보석 */
+SCENES.logo = (s) => {
+  const word = text3d("DOES", 0.62, 0.22, plastic(0xffffff, { r: 0.18 }), { bt: 0.06, bs: 0.035 });
+  word.position.set(0, 1.0, 0.2);
+  s.add(word);
+  const gem = diamondMesh(0xc4b5fd, 0.36);
+  gem.material.transmission = 0.15;
+  gem.material.emissiveIntensity = 0.55;
+  gem.position.set(0, 2.05, 0.2);
+  s.add(gem);
+  const ring = mesh(new THREE.TorusGeometry(1.5, 0.03, 12, 128), glow(0xa855f7, 2.5), false, false);
+  ring.position.set(0, 1.05, -0.3);
+  s.add(ring);
+  return bannerFrame(s, { glow: 0x7c3aed, ring: 0xa855f7, rim: 0xa78bfa }, (t) => {
+    word.rotation.y = Math.sin(t * TAU) * 0.35;
+    gem.rotation.y = t * TAU;
+    gem.position.y = 2.05 + Math.sin(t * TAU * 2) * 0.08;
+    ring.rotation.set(0.25, Math.sin(t * TAU) * 0.35, 0);
+    ring.scale.setScalar(1 + 0.03 * Math.sin(t * TAU * 2));
+  });
+};
+
 /* ─────────── 결과: 출석 (달력에 고무도장 쾅) ─────────── */
 SCENES.checkin = (s, o) => {
   const st = studio(s, { glow: o.gold ? 0xd97706 : 0x7c3aed, ring: o.gold ? 0xfbbf24 : 0xa855f7, podiumR: 1.9, podiumY: -1.35, haloSize: 9, hy: 0 });

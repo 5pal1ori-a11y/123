@@ -217,6 +217,34 @@ def claw_result(name, kind):
     save_gif(frames, os.path.join(OUT, f"{name}.gif"), durs, (600, 338))
 
 
+def guide(name, steps, w=960, h=300, per=20):
+    """여러 단계를 차례로 보여 주는 안내 GIF — 단계마다 3D 장면 + STEP 표시 + 진행 막대"""
+    if not want(name):
+        return
+    frames, durs = [], []
+    total = len(steps)
+    for si, (scene, opts, title, sub) in enumerate(steps):
+        imgs = render(scene, w, h, per, {"cx": 150, **opts})
+        for f, im in enumerate(imgs):
+            cv = canvas_from(im, w, h)
+            sub_text(cv, f"STEP {si + 1} / {total}", 294, 26, size=17, color=(196, 181, 253), weight=700)
+            wave_title(cv, title, 292, 58, f, per, w - 292 - 30, scale=9)
+            sub_text(cv, sub, 294, 178, size=27, max_w=w - 294 - 30)
+            # 진행 막대
+            d = cv.d
+            x0, x1, y = 294, w - 40, 246
+            d.rounded_rectangle([S(x0), S(y), S(x1), S(y + 8)], radius=S(4), fill=(40, 34, 70))
+            done = (si + (f + 1) / per) / total
+            d.rounded_rectangle([S(x0), S(y), S(x0 + (x1 - x0) * done), S(y + 8)], radius=S(4), fill=(168, 85, 247))
+            for k in range(total):
+                cx = x0 + (x1 - x0) * (k + 0.5) / total
+                c = (168, 85, 247) if k <= si else (70, 62, 110)
+                d.ellipse([S(cx - 7), S(y + 4 - 7), S(cx + 7), S(y + 4 + 7)], fill=c)
+            frames.append(cv.img)
+            durs.append(2400 if f == per - 1 else 150)
+    save_gif(frames, os.path.join(OUT, f"{name}.gif"), durs, (w, h))
+
+
 if __name__ == "__main__":
     G = ((34, 197, 94), (21, 128, 61))
     banner("giveaway-3d", 960, 190, "gift", "경품 추첨", "버튼 한 번으로 참여하세요 · 마감 시 자동 추첨")
@@ -244,6 +272,20 @@ if __name__ == "__main__":
     mine("3d2-mine-win", "win")
     mine("3d2-mine-none", "none")
 
+    banner("stock-board-3d", 960, 300, "crates", "재고현황", "실시간 재고를 한눈에 확인하세요", line=G)
+    banner("review-3d", 960, 300, "stars", "이용후기", "실제 구매 고객님들의 솔직한 후기")
+    banner("inquiry-3d", 960, 300, "bubble", "문의하기", "궁금한 점은 티켓으로 편하게 물어보세요", line=((56, 189, 248), (3, 105, 161)))
+    banner("about-3d", 960, 300, "logo", "도스 소개", "마인크래프트 정품 계정 전문 상점 · DOES")
+    guide(
+        "verify-guide-3d",
+        [
+            ("shield", {}, "인증하기", "버튼을 눌러 디스코드 인증을 완료해요"),
+            ("bag", {}, "포인트 충전", "계좌이체로 포인트를 충전해요"),
+            ("crates", {}, "계정 고르기", "원하는 마크 계정을 골라 바로 구매해요"),
+            ("envelope", {}, "16자리 코드", "디스코드 DM 으로 코드가 도착해요"),
+            ("gift", {"open": True}, "계정 확인", "doesmc.xyz/check 에 코드를 넣으면 끝!"),
+        ],
+    )
     claw_idle("gacha3d2-idle")
     claw_result("gacha3d2-win", "win")
     claw_result("gacha3d2-coin", "coin")

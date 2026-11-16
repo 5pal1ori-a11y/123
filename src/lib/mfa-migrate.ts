@@ -43,6 +43,8 @@ export async function migrateMcAccountsToMfa(shopId: string, batch = 6): Promise
     const todo = pending(shopId);
     const result: MigrateResult = { moved: [], skipped: [], remaining: todo.length };
     const backupKey = `mfa-migrate-backup:${shopId}`;
+    // KV 는 같은 키를 1초에 한 번만 쓸 수 있어서, 백업 · 상점 저장은 끝에 한 번만 한다
+    const backup = (await kvGetJson<{ productId: string; code: string; at: string }[]>(backupKey)) ?? [];
     for (const p of todo.slice(0, batch)) {
       const item = listInventories(shopId, p.id).find((i) => i.status === "available")!;
       const f = parse(item.codeValue);
@@ -69,15 +71,16 @@ export async function migrateMcAccountsToMfa(shopId: string, batch = 6): Promise
           result.skipped.push({ product: p.name, reason: String(data.error || `MFA 등록 실패 (${status})`) });
           continue;
         }
-        const backup = (await kvGetJson<{ productId: string; code: string; at: string }[]>(backupKey)) ?? [];
         backup.push({ productId: p.id, code: item.codeValue, at: new Date().toISOString() });
-        await kvPutJson(backupKey, backup, 30 * 86_400);
       }
       if (p.mfaProduct !== mfaName) updateProduct(shopId, p.id, { mfaProduct: mfaName });
       deleteInventoryItems(shopId, [item.id], "mfa-migrate");
-      await persistAsync();
       result.moved.push(p.name);
       result.remaining -= 1;
+    }
+    if (result.moved.length) {
+      await kvPutJson(backupKey, backup, 30 * 86_400);
+      await persistAsync();
     }
     await refreshMfaStock(shopId).catch(() => null);
     return result;

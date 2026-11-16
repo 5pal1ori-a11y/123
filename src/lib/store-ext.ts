@@ -132,6 +132,48 @@ export function notifyRestockWatchers(
   return watchers.length;
 }
 
+export function pushUserNotification(
+  shopId: string,
+  userId: string,
+  type: UserNotification["type"],
+  title: string,
+  body: string,
+  productId: string | null = null,
+) {
+  store().userNotifications.unshift({
+    id: randomUUID(),
+    shopId,
+    userId,
+    type,
+    title,
+    body,
+    productId,
+    read: false,
+    createdAt: new Date().toISOString(),
+  });
+  save();
+}
+
+export function pushAdminNotification(
+  shopId: string,
+  type: AdminNotification["type"],
+  title: string,
+  body: string,
+  meta?: Record<string, unknown>,
+) {
+  store().adminNotifications.unshift({
+    id: randomUUID(),
+    shopId,
+    type,
+    title,
+    body,
+    read: false,
+    createdAt: new Date().toISOString(),
+    ...(meta ? { meta } : {}),
+  });
+  save();
+}
+
 export function listUserNotifications(shopId: string, userId: string, unreadOnly = false) {
   return store()
     .userNotifications.filter(

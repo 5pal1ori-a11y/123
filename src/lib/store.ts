@@ -1537,7 +1537,7 @@ function clampDiscount(v: number | null | undefined) {
 function withPublicStock(product: Product): ProductWithStock {
   const out = withStock(product);
   if (out.productKind === "mc_account") {
-    out.mcMaskedName = maskMcNickname(product.mcNickname ?? "");
+    out.mcMaskedName = product.mcShowName && product.mcNickname ? product.mcNickname : maskMcNickname(product.mcNickname ?? "");
     // 닉네임이나 직접 지정한 망토가 바뀌면 값이 달라져 카드가 새로 받아 온다
     out.mcVersion = product.mcNickname
       ? createHmac("sha256", "mc-skin-version")
@@ -1547,6 +1547,7 @@ function withPublicStock(product: Product): ProductWithStock {
       : null;
   }
   delete out.mcNickname;
+  delete out.resale;
   return out;
 }
 
@@ -1604,6 +1605,8 @@ export function createProduct(
     mcCapes?: string[] | null;
     buyerInput?: Product["buyerInput"];
     discountPercent?: number | null;
+    mcShowName?: boolean;
+    resale?: Product["resale"];
   },
 ): Product {
   const store = getStore();
@@ -1651,6 +1654,8 @@ export function createProduct(
     buyerInput: cleanBuyerInput(input.buyerInput),
     mcCapes: input.productKind === "mc_account" && Array.isArray(input.mcCapes) ? cleanCapeList(input.mcCapes) : null,
     mcNickname: input.productKind === "mc_account" ? input.mcNickname?.trim() || null : null,
+    ...(input.productKind === "mc_account" && input.mcShowName ? { mcShowName: true } : {}),
+    ...(input.resale ? { resale: input.resale } : {}),
     createdAt: new Date().toISOString(),
   };
 
@@ -1691,6 +1696,7 @@ export function updateProduct(
       | "mcCapes"
       | "buyerInput"
       | "discountPercent"
+      | "mcShowName"
     >
   >,
 ): Product {
@@ -1765,6 +1771,10 @@ export function updateProduct(
   }
   if (patch.mcNickname !== undefined) {
     product.mcNickname = patch.mcNickname?.trim() || null;
+  }
+  if (patch.mcShowName !== undefined) {
+    if (patch.mcShowName) product.mcShowName = true;
+    else delete product.mcShowName;
   }
 
   pushLog("admin", "product.update", { productId: id }, shopId);

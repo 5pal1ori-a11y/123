@@ -63,6 +63,7 @@ import { AdminNotificationsPanel, AdminStaffPanel } from "./admin-staff-panel";
 import { AdminTiersPanel } from "./admin-tiers-panel";
 import { AdminUsersPanel } from "./admin-users-panel";
 import { AdminMcProductsPanel } from "./admin-mc-products-panel";
+import { AdminResalePanel } from "./admin-resale-panel";
 import { AdminCapeProductsPanel } from "./admin-cape-products-panel";
 import { AdminGachaPanel } from "./admin-gacha-panel";
 import { AdminNoticesPanel } from "./admin-notices-panel";
@@ -1244,6 +1245,8 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
               }
             />
           )}
+
+          {tab === "mcProducts" && <AdminResalePanel shopSlug={shopSlug} onReload={load} onMessage={pushToast} />}
 
           {tab === "mcProducts" && (
             <AdminMcProductsPanel

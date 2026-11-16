@@ -6,7 +6,14 @@ import { container, MessageFlags, mediaGallery, separator, textDisplay } from "@
 import { editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
 import { getShopById, getShopSettings, persistAsync, updateShopSettings } from "@/lib/store";
 
-export const DEFAULT_STATUS_USER_ID = "1093602656905334784";
+export const DEFAULT_STATUS_USER_ID = "1094746437335650314";
+/** 예전 관리자 계정(해외샵용, 항상 오프라인)은 새 계정으로 바꿔 본다 */
+const RETIRED_STATUS_USER_IDS = new Set(["1093602656905334784"]);
+
+export function statusUserId(settings: { serverStatusUserId?: string | null }) {
+  const id = settings.serverStatusUserId?.trim();
+  return id && !RETIRED_STATUS_USER_IDS.has(id) ? id : DEFAULT_STATUS_USER_ID;
+}
 export type PresenceStatus = "online" | "idle" | "dnd" | "offline";
 
 const MAX_PANELS = 10;
@@ -24,7 +31,7 @@ const LABEL: Record<PresenceStatus, string> = {
 
 export function buildServerStatusPanel(shopId: string) {
   const settings = getShopSettings(shopId);
-  const userId = settings.serverStatusUserId || DEFAULT_STATUS_USER_ID;
+  const userId = statusUserId(settings);
   const last = settings.serverStatusLast ?? null;
   const status: PresenceStatus = last?.status ?? "offline";
   const online = status !== "offline";
@@ -94,7 +101,7 @@ export async function postServerStatusPanel(shopId: string, channelId: string, u
 /** 게이트웨이에서 받은 상태를 저장하고, 바뀌었으면 패널을 고친다 */
 export async function applyPresence(shopId: string, userId: string, status: PresenceStatus) {
   const settings = getShopSettings(shopId);
-  const watched = settings.serverStatusUserId || DEFAULT_STATUS_USER_ID;
+  const watched = statusUserId(settings);
   if (userId !== watched) return { ok: true as const, ignored: true };
   const prev = settings.serverStatusLast;
   const wasOnline = prev ? prev.status !== "offline" : null;
@@ -126,7 +133,7 @@ export async function kickStatusWatch(shopId: string, guildId: string) {
     if (!token) return;
     await ns.get(ns.idFromName("does")).fetch("https://status-watch/", {
       method: "POST",
-      body: JSON.stringify({ token, guildId, userIds: [settings.serverStatusUserId || DEFAULT_STATUS_USER_ID] }),
+      body: JSON.stringify({ token, guildId, userIds: [statusUserId(settings)] }),
     });
   } catch (err) {
     console.error("[status-watch] kick failed", err);
@@ -139,7 +146,7 @@ export async function kickStatusWatch(shopId: string, guildId: string) {
  */
 export async function pollAdminPresence(shopId: string, guildId: string, token: string) {
   const settings = getShopSettings(shopId);
-  const userId = settings.serverStatusUserId || DEFAULT_STATUS_USER_ID;
+  const userId = statusUserId(settings);
   const res = await fetch("https://gateway.discord.gg/?v=10&encoding=json", { headers: { Upgrade: "websocket" } });
   const ws = (res as Response & { webSocket?: WebSocket & { accept(): void } }).webSocket;
   if (!ws) return { ok: false as const, error: `gateway ${res.status}` };
@@ -219,7 +226,7 @@ export async function pollAndRefresh(shopId: string, guildId: string) {
   const r = await pollAdminPresence(shopId, guildId, token);
   if (r.ok) {
     const settings = getShopSettings(shopId);
-    await applyPresence(shopId, settings.serverStatusUserId || DEFAULT_STATUS_USER_ID, r.status);
+    await applyPresence(shopId, statusUserId(settings), r.status);
   }
   // '확인 n분 전' 이 계속 늘지 않게 매번 고쳐 쓴다
   await refreshServerStatusPanels(shopId);

@@ -136,11 +136,24 @@ export function McAccountCard({
   const capeSrc = useCapeFace(capeHash);
   const [selected, setSelected] = useState(false);
   useEffect(() => {
+    // 상세 페이지에서 돌아와도 마지막으로 누른 계정에 윤곽선을 남긴다
+    try {
+      if (sessionStorage.getItem("mc-card-selected") === product.id) setSelected(true);
+    } catch {
+      /* storage blocked */
+    }
     const on = (e: Event) => setSelected((e as CustomEvent<string>).detail === product.id);
     window.addEventListener(SELECT_EVENT, on);
     return () => window.removeEventListener(SELECT_EVENT, on);
   }, [product.id]);
-  const select = () => window.dispatchEvent(new CustomEvent(SELECT_EVENT, { detail: product.id }));
+  const select = () => {
+    try {
+      sessionStorage.setItem("mc-card-selected", product.id);
+    } catch {
+      /* storage blocked */
+    }
+    window.dispatchEvent(new CustomEvent(SELECT_EVENT, { detail: product.id }));
+  };
   const href = shopPath(base, `/product/${product.slug}`);
   const soldOut = stockStatus === "sold_out";
   const [info, setInfo] = useState<McAccountInfo | null>(null);
@@ -173,7 +186,7 @@ export function McAccountCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.24), duration: 0.32 }}
       onClickCapture={select}
-      className="mc-card mf-dark flex flex-col rounded-[14px] border bg-[#0b1020] p-3 transition-[border-color,box-shadow] duration-200 [&_a]:outline-none [&_button]:outline-none"
+      className={`mc-card mf-dark flex flex-col rounded-[14px] border bg-[#0b1020] p-3 transition-[border-color,box-shadow,transform] duration-200 [&_a]:outline-none [&_button]:outline-none ${selected ? "" : "hover:!border-[#4f5d86] hover:shadow-[0_0_0_1px_#4f5d86]"}`}
       style={
         selected
           ? { borderColor: "#818cf8", boxShadow: "0 0 0 1px #818cf8, 0 0 22px rgba(129,140,248,0.35)" }

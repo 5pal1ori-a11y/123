@@ -588,6 +588,10 @@ export type Product = {
   mcNickname?: string | null;
   /** 마크계정상품: 공개용 마스킹 닉네임 (예: BO*******5) */
   mcMaskedName?: string | null;
+  /** 마크계정상품: true 면 공개 목록에 닉네임을 가리지 않고 그대로 보여 준다 (대리판매 신청자가 선택) */
+  mcShowName?: boolean;
+  /** 대리판매로 올라온 상품 — 신청 id · 판매자(디스코드/회원) · 정산 정보 */
+  resale?: { requestId: string; sellerUserId: string | null; sellerDiscordId: string | null; feePercent: number; payout: number } | null;
   /** 마크계정상품: 닉네임이 바뀌면 달라지는 짧은 값 — 스킨·망토 이미지 캐시를 새로 받게 한다 */
   mcVersion?: string | null;
   createdAt: string;
@@ -694,7 +698,7 @@ export type UserNotification = {
   id: string;
   shopId: string;
   userId: string;
-  type: "restock" | "tier_upgrade" | "welcome";
+  type: "restock" | "tier_upgrade" | "welcome" | "resale" | "premium";
   title: string;
   body: string;
   productId: string | null;
@@ -730,7 +734,7 @@ export type AuthSession = {
 export type AdminNotification = {
   id: string;
   shopId: string;
-  type: "low_stock" | "license_expiry" | "sales_digest";
+  type: "low_stock" | "license_expiry" | "sales_digest" | "resale_request" | "premium_request";
   title: string;
   body: string;
   read: boolean;

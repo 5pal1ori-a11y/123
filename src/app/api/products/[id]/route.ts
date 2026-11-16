@@ -68,6 +68,7 @@ const patchSchema = z.object({
     .nullable()
     .optional(),
   mcCapes: z.array(z.string().regex(/^[a-z0-9_-]{2,32}$/)).max(60).nullable().optional(),
+  mcShowName: z.boolean().optional(),
   discountPercent: z.number().int().min(0).max(90).nullable().optional(),
   mcNickname: z
     .string()

@@ -84,7 +84,7 @@ function winPanel(shopName: string, g: Game) {
           textDisplay(`## ${appEmoji("does_party")} 정답이 나왔어요!`),
           textDisplay(`<@${g.winnerId}> 님이 맞혔어요. 축하합니다!\n**정답** ${g.answer.toLocaleString("ko-KR")}`),
           separator(true, 1),
-          textDisplay(`**상품** ${g.prize || "-"} — 티켓을 열어 받아 주세요`),
+          textDisplay(`**상품** ${g.prize || "-"} — 티켓을 열어 받아 주세요\n-# 다음 게임이 시작될 때까지 채널이 잠겨요`),
           textDisplay(
             `-# ${g.min != null && g.max != null ? `범위 ${g.min.toLocaleString("ko-KR")} ~ ${g.max.toLocaleString("ko-KR")} · ` : ""}시도 ${g.attempts}번`,
           ),
@@ -137,12 +137,17 @@ export async function handleNumberGuessStart(
     attempts: 0,
     startedAt: Date.now(),
   };
+  // 지난 게임에서 잠근 채널을 다시 연다
+  const unlock = await setGuessChannelLocked(channelId, false, shop.id);
   const posted = await postChannelMessage(channelId, startPanel(shop.name, game), shop.id);
   const id = posted.ok ? (posted.json as { id?: string } | null)?.id : null;
   if (!id) return errorPanel("게임을 올리지 못했어요. 봇이 그 채널에 글을 쓸 수 있는지 확인해 주세요.");
   game.messageId = String(id);
   await kvPutJson(key(channelId), game, TTL);
-  return plainEphemeral(`<#${channelId}> 에 숫자 맞추기를 시작했어요. 정답은 **${answer}** 예요 (본인만 보여요).`);
+  return plainEphemeral(
+    `<#${channelId}> 에 숫자 맞추기를 시작했어요. 정답은 **${answer}** 예요 (본인만 보여요).` +
+      (unlock.ok ? "" : "\n-# 채널을 열지 못했어요. 봇에게 '채널 관리' 권한을 주세요."),
+  );
 }
 
 /** /맞추기 숫자 */
@@ -173,7 +178,38 @@ export async function handleNumberGuess(shop: Shop, interaction: DiscordInteract
     shop.id,
   );
   if (game.messageId) await editChannelMessage(channelId, game.messageId, startPanel(shop.name, game), shop.id).catch(() => null);
+  await setGuessChannelLocked(channelId, true, shop.id);
   return plainEphemeral(`🎉 정답이에요! **${guess}** — 축하합니다!`);
+}
+
+const SEND_MESSAGES = BigInt(2048);
+
+/**
+ * 채널 잠금/열기 — @everyone 의 '메시지 보내기' 만 바꾸고 다른 권한은 그대로 둔다.
+ * 봇에게 '채널 관리'(또는 '역할 관리') 권한이 있어야 한다.
+ */
+export async function setGuessChannelLocked(channelId: string, locked: boolean, shopId: string) {
+  const ch = await discordRest("GET", `/channels/${channelId}`, undefined, shopId).catch(() => null);
+  const info = ch?.ok ? (ch.json as { guild_id?: string; permission_overwrites?: { id: string; type: number; allow: string; deny: string }[] }) : null;
+  const guildId = info?.guild_id;
+  if (!guildId) return { ok: false as const, error: "채널 정보를 못 읽었어요" };
+  const cur = info?.permission_overwrites?.find((o) => o.id === guildId);
+  let allow = BigInt(cur?.allow ?? "0");
+  let deny = BigInt(cur?.deny ?? "0");
+  if (locked) {
+    deny |= SEND_MESSAGES;
+    allow &= ~SEND_MESSAGES;
+  } else {
+    deny &= ~SEND_MESSAGES;
+  }
+  const r = await discordRest(
+    "PUT",
+    `/channels/${channelId}/permissions/${guildId}`,
+    { type: 0, allow: allow.toString(), deny: deny.toString() },
+    shopId,
+  ).catch(() => null);
+  if (!r?.ok) console.error("[number-guess] channel lock failed", channelId, locked, r?.status);
+  return { ok: Boolean(r?.ok), status: r?.status ?? 0 };
 }
 
 function react(channelId: string, messageId: string, emoji: string, shopId: string) {
@@ -213,5 +249,7 @@ export async function handleNumberGuessMessage(
     shop.id,
   );
   if (game.messageId) await editChannelMessage(channelId, game.messageId, startPanel(shop.name, game), shop.id).catch(() => null);
+  // 정답이 나오면 관리자가 새로 시작할 때까지 일반 사용자는 채팅을 못 치게 막는다
+  await setGuessChannelLocked(channelId, true, shop.id);
   return { ok: true, correct: true };
 }

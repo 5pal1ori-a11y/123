@@ -413,7 +413,7 @@ body:has(.mcw) .live-badge { display: none !important; }
   bottom: calc(12px + env(safe-area-inset-bottom));
   z-index: 5;
   display: flex;
-  max-width: min(440px, calc(50vw - 230px));
+  max-width: min(440px, max(280px, calc(50vw - 230px)));
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Loader2, Pencil, Plus, Trash2, User, X } from "lucide-react";
 import { shopHeaders } from "@/lib/shop-client";
-import { MC_NICKNAME_RE, maskMcNickname } from "@/lib/mc-account";
+import { MC_ACCOUNT_CATEGORIES, MC_NICKNAME_RE, maskMcNickname, mcAccountCategory } from "@/lib/mc-account";
 import { productDiscountPercent } from "@/lib/pricing";
 import { CAPES } from "@/lib/capes-data";
 import { CapeFaceImg } from "@/components/capes/cape-face";
@@ -97,7 +97,8 @@ export function AdminMcProductsPanel({
   onDeleteProduct: (productId: string, name: string) => void;
 }) {
   const list = useMemo(() => products.filter((p) => p.productKind === "mc_account"), [products]);
-  const [form, setForm] = useState<Form>({ ...EMPTY, category: categories[0]?.name ?? "" });
+  const [form, setForm] = useState<Form>({ ...EMPTY, category: "일반 계정" });
+  void categories;
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<{
     id: string;
@@ -105,6 +106,11 @@ export function AdminMcProductsPanel({
     price: string;
     discount: string;
     tag: string;
+    category: string;
+    showName: boolean;
+    /** 판매된 계정 — 지급 정보를 고쳐 다시 판매중으로 올릴 수 있다 */
+    sold?: boolean;
+    relist?: boolean;
     /** 판매 전 재고(지급 정보) — 불러오기 전 undefined, 없으면 null */
     invId?: string | null;
     invNote?: string;
@@ -122,6 +128,8 @@ export function AdminMcProductsPanel({
     price: string;
     discount: string;
     tag: string;
+    category: string;
+    showName: boolean;
     capes?: string[] | null;
   }) {
     setEditing({ ...base });
@@ -134,6 +142,17 @@ export function AdminMcProductsPanel({
       const data = (await res.json().catch(() => ({}))) as { inventories?: { id: string; codeValue: string; status: string }[] };
       const list = data.inventories ?? [];
       const item = list.find((i) => i.status === "available") ?? null;
+      const soldItem = !item ? list.find((i) => i.status === "sold") : null;
+      if (soldItem) {
+        // 판매된 계정: 마지막 지급 정보를 채워 두고, '다시 판매중으로' 를 켜면 새 재고로 올린다
+        const acct = parseDelivery(soldItem.codeValue);
+        setEditing((e) =>
+          e && e.id === base.id
+            ? { ...e, invId: null, sold: true, relist: false, acct, acctOrig: "", acctNick: base.nickname, invNote: "판매된 계정이에요. 정보를 고친 뒤 「다시 판매중으로 올리기」 를 켜면 새 재고로 다시 올라가요." }
+            : e,
+        );
+        return;
+      }
       if (!item) {
         setEditing((e) =>
           e && e.id === base.id
@@ -181,7 +200,7 @@ export function AdminMcProductsPanel({
         name: `마크 계정 ${masked}`,
         slug: randomSlug(),
         price,
-        category: form.category || "마크 계정",
+        category: form.category || "일반 계정",
         description: form.description.trim(),
         tags: form.tag.trim() ? [form.tag.trim().slice(0, 32)] : [],
         productKind: "mc_account",
@@ -223,11 +242,19 @@ export function AdminMcProductsPanel({
         discountPercent: discount || null,
         tags: editing.tag.trim() ? [editing.tag.trim().slice(0, 32)] : [],
         mcCapes: editing.capes ?? null,
+        category: editing.category,
+        mcShowName: editing.showName,
       });
       // 지급 정보(이메일·비밀번호·복구코드)가 바뀌었으면 재고도 고친다
       const acct = editing.acct;
       const blankNew = editing.invId === null && acct && !acct.email.trim() && !acct.password.trim();
-      if (acct && !blankNew && (JSON.stringify(acct) !== editing.acctOrig || editing.nickname !== editing.acctNick)) {
+      if (editing.sold) {
+        if (editing.relist && acct) {
+          if (!acct.email.trim() || !acct.password.trim()) throw new Error("이메일과 비밀번호는 꼭 넣어 주세요.");
+          await api("/api/inventory", "POST", { productId: editing.id, codes: [deliveryText({ ...EMPTY, ...acct, nickname })] });
+          await api(`/api/products/${editing.id}`, "PATCH", { active: true });
+        }
+      } else if (acct && !blankNew && (JSON.stringify(acct) !== editing.acctOrig || editing.nickname !== editing.acctNick)) {
         if (!acct.email.trim() || !acct.password.trim()) throw new Error("이메일과 비밀번호는 꼭 넣어 주세요.");
         const code = deliveryText({ ...EMPTY, ...acct, nickname });
         if (editing.invId) await api("/api/inventory", "PATCH", { id: editing.invId, code });
@@ -291,10 +318,9 @@ export function AdminMcProductsPanel({
           <label className="space-y-1">
             <span className="text-xs text-neutral-400">카테고리</span>
             <select className={field} value={form.category} onChange={set("category")}>
-              <option value="">마크 계정</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
+              {MC_ACCOUNT_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
                 </option>
               ))}
             </select>
@@ -357,6 +383,8 @@ export function AdminMcProductsPanel({
                       )}
                       {" · "}
                       {p.availableCount > 0 ? "판매중" : "판매됨/재고 없음"}
+                      {" · "}
+                      {mcAccountCategory(p.category)}
                       {p.tags?.[0] ? ` · ${p.tags[0]}` : ""}
                     </p>
                   </div>
@@ -371,6 +399,8 @@ export function AdminMcProductsPanel({
                         price: String(p.price),
                         discount: d ? String(d) : "",
                         tag: p.tags?.[0] ?? "",
+                        category: mcAccountCategory(p.category),
+                        showName: Boolean(p.mcShowName),
                         capes: p.mcCapes ?? null,
                       })
                     }
@@ -416,6 +446,25 @@ export function AdminMcProductsPanel({
                   <label className="space-y-1">
                     <span className="text-xs text-neutral-400">태그</span>
                     <input className={field} value={editing.tag} onChange={(e) => setEditing({ ...editing, tag: e.target.value })} />
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="space-y-1">
+                    <span className="text-xs text-neutral-400">카테고리</span>
+                    <select className={field} value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })}>
+                      {MC_ACCOUNT_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs text-neutral-400">상점 닉네임 표시</span>
+                    <select className={field} value={editing.showName ? "show" : "mask"} onChange={(e) => setEditing({ ...editing, showName: e.target.value === "show" })}>
+                      <option value="mask">가리기 ({maskMcNickname(editing.nickname)})</option>
+                      <option value="show">공개 ({editing.nickname})</option>
+                    </select>
                   </label>
                 </div>
                 <div className="grid gap-2 border-t border-white/10 pt-3">
@@ -498,6 +547,12 @@ export function AdminMcProductsPanel({
                           />
                         </label>
                       ))}
+                      {editing.sold ? (
+                        <label className="mt-1 flex items-center gap-2 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm">
+                          <input type="checkbox" checked={Boolean(editing.relist)} onChange={(e) => setEditing({ ...editing, relist: e.target.checked })} />
+                          다시 판매중으로 올리기 (위 정보로 새 재고 추가)
+                        </label>
+                      ) : null}
                     </>
                   ) : null}
                 </div>

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { hasInternalSecret } from "@/lib/internal-secret";
 import { doesDiscordEnvAsync } from "@/lib/discord/does-env";
-import { applyPresence, DEFAULT_STATUS_USER_ID } from "@/lib/discord/server-status";
+import { applyPresence } from "@/lib/discord/server-status";
 import { getShopBySlug, getShopSettings, initStore, MFA_DISCORD_GUILD_ID, MFA_SHOP_SLUG } from "@/lib/store";
 
 export const dynamic = "force-dynamic";

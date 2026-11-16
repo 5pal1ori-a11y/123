@@ -1,6 +1,9 @@
 "use client";
 
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Crown, Gem, Handshake, LayoutGrid, Plus, Star, Tag, Trophy, type LucideIcon } from "lucide-react";
+import { useState } from "react";
+import { MC_RESALE_CATEGORY, mcAccountCategory } from "@/lib/mc-account";
+import { ResaleRequestModal } from "./resale-request-modal";
 import type { ProductWithStock, ShopEvent, ShopTier, StockStatus } from "@/lib/types";
 import { calcProductPrice } from "@/lib/pricing";
 import { formatKRW } from "@/lib/utils";
@@ -18,6 +21,16 @@ const SECTIONS: { id: ProductSection; label: string; short: string }[] = [
   { id: "mc_cape", label: "마인크래프트 망토", short: "마크 망토" },
   { id: "general", label: "기타상품", short: "기타상품" },
 ];
+
+const MC_TAB_ICON: Record<string, LucideIcon> = {
+  all: LayoutGrid,
+  "일반 계정": Tag,
+  "OG 계정": Crown,
+  Minecon: Trophy,
+  Hypixel: Star,
+  대리판매: Handshake,
+  기타: Gem,
+};
 
 export function ShopProductsTab({
   products,
@@ -49,7 +62,9 @@ export function ShopProductsTab({
   onBuy,
   onCopyCode,
   onAddToCart,
+  shopSlug,
 }: {
+  shopSlug: string;
   products: ProductWithStock[];
   eventByProduct: Map<string, ShopEvent>;
   filteredProducts: ProductWithStock[];
@@ -81,6 +96,16 @@ export function ShopProductsTab({
   onAddToCart?: (productId: string) => void;
 }) {
   const base = useShopBase();
+  const [resaleOpen, setResaleOpen] = useState(false);
+  const mcCounts: Record<string, number> = { all: 0 };
+  if (productSection === "mc_account") {
+    for (const p of products) {
+      if (p.productKind !== "mc_account") continue;
+      mcCounts.all += 1;
+      const c = mcAccountCategory(p.category);
+      mcCounts[c] = (mcCounts[c] ?? 0) + 1;
+    }
+  }
   const isSoldOut = (p: ProductWithStock) => (liveStock[p.id]?.status ?? p.stockStatus) === "sold_out";
   const onSaleMc = filteredProducts.filter((p) => !isSoldOut(p));
   const soldMc = filteredProducts.filter(isSoldOut);
@@ -195,6 +220,40 @@ export function ShopProductsTab({
           />
         ) : (
         <>
+        {productSection === "mc_account" ? (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            {productCategories.map((c) => {
+              const Icon = MC_TAB_ICON[c] ?? Tag;
+              const on = productCategory === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => onCategoryChange(c)}
+                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-bold transition ${
+                    on
+                      ? "border-white bg-white text-black shadow-[0_0_0_3px_rgba(255,255,255,0.12)]"
+                      : "border-white/10 bg-white/[0.04] text-neutral-200 hover:border-white/30 hover:bg-white/[0.08]"
+                  }`}
+                >
+                  <Icon className="size-4" />
+                  {c === "all" ? "전체" : c}
+                  <span className={`text-xs font-semibold ${on ? "text-neutral-500" : "text-neutral-500"}`}>{mcCounts[c] ?? 0}</span>
+                </button>
+              );
+            })}
+            {productCategory === MC_RESALE_CATEGORY ? (
+              <button
+                type="button"
+                onClick={() => setResaleOpen(true)}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-indigo-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-400"
+              >
+                <Plus className="size-4" /> 대리판매 등록
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {resaleOpen ? <ResaleRequestModal shopSlug={shopSlug} onClose={() => setResaleOpen(false)} /> : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <input
             value={productQuery}
@@ -202,7 +261,7 @@ export function ShopProductsTab({
             placeholder="제품 검색"
             className="toss-admin-field min-w-0 flex-1"
           />
-          <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+          <div className={`flex min-w-0 flex-1 flex-wrap gap-2 ${productSection === "mc_account" ? "hidden" : ""}`}>
             {productCategories.map((c) => (
               <button
                 key={c}

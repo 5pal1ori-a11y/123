@@ -73,3 +73,14 @@ export type McAccountInfo = {
   /** 하이픽셀 기록 (기록 없음 = null, 키 없음·조회 실패 = undefined) */
   hypixel?: McHypixel | null;
 };
+
+/** 마크 계정 카테고리 (상점 탭 순서) — 상품의 category 값으로 저장된다 */
+export const MC_ACCOUNT_CATEGORIES = ["일반 계정", "OG 계정", "Minecon", "Hypixel", "대리판매", "기타"] as const;
+export type McAccountCategory = (typeof MC_ACCOUNT_CATEGORIES)[number];
+export const MC_RESALE_CATEGORY: McAccountCategory = "대리판매";
+
+/** 예전 카테고리(정품계정 · 마크 계정 등)는 '일반 계정' 으로 본다 */
+export function mcAccountCategory(category: string | null | undefined): McAccountCategory {
+  const c = (category ?? "").trim();
+  return (MC_ACCOUNT_CATEGORIES as readonly string[]).includes(c) ? (c as McAccountCategory) : "일반 계정";
+}

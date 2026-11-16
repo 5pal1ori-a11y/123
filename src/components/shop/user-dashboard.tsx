@@ -1,5 +1,6 @@
 "use client";
 
+import { MC_ACCOUNT_CATEGORIES, mcAccountCategory } from "@/lib/mc-account";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -242,14 +243,19 @@ export function UserDashboard({
   }, [products]);
 
   const productCategories = useMemo(() => {
+    // 마크 계정은 정해진 카테고리 탭 (일반 · OG · Minecon · Hypixel · 대리판매 · 기타)
+    if (productSection === "mc_account") return ["all", ...MC_ACCOUNT_CATEGORIES];
     const set = new Set(sectionProducts.map((p) => p.category).filter(Boolean));
     return ["all", ...Array.from(set).sort()];
-  }, [sectionProducts]);
+  }, [sectionProducts, productSection]);
 
   const filteredProducts = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
     let list = sectionProducts.filter((p) => {
-      if (productCategory !== "all" && p.category !== productCategory) return false;
+      if (productCategory !== "all") {
+        const cat = p.productKind === "mc_account" ? mcAccountCategory(p.category) : p.category;
+        if (cat !== productCategory) return false;
+      }
       if (!q) return true;
       return (
         p.name.toLowerCase().includes(q) ||
@@ -901,6 +907,7 @@ export function UserDashboard({
               {tab === "products" && (
                 <>
                   <ShopProductsTab
+                    shopSlug={shopSlug}
                     products={products}
                     eventByProduct={eventByProduct}
                     filteredProducts={filteredProducts}

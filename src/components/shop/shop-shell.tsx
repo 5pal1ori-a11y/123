@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Bell, Coins, Gift, Home, MoreHorizontal, Package, Settings } from "lucide-react";
+import { Crown, Bell, Coins, Gift, Home, MoreHorizontal, Package, Settings } from "lucide-react";
 import { shopPath, useShopBase } from "@/lib/shop-nav";
 import { VendixLogo } from "@/components/ui/vendix-logo";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ const PRIMARY = [
 const MORE = [
   { href: "/notices", tab: null as string | null, icon: Bell, label: "공지" },
   { href: "/events", tab: null, icon: Gift, label: "이벤트" },
+  { href: "/dashboard", tab: "premium", icon: Crown, label: "프리미엄 플랜" },
   { href: "/dashboard", tab: "account", icon: Settings, label: "설정" },
 ];
 

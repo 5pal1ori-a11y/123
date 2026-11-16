@@ -1,82 +1,17 @@
 /**
  * 프리미엄 플랜 (BASIC PASS · DOES PASS+) — 계좌이체라 라이선스 키로 지급한다.
- * 관리자가 키를 만들어 주면(또는 구매 후 자동 발급) 회원이 「프리미엄 플랜」 페이지에서 키를 넣어 30일 단위로 켠다.
- * 저장: KV premium:v1:<shopId> = { subs: {userId: Sub}, keys: {KEY: LicenseKey} }
+ * - 회원이 포인트로 구독하면 키를 자동 발급해 바로 적용한다.
+ * - 관리자가 키를 만들어 따로 판매하면, 회원이 「프리미엄 플랜」 탭에서 키를 넣어 30일씩 켠다.
+ * 구독 상태는 회원 정보(user.premium)에 두어 결제 할인 · 우선 구매가 바로 반영된다. 키 목록은 KV.
  */
 import { randomBytes } from "crypto";
 import { RESALE_DEFAULT_FEE_PERCENT } from "@/lib/resale-shared";
+import { PREMIUM_PLANS, PREMIUM_DAYS, type PremiumPlanId } from "@/lib/premium-plans";
+import { addUserPoints, getShopSettings, getUserById, persistAsync, setUserPremium, userPremiumPlan } from "@/lib/store";
 import { kvGetJson, kvPutJson, withLock } from "@/lib/world/kv";
+import type { ShopUser } from "@/lib/types";
 
-export type PremiumPlanId = "basic" | "plus";
-
-export type PremiumPlan = {
-  id: PremiumPlanId;
-  name: string;
-  price: number;
-  tagline: string;
-  perks: string[];
-  /** 모든 상품 추가 할인 % */
-  extraDiscountPercent: number;
-  /** 다이아캐기 보상 배수 — fixed: 항상 이 배수 · random: 랜덤으로 2~max 배 */
-  mine: { kind: "random"; chance: number; max: number } | { kind: "fixed"; multiplier: number };
-  /** 대리판매 수수료 % */
-  resaleFeePercent: number;
-  /** 매월 지급 포인트 */
-  monthlyPoints: number;
-  /** 신규 상품 우선 구매 (분) */
-  earlyAccessMinutes: number;
-};
-
-export const PREMIUM_PLANS: Record<PremiumPlanId, PremiumPlan> = {
-  basic: {
-    id: "basic",
-    name: "BASIC PASS",
-    price: 4900,
-    tagline: "가볍게 시작하는 혜택",
-    perks: [
-      "디스코드 전용 역할",
-      "다이아 캐기 랜덤 2배 ~ 최대 4배",
-      "매달 1회 패스 구매자 전용 이벤트 참가",
-      "모든 제품 3% 추가 할인",
-    ],
-    extraDiscountPercent: 3,
-    mine: { kind: "random", chance: 0.3, max: 4 },
-    resaleFeePercent: RESALE_DEFAULT_FEE_PERCENT,
-    monthlyPoints: 0,
-    earlyAccessMinutes: 0,
-  },
-  plus: {
-    id: "plus",
-    name: "DOES PASS+",
-    price: 9900,
-    tagline: "가장 많이 받는 프리미엄",
-    perks: [
-      "프리미엄 디스코드 역할",
-      "다이아 캐기 보상 항상 2배",
-      "모든 대상 제품 5% 추가 할인",
-      "프리미엄 전용 월간 이벤트",
-      "신규 상품 1시간 우선 구매",
-      "대리판매 수수료 할인 (10% → 7%)",
-      "매월 2,500원 포인트 지급",
-    ],
-    extraDiscountPercent: 5,
-    mine: { kind: "fixed", multiplier: 2 },
-    resaleFeePercent: 7,
-    monthlyPoints: 2500,
-    earlyAccessMinutes: 60,
-  },
-};
-
-export const PREMIUM_DAYS = 30;
-
-export type PremiumSub = {
-  plan: PremiumPlanId;
-  startedAt: string;
-  expiresAt: string;
-  /** 마지막으로 월 포인트를 준 시각 */
-  lastPointsAt: string | null;
-  keys: string[];
-};
+export { PREMIUM_PLANS, PREMIUM_DAYS, type PremiumPlanId } from "@/lib/premium-plans";
 
 export type PremiumKey = {
   key: string;
@@ -88,40 +23,32 @@ export type PremiumKey = {
   usedAt: string | null;
 };
 
-type Db = { subs: Record<string, PremiumSub>; keys: Record<string, PremiumKey> };
+type KeyDb = { keys: Record<string, PremiumKey>; roles?: Partial<Record<PremiumPlanId, string>> };
 
 const kvKey = (shopId: string) => `premium:v1:${shopId}`;
 
-export async function loadPremium(shopId: string): Promise<Db> {
-  const d = await kvGetJson<Db>(kvKey(shopId));
-  return { subs: d?.subs ?? {}, keys: d?.keys ?? {} };
+export async function loadPremiumKeys(shopId: string): Promise<KeyDb> {
+  const d = await kvGetJson<KeyDb>(kvKey(shopId));
+  return { keys: d?.keys ?? {}, roles: d?.roles ?? {} };
 }
 
-async function mutate<T>(shopId: string, fn: (db: Db) => T) {
+async function mutate<T>(shopId: string, fn: (db: KeyDb) => T | Promise<T>) {
   return withLock(kvKey(shopId), async () => {
-    const db = await loadPremium(shopId);
-    const out = fn(db);
+    const db = await loadPremiumKeys(shopId);
+    const out = await fn(db);
     await kvPutJson(kvKey(shopId), db);
     return out;
   });
 }
 
-export function activeSub(sub: PremiumSub | null | undefined): PremiumSub | null {
-  return sub && new Date(sub.expiresAt).getTime() > Date.now() ? sub : null;
-}
-
-export async function getPremiumSub(shopId: string, userId: string | null | undefined) {
-  if (!userId) return null;
-  return activeSub((await loadPremium(shopId)).subs[userId]);
-}
-
 export async function premiumBenefits(shopId: string, userId: string | null | undefined) {
-  const sub = await getPremiumSub(shopId, userId);
-  const plan = sub ? PREMIUM_PLANS[sub.plan] : null;
+  const user = userId ? getUserById(userId) : null;
+  const planId = user && user.shopId === shopId ? userPremiumPlan(user) : null;
+  const plan = planId ? PREMIUM_PLANS[planId] : null;
   return {
     plan: plan?.id ?? null,
     planName: plan?.name ?? null,
-    expiresAt: sub?.expiresAt ?? null,
+    expiresAt: plan ? user!.premium!.expiresAt : null,
     extraDiscountPercent: plan?.extraDiscountPercent ?? 0,
     resaleFeePercent: plan?.resaleFeePercent ?? RESALE_DEFAULT_FEE_PERCENT,
     earlyAccessMinutes: plan?.earlyAccessMinutes ?? 0,
@@ -130,19 +57,21 @@ export async function premiumBenefits(shopId: string, userId: string | null | un
 }
 
 /** 다이아캐기 배수 — 보상을 받을 때 한 번 굴린다 */
-export function rollMineMultiplier(mine: PremiumPlan["mine"] | null): number {
+export function rollMineMultiplier(planId: PremiumPlanId | null): number {
+  const mine = planId ? PREMIUM_PLANS[planId].mine : null;
   if (!mine) return 1;
   if (mine.kind === "fixed") return mine.multiplier;
   if (Math.random() >= mine.chance) return 1;
   // 2배가 가장 잦고 최대 배수로 갈수록 드물게
-  const r = Math.random();
-  const span = mine.max - 1;
-  return Math.min(mine.max, 2 + Math.floor(Math.pow(r, 2) * span));
+  return Math.min(mine.max, 2 + Math.floor(Math.pow(Math.random(), 2) * (mine.max - 1)));
 }
 
 function newKey() {
-  const raw = randomBytes(10).toString("hex").toUpperCase().slice(0, 16);
-  return raw.match(/.{4}/g)!.join("-");
+  return randomBytes(8).toString("hex").toUpperCase().match(/.{4}/g)!.join("-");
+}
+
+export function normalizeKey(raw: string) {
+  return (raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").match(/.{1,4}/g) ?? []).join("-");
 }
 
 export async function createPremiumKeys(shopId: string, plan: PremiumPlanId, count: number, days: number, note: string) {
@@ -169,68 +98,170 @@ export async function deletePremiumKey(shopId: string, key: string) {
   });
 }
 
-/**
- * 키 사용 — 같은 플랜이면 남은 기간에 이어서 늘리고, 다른 플랜이면 지금부터 새로 시작한다.
- * (플러스 사용 중에 베이직 키를 넣으면 플러스 기간이 끝난 뒤가 아니라 바로 바뀌므로 막는다)
- */
+/** 구독 기간 계산 — 같은 플랜이면 남은 기간에 이어 붙이고, 다른 플랜이면 지금부터 */
+function nextPremium(user: ShopUser, plan: PremiumPlanId, days: number): NonNullable<ShopUser["premium"]> {
+  const now = Date.now();
+  const cur = userPremiumPlan(user) ? user.premium! : null;
+  if (cur && cur.plan === "plus" && plan === "basic") {
+    throw new Error("DOES PASS+ 사용 중에는 BASIC PASS 를 켤 수 없어요. 기간이 끝난 뒤에 이용해 주세요.");
+  }
+  const same = cur && cur.plan === plan;
+  const base = same ? new Date(cur.expiresAt).getTime() : now;
+  return {
+    plan,
+    startedAt: same ? cur.startedAt : new Date(now).toISOString(),
+    expiresAt: new Date(base + days * 86_400_000).toISOString(),
+    lastPointsAt: same ? cur.lastPointsAt : null,
+  };
+}
+
+async function applyPremium(shopId: string, userId: string, plan: PremiumPlanId, days: number) {
+  const user = getUserById(userId);
+  if (!user || user.shopId !== shopId) throw new Error("회원을 찾을 수 없어요.");
+  const premium = nextPremium(user, plan, days);
+  const isNew = !user.premium || user.premium.plan !== plan || new Date(user.premium.expiresAt).getTime() <= Date.now();
+  setUserPremium(shopId, userId, premium);
+  // 새로 시작한 DOES PASS+ 는 첫 달 포인트를 바로 준다
+  if (isNew && PREMIUM_PLANS[plan].monthlyPoints > 0) {
+    addUserPoints(shopId, userId, PREMIUM_PLANS[plan].monthlyPoints, `premium:${plan}:monthly`);
+    setUserPremium(shopId, userId, { ...premium, lastPointsAt: new Date().toISOString() });
+  }
+  await persistAsync();
+  await syncPremiumRole(shopId, userId).catch((err) => console.error("[premium] role sync failed", err));
+  return getUserById(userId)!.premium!;
+}
+
 export async function redeemPremiumKey(shopId: string, userId: string, rawKey: string) {
-  const key = rawKey.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").match(/.{1,4}/g)?.join("-") ?? "";
-  return mutate(shopId, (db) => {
+  const key = normalizeKey(rawKey);
+  const k = await mutate(shopId, (db) => {
     const k = db.keys[key];
     if (!k) throw new Error("없는 라이선스 키예요. 다시 확인해 주세요.");
     if (k.usedBy) throw new Error("이미 사용된 라이선스 키예요.");
-    const now = Date.now();
-    const cur = activeSub(db.subs[userId]);
-    if (cur && cur.plan === "plus" && k.plan === "basic") {
-      throw new Error("DOES PASS+ 사용 중에는 BASIC PASS 키를 쓸 수 없어요. 기간이 끝난 뒤에 넣어 주세요.");
-    }
-    const base = cur && cur.plan === k.plan ? new Date(cur.expiresAt).getTime() : now;
-    const sub: PremiumSub = {
-      plan: k.plan,
-      startedAt: cur && cur.plan === k.plan ? cur.startedAt : new Date(now).toISOString(),
-      expiresAt: new Date(base + k.days * 86_400_000).toISOString(),
-      lastPointsAt: cur && cur.plan === k.plan ? cur.lastPointsAt : null,
-      keys: [...(cur?.keys ?? []), key].slice(-24),
-    };
-    db.subs[userId] = sub;
+    // 플랜이 맞지 않으면 키를 쓰지 않는다
+    const user = getUserById(userId);
+    if (user) nextPremium(user, k.plan, k.days);
     k.usedBy = userId;
-    k.usedAt = new Date(now).toISOString();
-    return { sub, plan: PREMIUM_PLANS[k.plan] };
+    k.usedAt = new Date().toISOString();
+    return { ...k };
+  });
+  const premium = await applyPremium(shopId, userId, k.plan, k.days);
+  return { premium, plan: PREMIUM_PLANS[k.plan] };
+}
+
+/** 포인트로 구독 — 라이선스 키를 만들어 바로 쓴 것으로 기록한다 */
+export async function buyPremiumWithPoints(shopId: string, userId: string, plan: PremiumPlanId) {
+  const p = PREMIUM_PLANS[plan];
+  const user = getUserById(userId);
+  if (!user || user.shopId !== shopId) throw new Error("로그인이 필요해요.");
+  nextPremium(user, plan, PREMIUM_DAYS);
+  if (user.points < p.price) throw new Error(`포인트가 부족해요. ${p.price.toLocaleString("ko-KR")}P 가 필요해요.`);
+  addUserPoints(shopId, userId, -p.price, `premium:${plan}:buy`);
+  const [k] = await createPremiumKeys(shopId, plan, 1, PREMIUM_DAYS, `포인트 구독 · ${user.name || user.email}`);
+  await mutate(shopId, (db) => {
+    const item = db.keys[k!.key];
+    if (item) {
+      item.usedBy = userId;
+      item.usedAt = new Date().toISOString();
+    }
+  });
+  const premium = await applyPremium(shopId, userId, plan, PREMIUM_DAYS);
+  return { premium, plan: p, key: k!.key };
+}
+
+export async function adminSetPremium(shopId: string, userId: string, plan: PremiumPlanId | null, days: number) {
+  if (!plan) {
+    setUserPremium(shopId, userId, null);
+    await persistAsync();
+    await syncPremiumRole(shopId, userId).catch(() => null);
+    return null;
+  }
+  return applyPremium(shopId, userId, plan, days);
+}
+
+/* ───────── 디스코드 역할 ───────── */
+
+async function rest(method: string, path: string, body?: unknown) {
+  const { discordRest } = await import("@/lib/discord/rest");
+  const { doesDiscordEnvAsync } = await import("@/lib/discord/does-env");
+  const token = (await doesDiscordEnvAsync()).botToken;
+  if (!token) return discordRest(method, path, body);
+  const res = await fetch(`https://discord.com/api/v10${path}`, {
+    method,
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return { ok: res.ok, status: res.status, json: await res.json().catch(() => null) };
+}
+
+/** 플랜별 역할 — 없으면 만들어 두고 KV 에 id 를 저장한다 */
+async function ensureRoles(shopId: string, guildId: string) {
+  return mutate(shopId, async (db) => {
+    db.roles ??= {};
+    const list = await rest("GET", `/guilds/${guildId}/roles`);
+    const existing = Array.isArray(list.json) ? (list.json as { id: string; name: string }[]) : [];
+    for (const plan of Object.keys(PREMIUM_PLANS) as PremiumPlanId[]) {
+      const id = db.roles[plan];
+      if (id && existing.some((r) => r.id === id)) continue;
+      const byName = existing.find((r) => r.name === PREMIUM_PLANS[plan].name);
+      if (byName) {
+        db.roles[plan] = byName.id;
+        continue;
+      }
+      const made = await rest("POST", `/guilds/${guildId}/roles`, {
+        name: PREMIUM_PLANS[plan].name,
+        color: plan === "plus" ? 0xfbbf24 : 0x60a5fa,
+        hoist: plan === "plus",
+        mentionable: false,
+      });
+      const mid = (made.json as { id?: string } | null)?.id;
+      if (mid) db.roles[plan] = mid;
+    }
+    return { ...db.roles };
   });
 }
 
-export async function setPremiumSub(shopId: string, userId: string, plan: PremiumPlanId | null, days: number) {
-  return mutate(shopId, (db) => {
-    if (!plan) {
-      delete db.subs[userId];
-      return null;
-    }
-    const now = Date.now();
-    db.subs[userId] = {
-      plan,
-      startedAt: new Date(now).toISOString(),
-      expiresAt: new Date(now + days * 86_400_000).toISOString(),
-      lastPointsAt: db.subs[userId]?.lastPointsAt ?? null,
-      keys: db.subs[userId]?.keys ?? [],
-    };
-    return db.subs[userId];
-  });
+/** 회원의 디스코드 역할을 구독 상태에 맞춘다 (구독 중 플랜 역할만 남김) */
+export async function syncPremiumRole(shopId: string, userId: string) {
+  const user = getUserById(userId);
+  const guildId = getShopSettings(shopId).discordGuildId;
+  if (!user?.discordId || !guildId) return;
+  const roles = await ensureRoles(shopId, guildId);
+  const want = userPremiumPlan(user);
+  for (const plan of Object.keys(PREMIUM_PLANS) as PremiumPlanId[]) {
+    const rid = roles[plan];
+    if (!rid) continue;
+    await rest(plan === want ? "PUT" : "DELETE", `/guilds/${guildId}/members/${user.discordId}/roles/${rid}`);
+  }
 }
 
-/** 월 포인트 지급 대상 — 마지막 지급(없으면 시작) 뒤 30일이 지난 활성 구독자 */
-export async function takeMonthlyPointsDue(shopId: string) {
-  return mutate(shopId, (db) => {
-    const due: { userId: string; points: number }[] = [];
-    const now = Date.now();
-    for (const [userId, sub] of Object.entries(db.subs)) {
-      if (!activeSub(sub)) continue;
-      const pts = PREMIUM_PLANS[sub.plan].monthlyPoints;
-      if (!pts) continue;
-      const last = sub.lastPointsAt ? new Date(sub.lastPointsAt).getTime() : 0;
-      if (last && now - last < PREMIUM_DAYS * 86_400_000) continue;
-      sub.lastPointsAt = new Date(now).toISOString();
-      due.push({ userId, points: pts });
+/**
+ * 크론 — 월 포인트 지급(DOES PASS+, 30일마다) · 만료된 구독 역할 회수.
+ * 만료 회원은 user.premium 을 남겨 두되(기록용) 역할만 뺀다.
+ */
+export async function premiumCron(shopId: string, users: ShopUser[]) {
+  const now = Date.now();
+  let granted = 0;
+  let expired = 0;
+  for (const u of users) {
+    const p = u.premium;
+    if (!p) continue;
+    const active = new Date(p.expiresAt).getTime() > now;
+    if (!active) {
+      if (!(p as { roleRemoved?: boolean }).roleRemoved) {
+        await syncPremiumRole(shopId, u.id).catch(() => null);
+        setUserPremium(shopId, u.id, { ...p, ...{ roleRemoved: true } } as NonNullable<ShopUser["premium"]>);
+        expired++;
+      }
+      continue;
     }
-    return due;
-  });
+    const pts = PREMIUM_PLANS[p.plan].monthlyPoints;
+    if (!pts) continue;
+    const last = p.lastPointsAt ? new Date(p.lastPointsAt).getTime() : 0;
+    if (last && now - last < PREMIUM_DAYS * 86_400_000) continue;
+    addUserPoints(shopId, u.id, pts, `premium:${p.plan}:monthly`);
+    setUserPremium(shopId, u.id, { ...p, lastPointsAt: new Date(now).toISOString() });
+    granted++;
+  }
+  if (granted || expired) await persistAsync();
+  return { granted, expired };
 }

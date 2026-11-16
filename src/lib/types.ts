@@ -467,6 +467,8 @@ export type ShopUser = {
   isSubAdmin: boolean;
   /** 스태프 권한 (isSubAdmin일 때). 비어 있으면 전체 허용(레거시) */
   staffPermissions: StaffPermission[];
+  /** 프리미엄 플랜 (BASIC PASS · DOES PASS+) — 라이선스 키로 30일씩 켠다 */
+  premium?: { plan: "basic" | "plus"; startedAt: string; expiresAt: string; lastPointsAt: string | null } | null;
   /** 제재 */
   banned: boolean;
   banReason: string | null;
@@ -681,6 +683,7 @@ export type PublicUser = Pick<
   | "minecraftUuid"
   | "minecraftName"
   | "minecraftManual"
+  | "premium"
 >;
 
 export type WishlistItem = {

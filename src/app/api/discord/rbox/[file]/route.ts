@@ -28,7 +28,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ file: stri
   const m = /^(\d{1,5})-([0-9a-f]{16})\.gif$/.exec(file);
   if (!m) return new Response("not found", { status: 404 });
   const amount = Number(m[1]);
-  if (!Number.isInteger(amount) || amount < 0 || amount > RANDOM_BOX_MAX) {
+  if (!Number.isInteger(amount) || amount < 0 || amount > RANDOM_BOX_MAX * 4) {
     return new Response("not found", { status: 404 });
   }
   if (!randomBoxGifSigs(amount).some((sig) => sameSig(m[2]!, sig))) return new Response("not found", { status: 404 });

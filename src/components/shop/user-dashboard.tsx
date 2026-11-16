@@ -1,5 +1,6 @@
 "use client";
 
+import { UserPremiumTab } from "./user-premium-tab";
 import { MC_ACCOUNT_CATEGORIES, mcAccountCategory } from "@/lib/mc-account";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
@@ -11,6 +12,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Coins,
+  Crown,
   Home,
   LayoutGrid,
   Loader2,
@@ -89,6 +91,7 @@ function saveDarkTheme(dark: boolean) {
 const NAV: { id: UserTab; label: string; icon: typeof Home }[] = [
   { id: "main", label: "홈", icon: Home },
   { id: "products", label: "쇼핑", icon: Package },
+  { id: "premium", label: "프리미엄 플랜", icon: Crown },
   { id: "charge", label: "충전", icon: Coins },
   { id: "attendance", label: "출석", icon: CalendarCheck },
   { id: "reviews", label: "후기", icon: Star },
@@ -114,6 +117,7 @@ const GUEST_VIEWER = {
 const META: Record<UserTab, { title: string; sub: string }> = {
   main: { title: "홈", sub: "오늘도 좋은 하루 보내세요" },
   products: { title: "쇼핑", sub: "포인트로 바로 구매하고 즉시 받아보세요" },
+  premium: { title: "프리미엄 플랜", sub: "BASIC PASS · DOES PASS+ 로 더 많은 혜택을 받아보세요" },
   charge: { title: "포인트 충전", sub: "계좌 · 문화상품권 · 코인으로 간편하게" },
   attendance: { title: "출석체크", sub: "매일 한 번, 랜덤 포인트 상자를 열어보세요" },
   reviews: { title: "후기내역", sub: "디스코드에 남겨진 후기를 실시간으로 모아봤어요" },
@@ -1055,6 +1059,15 @@ export function UserDashboard({
               )}
 
               {tab === "reviews" && <UserReviewsTab shopSlug={shopSlug} />}
+
+              {tab === "premium" && (
+                <UserPremiumTab
+                  shopSlug={shopSlug}
+                  loggedIn={Boolean(user)}
+                  onPointsChanged={() => void loadProfile()}
+                  onGoCharge={() => switchTab("charge")}
+                />
+              )}
 
               {user && tab === "island" && <UserIslandTab shopSlug={shopSlug} userName={user.name || user.email} />}
             </motion.div>

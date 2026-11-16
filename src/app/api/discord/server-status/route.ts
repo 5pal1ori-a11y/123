@@ -121,6 +121,13 @@ async function refreshRankingEvery10m(shopId: string) {
       import("@/lib/discord/stock-board"),
       import("@/lib/discord/handlers"),
     ]);
+  // 프리미엄 플랜: 월 포인트 지급 · 만료 역할 회수
+  await import("@/lib/premium")
+    .then(async ({ premiumCron }) => {
+      const { getStoreForRead } = await import("@/lib/store");
+      return premiumCron(shopId, getStoreForRead().users.filter((u) => u.shopId === shopId && u.premium));
+    })
+    .catch((err) => console.error("[premium] cron failed", err));
   // 재고현황판도 같은 주기로 새로 고쳐 쓴다 (재고가 바뀔 때도 따로 갱신됨)
   const [board, top, stock] = await Promise.all([
     refreshLeaderboardBoard(shopId).catch(() => ({ ok: false })),

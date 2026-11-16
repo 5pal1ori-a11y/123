@@ -291,6 +291,9 @@ export function McAccountCard({
               </span>
             ) : null}
             {tag ? <span className="text-[11px] font-extrabold uppercase text-[#a3a3a3]">{tag}</span> : null}
+            {isMc && Date.now() - new Date(product.createdAt).getTime() < 60 * 60_000 ? (
+              <span className="rounded-full bg-[#f5c542] px-1.5 py-0.5 text-[10px] font-extrabold text-black">PASS+ 선공개</span>
+            ) : null}
           </span>
         ) : null}
 

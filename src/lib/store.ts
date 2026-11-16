@@ -1,3 +1,4 @@
+import { PREMIUM_PLANS } from "@/lib/premium-plans";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
@@ -1788,7 +1789,7 @@ export function updateProduct(
 /** 계좌이체 주문도 포인트 결제와 같은 등급 · 이벤트 할인가를 쓴다 */
 function transferUnitPrice(store: DbStore, product: Product, userId: string | null) {
   const buyer = userId ? store.users.find((u) => u.id === userId && u.shopId === product.shopId) : null;
-  const tier = buyer ? resolveUserTier(product.shopId, buyer) : null;
+  const tier = buyer ? pricingTier(product.shopId, buyer) : null;
   const event = listEvents(product.shopId).find((e) => e.productId === product.id) ?? null;
   return calcProductPrice(product, tier, event).finalPrice;
 }
@@ -2309,6 +2310,7 @@ export function toPublicUser(u: ShopUser): PublicUser {
     minecraftUuid: u.minecraftUuid ?? null,
     minecraftName: u.minecraftName ?? null,
     minecraftManual: u.minecraftManual ?? false,
+    premium: u.premium && new Date(u.premium.expiresAt).getTime() > Date.now() ? u.premium : null,
   };
 }
 
@@ -3055,6 +3057,60 @@ export function changeUserEmail(
   user.email = email;
   persist(store);
   return { ok: true, user };
+}
+
+function premiumMineMultiplier(plan: "basic" | "plus" | null) {
+  const mine = plan ? PREMIUM_PLANS[plan].mine : null;
+  if (!mine) return 1;
+  if (mine.kind === "fixed") return mine.multiplier;
+  if (Math.random() >= mine.chance) return 1;
+  return Math.min(mine.max, 2 + Math.floor(Math.pow(Math.random(), 2) * (mine.max - 1)));
+}
+
+/** 프리미엄 플랜 추가 할인 % (만료됐으면 0) */
+export function userPremiumPlan(user: Pick<ShopUser, "premium"> | null | undefined): "basic" | "plus" | null {
+  const p = user?.premium;
+  return p && new Date(p.expiresAt).getTime() > Date.now() ? p.plan : null;
+}
+const PREMIUM_EXTRA_DISCOUNT = { basic: PREMIUM_PLANS.basic.extraDiscountPercent, plus: PREMIUM_PLANS.plus.extraDiscountPercent };
+
+/** 가격 계산용 등급 — 등급 할인에 프리미엄 플랜 추가 할인을 더한다 */
+export function pricingTier(shopId: string, user: ShopUser): ShopTier | null {
+  const tier = resolveUserTier(shopId, user);
+  const plan = userPremiumPlan(user);
+  if (!plan) return tier;
+  const extra = PREMIUM_EXTRA_DISCOUNT[plan];
+  return tier
+    ? { ...tier, discountPercent: tier.discountPercent + extra }
+    : { id: `premium-${plan}`, shopId, name: plan === "plus" ? "DOES PASS+" : "BASIC PASS", minTotalCharged: 0, discountPercent: extra, color: "#a855f7", createdAt: new Date(0).toISOString() };
+}
+
+/** 신규 상품 우선 구매 — 등록 후 1시간은 DOES PASS+ 만 살 수 있다 (마크 계정 · 개별 상품) */
+export const PREMIUM_EARLY_MS = 60 * 60_000;
+export function earlyAccessBlocked(product: Pick<Product, "createdAt" | "productKind" | "listingKind">, user: Pick<ShopUser, "premium"> | null) {
+  if (product.productKind !== "mc_account") return false;
+  const age = Date.now() - new Date(product.createdAt).getTime();
+  return age >= 0 && age < PREMIUM_EARLY_MS && userPremiumPlan(user) !== "plus";
+}
+
+export function setUserPremium(shopId: string, userId: string, premium: ShopUser["premium"]) {
+  const store = getStore();
+  const user = store.users.find((u) => u.id === userId && u.shopId === shopId);
+  if (!user) throw new Error("회원을 찾을 수 없어요.");
+  if (premium) user.premium = premium;
+  else delete user.premium;
+  persist(store);
+  return user;
+}
+
+export function addUserPoints(shopId: string, userId: string, points: number, reason: string) {
+  const store = getStore();
+  const user = store.users.find((u) => u.id === userId && u.shopId === shopId);
+  if (!user) return null;
+  user.points = Math.max(0, user.points + Math.floor(points));
+  pushLog(user.email, "points.grant", { points, reason }, shopId);
+  persist(store);
+  return user;
 }
 
 export function resolveUserTier(shopId: string, user: ShopUser): ShopTier | null {
@@ -4069,7 +4125,8 @@ export function claimRandomBox(
     };
   }
 
-  const amount = rollRandomBoxAmount();
+  // 프리미엄 플랜: BASIC 은 랜덤 2~4배, DOES PASS+ 는 항상 2배
+  const amount = rollRandomBoxAmount() * premiumMineMultiplier(userPremiumPlan(user));
   const now = new Date();
   const claim: RandomBoxClaim = {
     id: randomUUID(),
@@ -4408,7 +4465,8 @@ export function purchasePrecheck(
   const unitPrice =
     unitPriceOverride != null
       ? Math.max(0, Math.floor(unitPriceOverride))
-      : calcProductPrice(product, resolveUserTier(shopId, user), event).finalPrice;
+      : calcProductPrice(product, pricingTier(shopId, user), event).finalPrice;
+  if (earlyAccessBlocked(product, user)) return "신규 상품은 등록 후 1시간 동안 DOES PASS+ 회원만 구매할 수 있어요.";
   if (user.points < unitPrice * quantity) return "포인트 부족";
   return null;
 }
@@ -4448,7 +4506,10 @@ export function purchaseWithPoints(
   if (limitError) return { ok: false, error: limitError };
 
   const event = listEvents(shopId).find((e) => e.productId === productId);
-  const tier = resolveUserTier(shopId, user);
+  const tier = pricingTier(shopId, user);
+  if (earlyAccessBlocked(product, user)) {
+    return { ok: false, error: "신규 상품은 등록 후 1시간 동안 DOES PASS+ 회원만 구매할 수 있어요." };
+  }
   const unitPrice =
     opts?.unitPriceOverride != null
       ? Math.max(0, Math.floor(opts.unitPriceOverride))

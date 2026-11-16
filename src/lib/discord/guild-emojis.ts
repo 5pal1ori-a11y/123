@@ -128,7 +128,7 @@ export async function uploadGuildEmojis(max = 12, replaced: Set<string> = new Se
   const api = (method: string, path: string, body?: unknown) =>
     fetch(`https://discord.com/api/v10${path}`, {
       method,
-      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      headers: body === undefined ? { Authorization: `Bot ${token}` } : { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   const listRes = await api("GET", `/guilds/${guildId}/emojis`);

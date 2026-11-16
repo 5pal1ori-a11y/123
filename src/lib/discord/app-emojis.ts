@@ -77,7 +77,7 @@ async function doesApi(method: string, path: string, body?: unknown) {
   if (!token) return { ok: false, status: 0, json: null as unknown };
   const res = await fetch(`https://discord.com/api/v10${path}`, {
     method,
-    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    headers: body === undefined ? { Authorization: `Bot ${token}` } : { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const json = (await res.json().catch(() => null)) as unknown;

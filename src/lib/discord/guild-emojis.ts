@@ -144,6 +144,9 @@ export async function uploadGuildEmojis(max = 12, replaced: Set<string> = new Se
     if (d.ok || d.status === 404) {
       have.delete(e.name);
       result.removed.push(e.name);
+    } else {
+      const j = (await d.json().catch(() => null)) as { message?: string } | null;
+      result.failed.push({ name: e.name, reason: `지우기 실패 ${d.status} ${j?.message ?? ""}`.trim() });
     }
   }
   const full = new Set<"static" | "animated">();

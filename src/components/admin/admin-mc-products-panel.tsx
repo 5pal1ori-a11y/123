@@ -100,6 +100,8 @@ export function AdminMcProductsPanel({
   const [form, setForm] = useState<Form>({ ...EMPTY, category: "일반 계정" });
   void categories;
   const [busy, setBusy] = useState(false);
+  /** MFA MARKET 연동 — 켜면 계정 정보를 MFA 재고로 보내고, 팔리면 구매자에게 16자리 코드가 간다 */
+  const [useMfa, setUseMfa] = useState(true);
   const [editing, setEditing] = useState<{
     id: string;
     nickname: string;
@@ -111,6 +113,8 @@ export function AdminMcProductsPanel({
     /** 판매된 계정 — 지급 정보를 고쳐 다시 판매중으로 올릴 수 있다 */
     sold?: boolean;
     relist?: boolean;
+    mfaProduct?: string | null;
+    mfaAccountId?: number | null;
     /** 판매 전 재고(지급 정보) — 불러오기 전 undefined, 없으면 null */
     invId?: string | null;
     invNote?: string;
@@ -131,8 +135,49 @@ export function AdminMcProductsPanel({
     category: string;
     showName: boolean;
     capes?: string[] | null;
+    mfaProduct?: string | null;
   }) {
     setEditing({ ...base });
+    if (base.mfaProduct) {
+      // MFA MARKET 연동 계정: 지급 정보는 MFA 재고에 있다
+      try {
+        const res = await fetch(`/api/admin/mfa-inventory/accounts?q=${encodeURIComponent(base.nickname)}`, {
+          credentials: "include",
+          headers: shopHeaders(shopSlug, false),
+          cache: "no-store",
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          accounts?: { id: number; product: string | null; status: string; email: string; password: string; recovery_email: string | null; recovery_code: string | null; memo: string | null }[];
+        };
+        const a = (data.accounts ?? []).find((x) => (x.product ?? "") === base.mfaProduct) ?? null;
+        if (!a) {
+          setEditing((e) => (e && e.id === base.id ? { ...e, invId: null, invNote: "MFA MARKET 에서 이 계정을 찾지 못했어요.", acct: undefined } : e));
+          return;
+        }
+        const acct = { email: a.email ?? "", password: a.password ?? "", recoveryEmail: a.recovery_email ?? "", recoveryCode: a.recovery_code ?? "", memo: a.memo ?? "" };
+        const sold = a.status === "sold";
+        setEditing((e) =>
+          e && e.id === base.id
+            ? {
+                ...e,
+                invId: null,
+                mfaAccountId: a.id,
+                sold,
+                relist: false,
+                acct,
+                acctOrig: JSON.stringify(acct),
+                acctNick: base.nickname,
+                invNote: sold
+                  ? "MFA MARKET 에서 판매된 계정이에요. 정보를 고치고 「다시 판매중으로 올리기」 를 켜면 다시 판매돼요."
+                  : "MFA MARKET 연동 계정 · 구매자에게 16자리 코드로 지급돼요.",
+              }
+            : e,
+        );
+      } catch {
+        setEditing((e) => (e && e.id === base.id ? { ...e, invId: null, invNote: "MFA MARKET 정보를 불러오지 못했어요." } : e));
+      }
+      return;
+    }
     try {
       const res = await fetch(`/api/inventory?productId=${encodeURIComponent(base.id)}`, {
         credentials: "include",
@@ -195,10 +240,12 @@ export function AdminMcProductsPanel({
     setBusy(true);
     try {
       const masked = maskMcNickname(nickname);
+      const slug = randomSlug();
+      const mfaName = `DOES ${slug}`.slice(0, 40);
       const created = await api("/api/products", "POST", {
         // 상품명은 디스코드 구매 로그 등에 공개되므로 실제 닉네임 대신 가린 이름을 쓴다
         name: `마크 계정 ${masked}`,
-        slug: randomSlug(),
+        slug,
         price,
         category: form.category || "일반 계정",
         description: form.description.trim(),
@@ -209,12 +256,32 @@ export function AdminMcProductsPanel({
         listingKind: "individual",
         fulfillment: "auto",
         purchaseLimitPerUser: null,
+        ...(useMfa ? { mfaProduct: mfaName } : {}),
       });
       const productId = created.product?.id;
-      if (productId) {
+      let note = "";
+      if (productId && useMfa) {
+        try {
+          await api("/api/admin/mfa-inventory/accounts", "POST", {
+            nickname,
+            email: form.email.trim(),
+            password: form.password.trim(),
+            recoveryEmail: form.recoveryEmail.trim() || null,
+            recoveryCode: form.recoveryCode.trim() || null,
+            memo: form.memo.trim() || null,
+            product: mfaName,
+          });
+          note = " · MFA MARKET 연동 (16자리 코드로 지급)";
+        } catch (err) {
+          // 연동이 안 되면 예전처럼 직접 지급 재고로 둔다
+          await api(`/api/products/${productId}`, "PATCH", { mfaProduct: null }).catch(() => null);
+          await api("/api/inventory", "POST", { productId, codes: [deliveryText(form)] });
+          note = ` · MFA 연동 실패라 직접 지급으로 등록 (${err instanceof Error ? err.message : "오류"})`;
+        }
+      } else if (productId) {
         await api("/api/inventory", "POST", { productId, codes: [deliveryText(form)] });
       }
-      onMessage(`${masked} 계정을 등록했어요`);
+      onMessage(`${masked} 계정을 등록했어요${note}`);
       setForm({ ...EMPTY, category: form.category, tag: form.tag });
       await onReload();
     } catch (err) {
@@ -248,7 +315,25 @@ export function AdminMcProductsPanel({
       // 지급 정보(이메일·비밀번호·복구코드)가 바뀌었으면 재고도 고친다
       const acct = editing.acct;
       const blankNew = editing.invId === null && acct && !acct.email.trim() && !acct.password.trim();
-      if (editing.sold) {
+      if (editing.mfaAccountId && acct) {
+        const changed = JSON.stringify(acct) !== editing.acctOrig || editing.nickname !== editing.acctNick;
+        if (changed || editing.relist) {
+          if (!acct.email.trim() || !acct.password.trim()) throw new Error("이메일과 비밀번호는 꼭 넣어 주세요.");
+          await api(`/api/admin/mfa-inventory/accounts/${editing.mfaAccountId}`, "PUT", {
+            nickname,
+            email: acct.email.trim(),
+            password: acct.password.trim(),
+            recoveryEmail: acct.recoveryEmail.trim() || null,
+            recoveryCode: acct.recoveryCode.trim() || null,
+            memo: acct.memo.trim() || null,
+            product: editing.mfaProduct,
+          });
+        }
+        if (editing.sold && editing.relist) {
+          await api(`/api/admin/mfa-inventory/accounts/${editing.mfaAccountId}/release`, "POST", {});
+          await api(`/api/products/${editing.id}`, "PATCH", { active: true });
+        }
+      } else if (editing.sold) {
         if (editing.relist && acct) {
           if (!acct.email.trim() || !acct.password.trim()) throw new Error("이메일과 비밀번호는 꼭 넣어 주세요.");
           await api("/api/inventory", "POST", { productId: editing.id, codes: [deliveryText({ ...EMPTY, ...acct, nickname })] });
@@ -333,6 +418,10 @@ export function AdminMcProductsPanel({
             <span className="text-xs text-neutral-400">상품 설명 (상세 페이지에 표시)</span>
             <textarea className={`${field} min-h-[72px] resize-y`} value={form.description} onChange={set("description")} />
           </label>
+          <label className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm sm:col-span-2">
+            <input type="checkbox" checked={useMfa} onChange={(e) => setUseMfa(e.target.checked)} />
+            MFA MARKET 연동 — 계정 정보를 MFA 재고로 보내고, 구매자에게는 16자리 코드로 지급해요
+          </label>
           <div className="flex justify-end sm:col-span-2">
             <button type="submit" disabled={busy} className="toss-admin-primary inline-flex items-center gap-2 px-6">
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
@@ -385,6 +474,7 @@ export function AdminMcProductsPanel({
                       {p.availableCount > 0 ? "판매중" : "판매됨/재고 없음"}
                       {" · "}
                       {mcAccountCategory(p.category)}
+                      {p.mfaProduct ? " · MFA 연동" : ""}
                       {p.tags?.[0] ? ` · ${p.tags[0]}` : ""}
                     </p>
                   </div>
@@ -402,6 +492,7 @@ export function AdminMcProductsPanel({
                         category: mcAccountCategory(p.category),
                         showName: Boolean(p.mcShowName),
                         capes: p.mcCapes ?? null,
+                        mfaProduct: p.mfaProduct ?? null,
                       })
                     }
                   >

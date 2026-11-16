@@ -104,13 +104,14 @@ function mfaProductSlug(shopId: string, name: string) {
  * 가격이 있으면 생성/가격 갱신 + 판매중, 가격이 없어지면 판매중지.
  */
 function syncMfaCatalog(shopId: string, catalog: MfaCatalogItem[]) {
-  const existing = listMfaProducts(shopId);
+  // 마크 계정 상품은 계정 하나당 MFA 상품 종류 하나로 따로 연동한다 (가격은 DOES 에서 정함) → 카탈로그 동기화에서 뺀다
+  const existing = listMfaProducts(shopId).filter((p) => p.productKind !== "mc_account");
   const byKey = new Map(existing.map((p) => [(p.mfaProduct ?? "").trim().toLowerCase(), p]));
   const category = existing.find((p) => p.category)?.category || MFA_DEFAULT_CATEGORY;
   let changed = 0;
   for (const item of catalog) {
     const key = item.product.trim().toLowerCase();
-    if (!key) continue;
+    if (!key || key.startsWith("does mc-")) continue;
     const current = byKey.get(key);
     if (item.price && item.price > 0) {
       if (!current) {

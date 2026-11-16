@@ -2164,6 +2164,293 @@ SCENES.claw = (s, o) => {
 
 /* ───────────────────────── 바깥에서 부르는 함수 ───────────────────────── */
 
+
+/* ───────────────────────── 이모지 (투명 배경 · 정사각) ───────────────────────── */
+const eRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+eRenderer.setPixelRatio(1);
+eRenderer.outputColorSpace = THREE.SRGBColorSpace;
+eRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+eRenderer.toneMappingExposure = 0.82;
+eRenderer.setClearColor(0x000000, 0);
+const ePmrem = new THREE.PMREMGenerator(eRenderer);
+const eEnv = ePmrem.fromScene(new RoomEnvironment(), 0.03).texture;
+let eScene, eCam, eUpdate;
+
+function eLights(s) {
+  s.environment = eEnv;
+  s.environmentIntensity = 0.7;
+  s.add(new THREE.HemisphereLight(0xffffff, 0x6a6a88, 0.5));
+  const key = new THREE.DirectionalLight(0xffffff, 2.2);
+  key.position.set(-2, 4, 5);
+  const rim = new THREE.DirectionalLight(0xbcd4ff, 1.6);
+  rim.position.set(3, 2, -4);
+  s.add(key, rim);
+}
+const gemFacet = (c) => new THREE.MeshPhysicalMaterial({ color: c, metalness: 0.15, roughness: 0.04, clearcoat: 1, flatShading: true, iridescence: 0.6, emissive: c, emissiveIntensity: 0.18, envMapIntensity: 1.8 });
+function disc(color, r = 1, d = 0.36) {
+  const g = new THREE.CylinderGeometry(r, r, d, 64, 1);
+  const m = mesh(g, plastic(color, { r: 0.25 }));
+  m.rotation.x = Math.PI / 2;
+  const rim = mesh(new THREE.TorusGeometry(r, d * 0.5, 20, 80), plastic(color, { r: 0.25 }));
+  const grp = new THREE.Group();
+  grp.add(m, rim);
+  return grp;
+}
+function checkShape() {
+  const s = new THREE.Shape();
+  s.moveTo(-0.55, 0.05); s.lineTo(-0.2, -0.32); s.lineTo(0.58, 0.45); s.lineTo(0.42, 0.6); s.lineTo(-0.2, 0.02); s.lineTo(-0.4, 0.22); s.closePath();
+  return s;
+}
+function crossShape(w = 0.2, L = 0.62) {
+  const s = new THREE.Shape();
+  s.moveTo(-w, L); s.lineTo(w, L); s.lineTo(w, w); s.lineTo(L, w); s.lineTo(L, -w); s.lineTo(w, -w); s.lineTo(w, -L); s.lineTo(-w, -L); s.lineTo(-w, -w); s.lineTo(-L, -w); s.lineTo(-L, w); s.lineTo(-w, w); s.closePath();
+  return s;
+}
+function leaf(color, k = 1) {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0); s.bezierCurveTo(0.35 * k, 0.15 * k, 0.4 * k, 0.6 * k, 0, 0.9 * k); s.bezierCurveTo(-0.4 * k, 0.6 * k, -0.35 * k, 0.15 * k, 0, 0);
+  const m = mesh(new THREE.ExtrudeGeometry(s, { depth: 0.06 * k, bevelEnabled: true, bevelThickness: 0.05 * k, bevelSize: 0.05 * k, bevelSegments: 6, curveSegments: 32 }), plastic(color, { r: 0.3 }));
+  return m;
+}
+function textTex(str, color, bg, w = 512, h = 256, font = "bold 170px DejaVu Sans") {
+  return canvasTex(w, h, (c) => {
+    if (bg) { c.fillStyle = bg; c.fillRect(0, 0, w, h); }
+    c.font = font; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = color; c.fillText(str, w / 2, h / 2 + 8);
+  });
+}
+
+const EMOJI = {};
+EMOJI.check = () => {
+  const g = new THREE.Group();
+  g.add(disc(0x22c55e));
+  const ck = mesh(extrude(checkShape(), 0.16, 0.06, 6), plastic(0xffffff, { r: 0.2 }));
+  ck.position.z = 0.28; ck.scale.setScalar(1.15);
+  g.add(ck);
+  return { g, anim: (t) => { g.rotation.y = Math.sin(t * TAU) * 0.5; g.position.y = Math.abs(Math.sin(t * TAU)) * 0.06; } };
+};
+EMOJI.cross = () => {
+  const g = new THREE.Group();
+  g.add(disc(0xef4444));
+  const x = mesh(extrude(crossShape(0.16, 0.6), 0.16, 0.06, 6), plastic(0xffffff, { r: 0.2 }));
+  x.rotation.z = Math.PI / 4; x.position.z = 0.28;
+  g.add(x);
+  g.rotation.y = -0.3;
+  return { g };
+};
+EMOJI.plus = () => {
+  const g = new THREE.Group();
+  const p = mesh(extrude(crossShape(0.26, 0.85), 0.3, 0.12, 8), plastic(0x22c55e, { r: 0.22 }));
+  g.add(p); g.rotation.set(0.2, -0.4, 0);
+  return { g };
+};
+EMOJI.star = () => {
+  const g = new THREE.Group();
+  const st = mesh(extrude(starShape(1.05, 0.48), 0.32, 0.14, 8), gold({ c: 0xffc83d, r: 0.18 }));
+  g.add(st);
+  return { g, anim: (t) => { g.rotation.y = t * TAU; } };
+};
+EMOJI.gem = () => {
+  const g = new THREE.Group();
+  const pts = [new THREE.Vector2(0, -1.0), new THREE.Vector2(0.98, 0.12), new THREE.Vector2(0.98, 0.2), new THREE.Vector2(0.6, 0.5), new THREE.Vector2(0, 0.5)];
+  const geo = new THREE.LatheGeometry(pts, 10).toNonIndexed();
+  geo.computeVertexNormals();
+  const d = mesh(geo, gemFacet(0x1fb2ff));
+  d.scale.setScalar(1.05); d.position.y = 0.2;
+  g.add(d); g.rotation.x = 0.35;
+  return { g, anim: (t) => { d.rotation.y = t * (TAU / 5); } };
+};
+EMOJI.gift = () => {
+  const gift = makeGift();
+  gift.g.scale.setScalar(0.85); gift.g.position.y = -0.75;
+  const g = new THREE.Group(); g.add(gift.g); g.rotation.set(0.35, -0.6, 0);
+  return { g, anim: (t) => { gift.lid.position.y = 1.32 + Math.max(0, Math.sin(t * TAU * 2)) * 0.18; gift.lid.rotation.z = Math.sin(t * TAU * 2) * 0.05; } };
+};
+EMOJI.mail = () => {
+  const e = makeEnvelope();
+  e.g.scale.setScalar(0.9);
+  const g = new THREE.Group(); g.add(e.g); g.rotation.set(0.1, -0.35, 0);
+  return { g };
+};
+EMOJI.online = () => {
+  const g = new THREE.Group();
+  const b = mesh(new THREE.SphereGeometry(0.8, 64, 32), plastic(0x22c55e, { e: 0x16a34a, ei: 0.4, r: 0.2 }));
+  const ring = mesh(new THREE.TorusGeometry(1.05, 0.08, 16, 80), plastic(0x86efac, { e: 0x22c55e, ei: 0.8, opacity: 0.8 }));
+  g.add(b, ring);
+  return { g, anim: (t) => { const k = (t * 2) % 1; ring.scale.setScalar(0.85 + k * 0.35); ring.material.opacity = 1 - k; b.scale.setScalar(1 + Math.sin(t * TAU * 2) * 0.04); } };
+};
+EMOJI.offline = () => {
+  const g = new THREE.Group();
+  g.add(mesh(new THREE.SphereGeometry(0.8, 64, 32), plastic(0x6b7280, { r: 0.35 })));
+  const hole = mesh(new THREE.TorusGeometry(0.42, 0.12, 16, 64), plastic(0x374151, { r: 0.4 }));
+  hole.position.z = 0.7; hole.scale.z = 0.4; g.add(hole);
+  return { g };
+};
+EMOJI.sold = () => {
+  const g = new THREE.Group();
+  const plate = mesh(rbox(2.2, 1.0, 0.24, 0.16), plastic(0xdc2626, { r: 0.25 }));
+  const border = mesh(rbox(2.0, 0.8, 0.26, 0.1), plastic(0xffffff, { r: 0.3 }));
+  const inner = mesh(rbox(1.88, 0.68, 0.28, 0.08), plastic(0xdc2626, { r: 0.25 }));
+  const txt = text3d("SOLD", 0.42, 0.1, plastic(0xffffff, { r: 0.2 }));
+  txt.position.z = 0.2;
+  g.add(plate, border, inner, txt); g.rotation.set(0.1, -0.35, -0.1);
+  return { g, scale: 1.12 };
+};
+EMOJI.brick = () => {
+  const g = new THREE.Group();
+  const red = plastic(0xc2410c, { r: 0.55, cc: 0.3 });
+  const mortar = plastic(0xe7e5e4, { r: 0.8, cc: 0 });
+  const back = mesh(rbox(2.3, 1.45, 0.4, 0.06), mortar); back.position.z = -0.08; g.add(back);
+  const rows = [[-0.55, [-0.55, 0.55]], [0, [-0.82, 0, 0.82]], [0.55, [-0.55, 0.55]]];
+  for (const [y, xs] of rows) for (const x of xs) {
+    const w = Math.abs(x) === 0.82 ? 0.58 : 1.0;
+    const b = mesh(rbox(xs.length === 3 && x !== 0 ? 0.58 : (xs.length === 3 ? 0.98 : 1.04), 0.46, 0.5, 0.07), red);
+    b.position.set(xs.length === 3 && x !== 0 ? Math.sign(x) * 0.84 : x, y, 0.05); g.add(b);
+  }
+  g.rotation.set(0.25, -0.45, 0);
+  return { g };
+};
+EMOJI.clover = () => {
+  const g = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const h = mesh(extrude(heartShape(0.42), 0.12, 0.08, 8), plastic(0x22c55e, { r: 0.3 }));
+    h.rotation.z = i * Math.PI / 2 + Math.PI;
+    const a = i * Math.PI / 2 + Math.PI / 2;
+    h.position.set(Math.cos(a) * 0.5, Math.sin(a) * 0.5, 0);
+    h.rotation.z = a - Math.PI / 2;
+    g.add(h);
+  }
+  const stem = mesh(tube([[0, 0, -0.05], [0.15, -0.5, 0], [0.4, -1.0, 0]], 0.07, 30), plastic(0x15803d));
+  g.add(stem); g.rotation.set(0.25, -0.3, 0.2); g.position.y = 0.15;
+  return { g };
+};
+EMOJI.flag = () => {
+  const g = new THREE.Group();
+  const pole = mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.3, 24), chrome(0xcbd5e1, 0.2)); pole.position.x = -0.75; g.add(pole);
+  const knob = mesh(new THREE.SphereGeometry(0.12, 24, 16), gold()); knob.position.set(-0.75, 1.18, 0); g.add(knob);
+  const geo = new THREE.PlaneGeometry(1.4, 0.95, 30, 10);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + 0.7; pos.setZ(i, Math.sin(x * 4) * 0.12 * x); }
+  geo.computeVertexNormals();
+  const fl = mesh(geo, plastic(0xef4444, { r: 0.35, side: THREE.DoubleSide })); fl.position.set(-0.02, 0.6, 0); g.add(fl);
+  g.rotation.set(0.1, -0.35, 0); g.position.y = -0.05;
+  return { g };
+};
+EMOJI.inbox = () => {
+  const g = new THREE.Group();
+  const tray = mesh(rbox(2.0, 0.55, 1.4, 0.15), plastic(0xe2e8f0, { r: 0.3 })); tray.position.y = -0.55; g.add(tray);
+  const slot = mesh(rbox(1.5, 0.2, 1.0, 0.08), plastic(0x94a3b8, { r: 0.4 })); slot.position.y = -0.33; g.add(slot);
+  const arr = new THREE.Shape();
+  arr.moveTo(-0.2, 0.7); arr.lineTo(0.2, 0.7); arr.lineTo(0.2, 0.15); arr.lineTo(0.45, 0.15); arr.lineTo(0, -0.35); arr.lineTo(-0.45, 0.15); arr.lineTo(-0.2, 0.15); arr.closePath();
+  const a = mesh(extrude(arr, 0.22, 0.07, 6), plastic(0x3b82f6, { r: 0.22 })); a.position.set(0, 0.35, 0.2); g.add(a);
+  g.rotation.set(0.35, -0.4, 0);
+  return { g };
+};
+EMOJI.island = () => {
+  const g = new THREE.Group();
+  const water = mesh(new THREE.CylinderGeometry(1.25, 1.25, 0.18, 64), plastic(0x38bdf8, { r: 0.1 })); water.position.y = -0.7; g.add(water);
+  const sand = mesh(new THREE.SphereGeometry(0.85, 48, 24, 0, TAU, 0, Math.PI / 2), plastic(0xfcd34d, { r: 0.6, cc: 0.2 })); sand.scale.y = 0.45; sand.position.y = -0.62; g.add(sand);
+  const trunk = mesh(tube([[0, -0.3, 0], [0.12, 0.2, 0], [0.05, 0.75, 0]], 0.08, 30), plastic(0x92400e, { r: 0.6 })); g.add(trunk);
+  for (let i = 0; i < 6; i++) {
+    const l = leaf(0x16a34a, 0.75); const a = i / 6 * TAU;
+    const p = new THREE.Group(); p.add(l); l.rotation.x = -1.3;
+    p.rotation.y = a; p.position.set(0.05, 0.75, 0); g.add(p);
+  }
+  g.rotation.set(0.3, -0.3, 0); g.position.y = 0.05;
+  return { g };
+};
+EMOJI.jackpot = () => {
+  const g = new THREE.Group();
+  const body = mesh(rbox(2.0, 1.7, 0.9, 0.2), plastic(0x7c3aed, { r: 0.25 })); g.add(body);
+  const top = mesh(rbox(1.6, 0.35, 0.7, 0.12), gold()); top.position.y = 1.0; g.add(top);
+  const screen = mesh(rbox(1.7, 0.85, 0.2, 0.06), plastic(0x1e1b4b)); screen.position.set(0, 0.1, 0.42); g.add(screen);
+  const reels = [];
+  for (let i = 0; i < 3; i++) {
+    const w = mesh(rbox(0.46, 0.68, 0.1, 0.05), plastic(0xfffdf7, { r: 0.4 })); w.position.set((i - 1) * 0.52, 0.1, 0.52); g.add(w);
+    const seven = text3d("7", 0.42, 0.06, plastic(0xef4444, { r: 0.25 })); seven.position.set((i - 1) * 0.52, 0.1, 0.6); g.add(seven); reels.push(seven);
+  }
+  const bulbs = [];
+  for (let i = 0; i < 5; i++) { const b = mesh(new THREE.SphereGeometry(0.07, 16, 12), glow(0xfde047, 1.5)); b.position.set((i - 2) * 0.32, 1.0, 0.38); g.add(b); bulbs.push(b); }
+  const lever = mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.9, 16), chrome()); lever.position.set(1.1, 0.35, 0); g.add(lever);
+  const ball = mesh(new THREE.SphereGeometry(0.15, 24, 16), plastic(0xef4444)); ball.position.set(1.1, 0.82, 0); g.add(ball);
+  g.rotation.set(0.15, -0.35, 0); g.position.set(-0.08, -0.05, 0);
+  return { g, scale: 0.88, anim: (t, i) => { bulbs.forEach((b, k) => (b.material.emissiveIntensity = (k + i) % 2 ? 2.4 : 0.3)); reels.forEach((r, k) => (r.position.y = 0.1 + Math.sin((t * 2 + k * 0.33) * TAU) * 0.03)); } };
+};
+EMOJI.party = () => {
+  const g = new THREE.Group();
+  const cone = mesh(new THREE.ConeGeometry(0.5, 1.6, 48, 1, true), plastic(0xffffff, { side: THREE.DoubleSide, map: canvasTex(256, 256, (c) => { for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? "#f59e0b" : "#ec4899"; c.fillRect(0, i * 32, 256, 32); } }) }));
+  cone.rotation.z = Math.PI + 0.75; cone.position.set(0.15, -0.25, 0); g.add(cone);
+  const r = rng(7); const cols = [0xf43f5e, 0x22c55e, 0x3b82f6, 0xfacc15, 0xa855f7];
+  for (let i = 0; i < 16; i++) {
+    const p = mesh(rbox(0.12, 0.2, 0.04, 0.02), plastic(cols[i % 5]));
+    p.position.set(-0.3 - r() * 0.8, 0.2 + r() * 0.9, (r() - 0.5) * 0.6); p.rotation.set(r() * 3, r() * 3, r() * 3); g.add(p);
+  }
+  for (let i = 0; i < 3; i++) {
+    const s = mesh(tube([[0, 0, 0], [-0.2 - i * 0.1, 0.4, 0.1], [-0.1 - i * 0.25, 0.8, 0], [-0.4 - i * 0.2, 1.1, 0]], 0.035, 40), plastic(cols[i + 1])); s.position.set(-0.35, 0.3, 0); g.add(s);
+  }
+  g.rotation.y = -0.3;
+  return { g };
+};
+EMOJI.robot = () => {
+  const g = new THREE.Group();
+  const head = mesh(rbox(1.8, 1.35, 1.2, 0.3), plastic(0xcbd5e1, { r: 0.25 })); g.add(head);
+  const face = mesh(rbox(1.45, 0.9, 0.2, 0.18), plastic(0x1e293b, { r: 0.2 })); face.position.z = 0.55; g.add(face);
+  for (const x of [-0.35, 0.35]) { const e = mesh(new THREE.SphereGeometry(0.15, 24, 16), glow(0x38bdf8, 2)); e.position.set(x, 0.08, 0.66); e.scale.z = 0.5; g.add(e); }
+  const mouth = mesh(rbox(0.5, 0.08, 0.05, 0.03), glow(0x38bdf8, 1.5)); mouth.position.set(0, -0.2, 0.66); g.add(mouth);
+  const ant = mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.45, 12), chrome()); ant.position.y = 0.88; g.add(ant);
+  const tip = mesh(new THREE.SphereGeometry(0.12, 24, 16), glow(0xf43f5e, 1.2)); tip.position.y = 1.15; g.add(tip);
+  for (const x of [-1, 1]) { const ear = mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.2, 24), plastic(0x94a3b8)); ear.rotation.z = Math.PI / 2; ear.position.x = x * 0.95; g.add(ear); }
+  g.rotation.set(0.1, -0.35, 0); g.position.y = -0.1;
+  return { g };
+};
+EMOJI.sprout = () => {
+  const g = new THREE.Group();
+  const pot = mesh(new THREE.CylinderGeometry(0.7, 0.5, 0.85, 48), plastic(0xb45309, { r: 0.5 })); pot.position.y = -0.6; g.add(pot);
+  const rimm = mesh(new THREE.TorusGeometry(0.7, 0.1, 16, 48), plastic(0xc2410c, { r: 0.45 })); rimm.rotation.x = Math.PI / 2; rimm.position.y = -0.17; g.add(rimm);
+  const soil = mesh(new THREE.CylinderGeometry(0.64, 0.64, 0.06, 48), plastic(0x422006, { r: 0.9, cc: 0 })); soil.position.y = -0.2; g.add(soil);
+  const stem = mesh(tube([[0, -0.2, 0], [0.02, 0.2, 0], [0, 0.5, 0]], 0.06, 20), plastic(0x16a34a)); g.add(stem);
+  for (const s of [-1, 1]) { const l = leaf(0x22c55e, 0.75); l.position.set(0, 0.45, 0); l.rotation.set(0, 0, -s * 1.1); g.add(l); }
+  g.rotation.set(0.25, -0.3, 0); g.position.y = 0.05;
+  return { g };
+};
+EMOJI.tree = () => {
+  const g = new THREE.Group();
+  const trunk = mesh(new THREE.CylinderGeometry(0.18, 0.26, 1.0, 24), plastic(0x92400e, { r: 0.6 })); trunk.position.y = -0.65; g.add(trunk);
+  for (const [x, y, z, r] of [[0, 0.35, 0, 0.75], [-0.5, 0.05, 0.1, 0.5], [0.5, 0.05, 0.1, 0.52], [0.05, 0.85, 0, 0.5]]) {
+    const b = mesh(new THREE.SphereGeometry(r, 48, 32), plastic(0x16a34a, { r: 0.35 })); b.position.set(x, y, z); g.add(b);
+  }
+  g.rotation.y = -0.3;
+  return { g };
+};
+EMOJI.ticket = () => {
+  const g = new THREE.Group();
+  const s = new THREE.Shape();
+  const W = 1.1, H = 0.65, n = 0.18;
+  s.moveTo(-W, -H); s.lineTo(W, -H); s.lineTo(W, -n); s.absarc(W, 0, n, -Math.PI / 2, Math.PI / 2, true); s.lineTo(W, H); s.lineTo(-W, H); s.lineTo(-W, n); s.absarc(-W, 0, n, Math.PI / 2, -Math.PI / 2, true); s.closePath();
+  g.add(mesh(extrude(s, 0.16, 0.08, 6), plastic(0xfacc15, { r: 0.25 })));
+  const line = mesh(rbox(0.04, 1.1, 0.05, 0.01), plastic(0xca8a04)); line.position.set(0.45, 0, 0.17); g.add(line);
+  const st = mesh(extrude(starShape(0.32, 0.14), 0.08, 0.04, 4), plastic(0xef4444, { r: 0.2 })); st.position.set(-0.2, 0, 0.2); g.add(st);
+  g.rotation.set(0.2, -0.4, 0.25);
+  return { g };
+};
+
+window.setupEmoji = (name, size) => {
+  eRenderer.setSize(size, size, false);
+  eScene = new THREE.Scene();
+  eLights(eScene);
+  eCam = new THREE.PerspectiveCamera(26, 1, 0.1, 100);
+  eCam.position.set(0, 0.35, 6.2);
+  eCam.lookAt(0, 0, 0);
+  const o = EMOJI[name]();
+  o.g.scale.multiplyScalar(o.scale ?? 1);
+  eScene.add(o.g);
+  eUpdate = o.anim ?? (() => {});
+};
+window.frameEmoji = (i, n) => {
+  eUpdate(i / n, i, n);
+  eRenderer.render(eScene, eCam);
+  return eRenderer.domElement.toDataURL("image/png");
+};
+
 window.setup = (name, w, h, opts) => {
   renderer.setSize(w, h, false);
   scene = new THREE.Scene();

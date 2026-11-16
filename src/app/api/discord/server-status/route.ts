@@ -134,14 +134,18 @@ async function refreshRankingEvery10m(shopId: string) {
       if ("remaining" in r && r.remaining === 0) await kvPutJson(doneKey, { at: new Date().toISOString() });
     }
   }
-  // DOES 서버에 봇 이모지 + 망토 이모지 올리기 (10분마다 몇 개씩, 다 올리면 멈춤)
+  // DOES 서버에 봇 이모지(3D) + 망토 이모지 올리기 (10분마다 몇 개씩, 다 올리면 멈춤)
   {
     const { kvGetJson, kvPutJson } = await import("@/lib/world/kv");
-    const doneKey = "guild-emojis-done:v1";
+    const doneKey = "guild-emojis-done:v2";
     if (!(await kvGetJson<unknown>(doneKey))) {
+      const repKey = "guild-emojis-replaced:v2";
+      const replaced = new Set((await kvGetJson<string[]>(repKey)) ?? []);
       const r = await import("@/lib/discord/guild-emojis")
-        .then(({ uploadGuildEmojis }) => uploadGuildEmojis())
-        .catch((err) => ({ added: [], existed: 0, failed: [{ name: "-", reason: String(err) }], slotsFull: [] }));
+        .then(({ uploadGuildEmojis }) => uploadGuildEmojis(12, replaced))
+        .catch((err) => ({ added: [] as string[], removed: [] as string[], existed: 0, failed: [{ name: "-", reason: String(err) }], slotsFull: [] as string[] }));
+      const nowReplaced = [...replaced, ...r.added.filter((n) => n.startsWith("does_"))];
+      if (nowReplaced.length !== replaced.size) await kvPutJson(repKey, nowReplaced);
       const log = (await kvGetJson<unknown[]>("guild-emojis-log")) ?? [];
       await kvPutJson("guild-emojis-log", [...log, { at: new Date().toISOString(), r }].slice(-30), 30 * 86_400);
       if (!r.failed.length && r.added.length < 12) await kvPutJson(doneKey, { at: new Date().toISOString(), slotsFull: r.slotsFull });

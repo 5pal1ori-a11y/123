@@ -79,7 +79,7 @@ export const GUILD_EMOJIS: { name: string; file: string }[] = [
   { name: "cape_document", file: "cape_document.png" },
 ];
 
-export type GuildEmojiResult = { added: string[]; existed: number; failed: { name: string; reason: string }[]; slotsFull: string[] };
+export type GuildEmojiResult = { added: string[]; removed: string[]; existed: number; failed: { name: string; reason: string }[]; slotsFull: string[] };
 
 function toBase64(buf: ArrayBuffer) {
   const bytes = new Uint8Array(buf);
@@ -88,9 +88,10 @@ function toBase64(buf: ArrayBuffer) {
   return btoa(s);
 }
 
-export async function uploadGuildEmojis(max = 12, origin = "https://doesmc.xyz", guildId = MFA_DISCORD_GUILD_ID): Promise<GuildEmojiResult> {
+/** v2: does_* 는 3D 고퀄 그림 — 서버에 예전 픽셀 그림이 있으면 지우고 다시 올린다 (replaced 에 있는 이름은 이미 교체됨) */
+export async function uploadGuildEmojis(max = 12, replaced: Set<string> = new Set(), origin = "https://doesmc.xyz", guildId = MFA_DISCORD_GUILD_ID): Promise<GuildEmojiResult> {
   const token = (await doesDiscordEnvAsync()).botToken;
-  const result: GuildEmojiResult = { added: [], existed: 0, failed: [], slotsFull: [] };
+  const result: GuildEmojiResult = { added: [], removed: [], existed: 0, failed: [], slotsFull: [] };
   if (!token) {
     result.failed.push({ name: "-", reason: "DOES 봇 토큰이 없어요" });
     return result;
@@ -106,7 +107,16 @@ export async function uploadGuildEmojis(max = 12, origin = "https://doesmc.xyz",
     result.failed.push({ name: "-", reason: `서버 이모지 목록을 못 읽음 (${listRes.status})` });
     return result;
   }
-  const have = new Set(((await listRes.json()) as { name: string }[]).map((e) => e.name));
+  const list = (await listRes.json()) as { id: string; name: string }[];
+  const have = new Set(list.map((e) => e.name));
+  for (const e of list) {
+    if (!e.name.startsWith("does_") || replaced.has(e.name) || !GUILD_EMOJIS.some((g) => g.name === e.name)) continue;
+    const d = await api("DELETE", `/guilds/${guildId}/emojis/${e.id}`);
+    if (d.ok || d.status === 404) {
+      have.delete(e.name);
+      result.removed.push(e.name);
+    }
+  }
   const full = new Set<"static" | "animated">();
   for (const e of GUILD_EMOJIS) {
     if (have.has(e.name)) {

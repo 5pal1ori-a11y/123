@@ -32,8 +32,8 @@ const FALLBACK: Record<AppEmojiName, string> = {
   does_sold: "⚫",
 };
 
-/** v3: DOES 봇 토큰으로만 올리고, 어느 앱 것인지(appId)를 같이 기억한다 */
-const KV_KEY = "does:app-emojis:v3";
+/** v4: 3D 고퀄 그림으로 교체 — 예전(v3) 픽셀 그림은 같은 이름이면 지우고 다시 올린다 */
+const KV_KEY = "does:app-emojis:v4";
 let cache: Partial<Record<AppEmojiName, string>> = {};
 let ensured = false;
 let inflight: Promise<void> | null = null;
@@ -104,6 +104,13 @@ async function load() {
     for (const name of names) {
       const spec = BOT_EMOJI_IMAGES[name];
       let e = items.find((x) => x.name === name);
+      if (e && saved?.appId === appId && saved.map[name]) {
+        /* v4 에서 이미 올린 것 */
+      } else if (e) {
+        // 예전 픽셀 그림 — 지우고 3D 그림으로 다시 올린다
+        const del = await doesApi("DELETE", `/applications/${appId}/emojis/${e.id}`);
+        if (del.ok || del.status === 404) e = undefined;
+      }
       if (!e) {
         const r = await doesApi("POST", `/applications/${appId}/emojis`, { name, image: spec.image });
         if (r.ok) e = r.json as { id: string; name: string; animated?: boolean };

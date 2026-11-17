@@ -529,7 +529,7 @@ export function reviewTree(d) {
           h("div", { display: "flex", fontSize: 15, fontWeight: 500, color: "#64748b", marginTop: 2 }, d.time ?? ""),
         ),
       ),
-      h("div", { display: "flex", alignItems: "center", padding: "8px 16px 8px 8px", borderRadius: 18, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" },
+      !d.product || (d.product === "상품" && !d.img) ? null : h("div", { display: "flex", alignItems: "center", padding: "8px 16px 8px 8px", borderRadius: 18, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" },
         h("div", { display: "flex", width: 64, height: 64, alignItems: "center", justifyContent: "center" }, thumb),
         h("div", { display: "flex", flexDirection: "column", marginLeft: 12 },
           h("div", { display: "flex", fontSize: 14, fontWeight: 500, color: "#94a3b8" }, "구매한 상품"),

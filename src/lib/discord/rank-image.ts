@@ -162,7 +162,90 @@ export async function queueImageData(
   };
 }
 
-async function hashOf(d: RankImageData | QueueImageData) {
+export type StockImageData = {
+  kind: "stock";
+  title: string;
+  inStock: number;
+  soldOut: number;
+  updated: string;
+  groups: {
+    name: string;
+    soldCount: number;
+    more: number;
+    items: { name: string; price: number; stock: string; low: boolean; img: string | null; imgKind: "skin" | "cape" | "thumb" | null }[];
+  }[];
+};
+
+const STOCK_PER_GROUP = 12;
+
+/** 재고현황 이미지 데이터 — 구매 가능한 상품만 그림과 함께, 품절은 개수로 */
+export async function stockImageData(shopId: string): Promise<StockImageData> {
+  const shop = getShopById(shopId);
+  const { listProducts } = await import("@/lib/store");
+  const { CAPE_BY_TYPE } = await import("@/lib/capes-data");
+  // 팔린 마크 계정(MFA 묶음 제외)은 목록에서 빠진다
+  const products = listProducts(shopId).filter(
+    (p) => !p.stockBoardHidden && !(p.productKind === "mc_account" && !p.mcGroup && p.availableCount <= 0),
+  );
+  const groups = new Map<string, typeof products>();
+  for (const p of products) {
+    const key = p.productKind === "mc_account" ? "마인크래프트 계정" : p.productKind === "mc_cape" ? "마인크래프트 망토" : p.category?.trim() || "기타";
+    const list = groups.get(key);
+    if (list) list.push(p);
+    else groups.set(key, [p]);
+  }
+  const inStock = products.filter((p) => p.availableCount > 0).length;
+  return {
+    kind: "stock",
+    title: `${shop?.name ?? "DOES"} 재고현황`,
+    inStock,
+    soldOut: products.length - inStock,
+    updated: stamp(),
+    groups: [...groups.entries()].slice(0, 8).map(([name, list]) => {
+      const avail = list.filter((p) => p.availableCount > 0);
+      const shown = avail.slice(0, STOCK_PER_GROUP);
+      return {
+        name,
+        soldCount: list.length - avail.length,
+        more: avail.length - shown.length,
+        items: shown.map((p) => {
+          const manual = p.fulfillment === "manual";
+          const capeHash = p.productKind === "mc_cape" && p.capeType ? CAPE_BY_TYPE[p.capeType]?.hash : null;
+          return {
+            name: p.name,
+            price: p.price,
+            stock: manual ? "판매중" : `재고 ${p.availableCount.toLocaleString("ko-KR")}`,
+            low: !manual && p.availableCount <= 2,
+            imgKind: p.productKind === "mc_account" ? "skin" : capeHash ? "cape" : p.thumbnail?.trim() ? "thumb" : null,
+            img:
+              p.productKind === "mc_account"
+                ? `https://doesmc.xyz/api/mc-account/${p.id}?asset=skin&v=${encodeURIComponent(p.mcVersion ?? "0")}`
+                : capeHash
+                  ? `https://doesmc.xyz/api/capes/texture/${capeHash}`
+                  : p.thumbnail?.trim() || null,
+          };
+        }),
+      };
+    }),
+  };
+}
+
+export async function stockImageUrl(shopId: string) {
+  if (!(await rankBinding())) return null;
+  const shop = getShopById(shopId);
+  if (!shop) return null;
+  return `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-stock-${await hashOf(await stockImageData(shopId))}.png`;
+}
+
+export async function renderStockImage(shopId: string) {
+  const bind = await rankBinding();
+  if (!bind) return null;
+  const d = await stockImageData(shopId);
+  const res = await bind.fetch("https://rank-image/", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: d }) });
+  return res.ok ? res : null;
+}
+
+async function hashOf(d: RankImageData | QueueImageData | StockImageData) {
   const { updated: _u, ...rest } = d;
   void _u;
   const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(`v3:${JSON.stringify(rest)}`));

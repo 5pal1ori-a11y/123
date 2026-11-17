@@ -102,6 +102,7 @@ export function ShopProductsTab({
   if (productSection === "mc_account") {
     for (const p of products) {
       if (p.productKind !== "mc_account") continue;
+      if (!p.mcGroup && (liveStock[p.id]?.status ?? p.stockStatus) === "sold_out") continue;
       mcCounts.all += 1;
       const c = mcAccountCategory(p.category, productCategories.filter((x) => x !== "all"));
       mcCounts[c] = (mcCounts[c] ?? 0) + 1;
@@ -111,7 +112,8 @@ export function ShopProductsTab({
   // MFA 상품으로 묶인 계정은 개별 카드 대신 묶음 카드 하나로 보여 준다
   const groupMc = productSection === "mc_account" ? filteredProducts.filter((p) => p.mcGroup && !isSoldOut(p)) : [];
   const onSaleMc = filteredProducts.filter((p) => !isSoldOut(p) && !(productSection === "mc_account" && p.mcGroup));
-  const soldMc = filteredProducts.filter(isSoldOut);
+  // 마크 계정은 팔리면 목록에서 뺀다 (MFA 상품으로 묶인 계정만 Sold 에 남긴다)
+  const soldMc = filteredProducts.filter((p) => isSoldOut(p) && (p.productKind !== "mc_account" || p.mcGroup));
   const capeStock: CapeStock = {};
   for (const p of products) {
     if (p.productKind !== "mc_cape" || !p.capeType) continue;

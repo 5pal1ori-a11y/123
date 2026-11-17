@@ -242,9 +242,11 @@ export function UserDashboard({
   );
 
   const sectionCounts = useMemo(() => {
-    const mc = products.filter((p) => p.productKind === "mc_account").length;
+    const mcAll = products.filter((p) => p.productKind === "mc_account");
+    // 팔린 마크 계정(MFA 묶음 제외)은 목록에서 빠지므로 개수에서도 뺀다
+    const mc = mcAll.filter((p) => p.mcGroup || p.stockStatus !== "sold_out").length;
     const cape = products.filter((p) => p.productKind === "mc_cape").length;
-    return { general: products.length - mc - cape, mc_account: mc, mc_cape: SELLABLE_CAPES.length };
+    return { general: products.length - mcAll.length - cape, mc_account: mc, mc_cape: SELLABLE_CAPES.length };
   }, [products]);
 
   const { categories: mcCategories } = useMcCategories(shopSlug);

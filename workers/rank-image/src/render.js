@@ -208,3 +208,93 @@ export function queueTree(d) {
     ),
   );
 }
+
+/* ───────── 재고현황 ───────── */
+const STOCK_COL = 476;
+
+function stockThumb(it) {
+  const box = { display: "flex", width: 56, height: 56, borderRadius: 14, background: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 };
+  if (it.img && it.imgKind === "cape") {
+    // 망토 텍스처(가로:세로 2:1)에서 앞면(10×16칸)만 보이게 잘라 낸다
+    return h("div", box,
+      h("div", { display: "flex", width: 30, height: 48, overflow: "hidden", borderRadius: 3 },
+        img(it.img, { width: 192, height: 96, marginLeft: -3, marginTop: -3 }),
+      ),
+    );
+  }
+  if (it.img && it.imgKind === "skin") return h("div", { ...box, alignItems: "flex-end" }, img(it.img, { width: 56, height: 56, objectFit: "contain", objectPosition: "top" }));
+  if (it.img) return h("div", box, img(it.img, { width: 56, height: 56, objectFit: "cover" }));
+  return h("div", box, h("div", { display: "flex", width: 22, height: 22, borderRadius: 6, background: "rgba(255,255,255,0.15)" }));
+}
+
+function stockItem(it) {
+  return h(
+    "div",
+    { display: "flex", alignItems: "center", width: STOCK_COL, padding: "10px 4px", borderBottom: "1px solid rgba(255,255,255,0.06)" },
+    stockThumb(it),
+    h("div", { display: "flex", flexDirection: "column", marginLeft: 14, flexGrow: 1, minWidth: 0 },
+      h("div", { display: "flex", fontSize: 19, fontWeight: 700, color: "#f1f5f9", maxWidth: 250, overflow: "hidden", whiteSpace: "nowrap" }, it.name),
+      h("div", { display: "flex", marginTop: 4, fontSize: 19, fontWeight: 900, color: "#fff", letterSpacing: -0.3 }, `₩${num(it.price)}`),
+    ),
+    h("div", { display: "flex", padding: "6px 12px", borderRadius: 30, fontSize: 15, fontWeight: 700, background: it.low ? "rgba(245,158,11,0.15)" : "rgba(34,197,94,0.14)", color: it.low ? "#fbbf24" : "#4ade80", border: `1px solid ${it.low ? "rgba(245,158,11,0.4)" : "rgba(34,197,94,0.35)"}` }, it.stock),
+  );
+}
+
+export function stockTree(d) {
+  return h(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      width: "100%",
+      height: "100%",
+      padding: "46px 56px 32px",
+      background: "radial-gradient(ellipse 60% 30% at 50% 0%, #0f3b2e 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)",
+      fontFamily: "Pretendard",
+      color: "#fff",
+    },
+    h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+      h("div", { display: "flex", alignItems: "center" },
+        d.logo ? img(d.logo, { width: 70, height: 70, marginRight: 18 }) : null,
+        h("div", { display: "flex", flexDirection: "column" },
+          h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: "#34d399", letterSpacing: 5 }, "LIVE STOCK"),
+          h("div", { display: "flex", fontSize: 44, fontWeight: 900, marginTop: 2, letterSpacing: -1.5 }, d.title ?? "재고현황"),
+        ),
+      ),
+      h("div", { display: "flex", alignItems: "flex-end", gap: 26 },
+        h("div", { display: "flex", flexDirection: "column", alignItems: "flex-end" },
+          h("div", { display: "flex", fontSize: 16, fontWeight: 500, color: "#94a3b8" }, "구매 가능"),
+          h("div", { display: "flex", fontSize: 34, fontWeight: 900, color: "#4ade80" }, `${d.inStock ?? 0}종`),
+        ),
+        h("div", { display: "flex", flexDirection: "column", alignItems: "flex-end" },
+          h("div", { display: "flex", fontSize: 16, fontWeight: 500, color: "#94a3b8" }, "품절"),
+          h("div", { display: "flex", fontSize: 34, fontWeight: 900, color: "#64748b" }, `${d.soldOut ?? 0}종`),
+        ),
+      ),
+    ),
+    ...(d.groups ?? []).map((g) =>
+      h("div", { display: "flex", flexDirection: "column", marginTop: 30 },
+        h("div", { display: "flex", alignItems: "center" },
+          h("div", { display: "flex", fontSize: 24, fontWeight: 900, letterSpacing: -0.5 }, g.name),
+          h("div", { display: "flex", marginLeft: 12, fontSize: 16, fontWeight: 700, color: "#4ade80" }, `${g.items.length}종 판매중`),
+          g.soldCount ? h("div", { display: "flex", marginLeft: 10, fontSize: 16, fontWeight: 500, color: "#64748b" }, `· 품절 ${g.soldCount}`) : null,
+          h("div", { display: "flex", flexGrow: 1, height: 1, marginLeft: 16, background: "linear-gradient(90deg, rgba(255,255,255,0.18), rgba(255,255,255,0))" }),
+        ),
+        g.items.length
+          ? h("div", { display: "flex", flexWrap: "wrap", justifyContent: "space-between", marginTop: 6 }, ...g.items.map(stockItem))
+          : h("div", { display: "flex", marginTop: 10, fontSize: 16, fontWeight: 500, color: "#64748b" }, "지금은 모두 품절이에요"),
+        g.more ? h("div", { display: "flex", marginTop: 8, fontSize: 15, fontWeight: 500, color: "#64748b" }, `외 ${g.more}개 더 · 사이트에서 전체 보기`) : null,
+      ),
+    ),
+    h("div", { display: "flex", justifyContent: "space-between", marginTop: "auto", paddingTop: 22, fontSize: 15, fontWeight: 500, color: "#475569" },
+      h("div", { display: "flex" }, "doesmc.xyz 에서 바로 구매할 수 있어요"),
+      h("div", { display: "flex" }, d.updated ?? ""),
+    ),
+  );
+}
+
+export function stockHeight(d) {
+  let hgt = 130 + 70;
+  for (const g of d.groups ?? []) hgt += 30 + 36 + (g.items.length ? Math.ceil(g.items.length / 2) * 77 + 6 : 34) + (g.more ? 28 : 0);
+  return hgt;
+}

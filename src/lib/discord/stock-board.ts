@@ -58,7 +58,7 @@ function groupByCategory(products: ProductWithStock[]) {
 export function buildStockPanel(shopId: string, mode: "board" | "view") {
   const shop = getShopById(shopId);
   const slug = shop?.slug ?? "shop";
-  const products = listProducts(shopId).filter((p) => !p.stockBoardHidden);
+  const products = listProducts(shopId).filter((p) => !p.stockBoardHidden && !(p.productKind === "mc_account" && !p.mcGroup && p.availableCount <= 0));
   const inStock = products.filter((p) => p.availableCount > 0).length;
   const now = Math.floor(Date.now() / 1000);
 
@@ -106,12 +106,28 @@ export function buildStockPanel(shopId: string, mode: "board" | "view") {
   return { ...v2Message(kids), allowed_mentions: { parse: [] as string[] } };
 }
 
+/** 재고현황을 이미지 한 장으로 (이미지 워커가 없으면 null → 글자판) */
+async function buildStockImagePanel(shopId: string) {
+  const url = await import("@/lib/discord/rank-image").then((m) => m.stockImageUrl(shopId)).catch(() => null);
+  if (!url) return null;
+  const slug = getShopById(shopId)?.slug ?? "shop";
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    ...v2Message([
+      mediaGallery([url]),
+      textDisplay(`-# 10분마다 갱신 · 마지막 갱신 <t:${now}:R>`),
+      actionRow(button({ label: "사이트에서 보기", url: shopUrl(slug, "/dashboard"), style: ButtonStyle.LINK })),
+    ]),
+    allowed_mentions: { parse: [] as string[] },
+  };
+}
+
 export async function refreshStockBoard(shopId: string) {
   const settings = getShopSettings(shopId);
   if (!settings.discordBotEnabled || !settings.discordStockChannelId) return { ok: false as const };
   const channelId = settings.discordStockChannelId;
   await ensureAppEmojis(shopId);
-  const payload = buildStockPanel(shopId, "board");
+  const payload = (await buildStockImagePanel(shopId)) ?? buildStockPanel(shopId, "board");
   if (settings.discordStockMessageId) {
     const edited = await editChannelMessage(channelId, settings.discordStockMessageId, payload, shopId);
     if (edited.ok) return { ok: true as const, updated: true as const };

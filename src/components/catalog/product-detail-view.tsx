@@ -19,6 +19,8 @@ import { formatKRW } from "@/lib/utils";
 import { productDiscountPercent } from "@/lib/pricing";
 import { McAccountDetails, McCapeChips, McHypixelPanel, McSkinHero, useMcAccountInfo } from "@/components/catalog/mc-account-extras";
 import { StockBadge } from "@/components/ui/stock-badge";
+import { CapeFaceImg } from "@/components/capes/cape-face";
+import { CAPE_BY_TYPE } from "@/lib/capes-data";
 import { WishHeartButton } from "@/components/ui/wish-heart-button";
 import { shopHeaders } from "@/lib/shop-client";
 import { shopPath, useShopBase } from "@/lib/shop-nav";
@@ -182,6 +184,10 @@ export function ProductDetailView({
       >
         {isMc && !imageUrl ? (
           <McSkinHero productId={product.id} version={product.mcVersion} alt={title} />
+        ) : !imageUrl && product.productKind === "mc_cape" && product.capeType && CAPE_BY_TYPE[product.capeType] ? (
+          <div className="product-detail-image-placeholder" style={{ background: "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.08), transparent 65%)" }}>
+            <CapeFaceImg hash={CAPE_BY_TYPE[product.capeType].hash} width={110} alt={product.name} />
+          </div>
         ) : imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imageUrl} alt={product.name} referrerPolicy="no-referrer" className="product-detail-image" />

@@ -3,7 +3,9 @@
  * 3분 크론(server-status poll)마다 고쳐 쓴다. '내 문의 조회' 를 누르면 본인 순서를 본인에게만 보여 준다.
  */
 import {
+  actionRow,
   button,
+  mediaGallery,
   cid,
   container,
   errorPanel,
@@ -43,9 +45,37 @@ function todayClosed(guildId: string) {
   return listTickets(guildId, "closed").filter((t) => t.closedAt && new Date(t.closedAt).getTime() >= since).length;
 }
 
-function queuePanel(shopSlug: string, shopName: string, guildId: string) {
-  const open = openQueue(guildId).length;
+/** 이미지 주소 해시용 데이터 (같은 내용이면 같은 주소) */
+export async function queueImageDataFor(shopId: string, guildId: string) {
+  await initTicketStore({ force: true });
+  const open = openQueue(guildId);
+  const { queueImageData } = await import("@/lib/discord/rank-image");
+  return queueImageData(shopId, guildId, { open, closedToday: todayClosed(guildId), wait: waitText(open.length), perTicket: MINUTES_PER_TICKET });
+}
+
+async function queuePanel(shopSlug: string, shopName: string, guildId: string) {
+  const shop = getShopBySlug(shopSlug);
   const now = Math.floor(Date.now() / 1000);
+  // 이미지 한 장으로 (이미지 워커가 없으면 아래 글자판)
+  if (shop) {
+    const url = await queueImageDataFor(shop.id, guildId)
+      .then(async (d) => (await import("@/lib/discord/rank-image")).queueImageUrl(shop.id, guildId, d))
+      .catch(() => null);
+    if (url) {
+      return {
+        flags: MessageFlags.IS_COMPONENTS_V2,
+        components: [
+          container([
+            mediaGallery([url]),
+            actionRow(button({ customId: cid(shopSlug, "tq_mine"), label: "내 문의 조회" })),
+            textDisplay(`-# 3분마다 갱신 · 확인 <t:${now}:R>`),
+          ]),
+        ],
+        allowed_mentions: { parse: [] as string[] },
+      };
+    }
+  }
+  const open = openQueue(guildId).length;
   return {
     flags: MessageFlags.IS_COMPONENTS_V2,
     components: [
@@ -83,7 +113,7 @@ export async function handleTicketQueueCommand(
   }
   if (!channelId || !guildId) return errorPanel("서버 채널에서 다시 써 주세요.");
   await initTicketStore({ force: true });
-  const posted = await postChannelMessage(channelId, queuePanel(shop.slug, shop.name, guildId), shop.id);
+  const posted = await postChannelMessage(channelId, await queuePanel(shop.slug, shop.name, guildId), shop.id);
   const id = posted.ok ? (posted.json as { id?: string } | null)?.id : null;
   if (!id) return errorPanel("패널을 올리지 못했어요. 봇이 이 채널에 글을 쓸 수 있는지 확인해 주세요.");
   const panels = [...(getShopSettings(shop.id).ticketQueuePanels ?? []), { channelId, messageId: String(id), guildId }].slice(
@@ -103,7 +133,7 @@ export async function refreshTicketQueuePanels(shopId: string) {
   await initTicketStore({ force: true });
   const alive: typeof panels = [];
   for (const p of panels) {
-    const r = await editChannelMessage(p.channelId, p.messageId, queuePanel(shop.slug, shop.name, p.guildId), shopId).catch(
+    const r = await editChannelMessage(p.channelId, p.messageId, await queuePanel(shop.slug, shop.name, p.guildId), shopId).catch(
       () => null,
     );
     if (r?.ok || (r && r.status !== 404)) alive.push(p);

@@ -12,6 +12,18 @@ type Who = { name: string; avatar: string | null; at: number };
 const NAME_KEY = "rank-image:names:v1";
 const NAME_TTL = 6 * 3_600_000;
 
+export type QueueImageData = {
+  kind: "queue";
+  title: string;
+  admin: string;
+  open: number;
+  wait: string;
+  closed: number;
+  perTicket: number;
+  updated: string;
+  queue: { name: string; avatar: string | null; waited: string }[];
+};
+
 export type RankImageData = {
   kind: "purchase" | "invite";
   title: string;
@@ -111,7 +123,46 @@ export async function rankImageData(shopId: string): Promise<RankImageData> {
   };
 }
 
-async function hashOf(d: RankImageData) {
+function maskShort(n: string) {
+  const t = n.trim();
+  if (t.length <= 1) return `${t}*`;
+  if (t.length === 2) return `${t[0]}*`;
+  return `${t[0]}${"*".repeat(Math.min(3, t.length - 2))}${t[t.length - 1]}`;
+}
+function waitedText(iso: string) {
+  const m = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+  if (m < 60) return `${m}분째`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h}시간째` : `${Math.floor(h / 24)}일째`;
+}
+
+/** 문의 대기 현황 이미지 데이터 (대기 순서는 이름을 가린다) */
+export async function queueImageData(
+  shopId: string,
+  guildId: string,
+  q: { open: { openerId: string; createdAt: string }[]; closedToday: number; wait: string; perTicket: number },
+): Promise<QueueImageData> {
+  const shop = getShopById(shopId);
+  const names = await resolveNames(guildId, [...new Set(q.open.slice(0, 8).map((t) => t.openerId))]);
+  const admin = getShopSettings(shopId).serverStatusLast?.status ?? "offline";
+  return {
+    kind: "queue",
+    title: `${shop?.name ?? "DOES"} 문의 대기 현황`,
+    admin,
+    open: q.open.length,
+    wait: q.wait,
+    closed: q.closedToday,
+    perTicket: q.perTicket,
+    updated: stamp(),
+    queue: q.open.map((t, i) => ({
+      name: maskShort(names[t.openerId]?.name ?? "회원"),
+      avatar: i < 8 ? (names[t.openerId]?.avatar ?? null) : null,
+      waited: waitedText(t.createdAt),
+    })),
+  };
+}
+
+async function hashOf(d: RankImageData | QueueImageData) {
   const { updated: _u, ...rest } = d;
   void _u;
   const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(`v3:${JSON.stringify(rest)}`));
@@ -144,6 +195,23 @@ export async function inviteRankImageUrl(shopId: string, guildId: string) {
   if (!shop) return null;
   const d = await inviteImageData(shopId, guildId);
   return `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-inv-${guildId}-${await hashOf(d)}.png`;
+}
+
+/** 문의 대기 현황 이미지 주소 — 분 단위로 내용이 바뀌므로 해시에 시각은 넣지 않는다 */
+export async function queueImageUrl(shopId: string, guildId: string, d: QueueImageData) {
+  if (!(await rankBinding())) return null;
+  const shop = getShopById(shopId);
+  if (!shop) return null;
+  const { queue, ...rest } = d;
+  const key = { ...rest, queue: queue.map((x) => ({ ...x, waited: "" })), b: Math.floor(Date.now() / 600_000) };
+  return `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-q-${guildId}-${await hashOf(key as unknown as QueueImageData)}.png`;
+}
+
+export async function renderQueueImage(d: QueueImageData) {
+  const bind = await rankBinding();
+  if (!bind) return null;
+  const res = await bind.fetch("https://rank-image/", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: d }) });
+  return res.ok ? res : null;
 }
 
 export async function renderRankImage(shopId: string, inviteGuildId?: string | null) {

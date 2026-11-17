@@ -121,3 +121,90 @@ export function rankHeight(d) {
   const n = Math.max(0, (d.rows?.length ?? 0) - 3);
   return 130 + 36 + 570 + 16 + n * 87 + 60;
 }
+
+/* ───────── 문의 대기 현황 ───────── */
+const ADMIN = {
+  online: { color: "#22c55e", label: "관리자 온라인", sub: "지금 바로 답변받을 수 있어요" },
+  idle: { color: "#f59e0b", label: "관리자 자리 비움", sub: "곧 돌아와 답변드려요" },
+  dnd: { color: "#f59e0b", label: "관리자 다른 용무 중", sub: "조금 늦을 수 있어요" },
+  offline: { color: "#ef4444", label: "관리자 오프라인", sub: "답변이 늦을 수 있어요" },
+};
+
+function stat(label, value, color) {
+  return h(
+    "div",
+    { display: "flex", flexDirection: "column", alignItems: "center", flexGrow: 1 },
+    h("div", { display: "flex", fontSize: 18, fontWeight: 500, color: "#94a3b8" }, label),
+    h("div", { display: "flex", fontSize: 44, fontWeight: 900, color: color ?? "#fff", marginTop: 4, letterSpacing: -1 }, value),
+  );
+}
+
+export function queueTree(d) {
+  const a = ADMIN[d.admin] ?? ADMIN.offline;
+  const q = (d.queue ?? []).slice(0, 8);
+  return h(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      width: "100%",
+      height: "100%",
+      padding: "46px 60px 34px",
+      background: `radial-gradient(ellipse 55% 50% at 50% 36%, ${a.color}33 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)`,
+      fontFamily: "Pretendard",
+      color: "#fff",
+    },
+    h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+      h("div", { display: "flex", alignItems: "center" },
+        d.logo ? img(d.logo, { width: 70, height: 70, marginRight: 18 }) : null,
+        h("div", { display: "flex", flexDirection: "column" },
+          h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: "#38bdf8", letterSpacing: 5 }, "SUPPORT QUEUE"),
+          h("div", { display: "flex", fontSize: 44, fontWeight: 900, marginTop: 2, letterSpacing: -1.5 }, d.title ?? "문의 대기 현황"),
+        ),
+      ),
+      h("div", { display: "flex", alignItems: "center", padding: "10px 18px", borderRadius: 40, background: `${a.color}1f`, border: `1.5px solid ${a.color}88` },
+        h("div", { display: "flex", width: 14, height: 14, borderRadius: 14, background: a.color, boxShadow: `0 0 14px ${a.color}`, marginRight: 10 }),
+        h("div", { display: "flex", flexDirection: "column" },
+          h("div", { display: "flex", fontSize: 20, fontWeight: 700, color: "#fff" }, a.label),
+          h("div", { display: "flex", fontSize: 14, fontWeight: 500, color: "#cbd5e1" }, a.sub),
+        ),
+      ),
+    ),
+    // 큰 숫자: 예상 대기시간
+    h("div", { display: "flex", flexDirection: "column", alignItems: "center", marginTop: 34 },
+      h("div", { display: "flex", fontSize: 22, fontWeight: 500, color: "#94a3b8" }, "지금 문의하면 예상 대기시간"),
+      h("div", { display: "flex", fontSize: 96, fontWeight: 900, letterSpacing: -4, marginTop: 2, color: "#fff" }, d.wait ?? "-"),
+    ),
+    h("div", { display: "flex", height: 2, marginTop: 24, background: "linear-gradient(90deg, rgba(255,255,255,0), rgba(56,189,248,0.6), rgba(255,255,255,0))" }),
+    h("div", { display: "flex", marginTop: 22 },
+      stat("처리 중인 문의", `${d.open ?? 0}건`, "#38bdf8"),
+      h("div", { display: "flex", width: 1, background: "rgba(255,255,255,0.1)" }),
+      stat("오늘 완료", `${d.closed ?? 0}건`, "#22c55e"),
+      h("div", { display: "flex", width: 1, background: "rgba(255,255,255,0.1)" }),
+      stat("한 건 평균", `${d.perTicket ?? 10}분`, "#e2e8f0"),
+    ),
+    // 대기 줄
+    h("div", { display: "flex", flexDirection: "column", marginTop: 30 },
+      h("div", { display: "flex", fontSize: 18, fontWeight: 700, color: "#94a3b8" }, q.length ? "대기 순서" : "대기 중인 문의가 없어요 · 지금 바로 문의해 보세요"),
+      q.length
+        ? h("div", { display: "flex", marginTop: 14, gap: 14 },
+            ...q.map((x, i) =>
+              h("div", { display: "flex", flexDirection: "column", alignItems: "center", width: 108 },
+                h("div", { display: "flex", position: "relative" },
+                  avatar(x.avatar, 76, i === 0 ? "linear-gradient(135deg,#7dd3fc,#2563eb)" : "rgba(255,255,255,0.16)", i === 0 ? "rgba(56,189,248,0.35)" : null),
+                  h("div", { display: "flex", position: "absolute", top: -6, left: -6, width: 30, height: 30, borderRadius: 30, background: i === 0 ? "#38bdf8" : "#334155", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 900, color: i === 0 ? "#04263b" : "#e2e8f0", border: "3px solid #0b0f1a" }, String(i + 1)),
+                ),
+                h("div", { display: "flex", marginTop: 8, fontSize: 15, fontWeight: 700, color: "#e2e8f0", maxWidth: 104, overflow: "hidden", whiteSpace: "nowrap" }, x.name),
+                h("div", { display: "flex", fontSize: 13, fontWeight: 500, color: "#64748b" }, x.waited),
+              ),
+            ),
+            (d.queue?.length ?? 0) > 8 ? h("div", { display: "flex", alignItems: "center", fontSize: 22, fontWeight: 900, color: "#64748b" }, `+${d.queue.length - 8}`) : null,
+          )
+        : null,
+    ),
+    h("div", { display: "flex", justifyContent: "space-between", marginTop: "auto", paddingTop: 16, fontSize: 15, fontWeight: 500, color: "#475569" },
+      h("div", { display: "flex" }, "예상 시간은 한 건에 약 10분으로 계산해요"),
+      h("div", { display: "flex" }, d.updated ?? ""),
+    ),
+  );
+}

@@ -1,4 +1,5 @@
-import { actionRow, separator, textDisplay, v2Message } from "@/lib/discord/components";
+import { actionRow, separator, mediaGallery,
+  textDisplay, v2Message } from "@/lib/discord/components";
 import { discordRest } from "@/lib/discord/rest";
 
 /** DM 채널 생성 후 메시지 전송 */
@@ -56,10 +57,13 @@ export function purchaseSuccessDm(
     amountLabel: string;
     orderUuid: string;
     codePreview?: string | null;
+    /** 영수증 이미지 주소 (있으면 맨 위에) */
+    receiptUrl?: string | null;
   },
   buttons: unknown[] = [],
 ) {
   return v2Message([
+    ...(input.receiptUrl ? [mediaGallery([input.receiptUrl])] : []),
     textDisplay("## 구매가 완료됐어요"),
     textDisplay(`**${input.shopName}**에서 주문이 발급되었습니다.`),
     separator(true, 1),

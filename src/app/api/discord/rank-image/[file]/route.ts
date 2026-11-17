@@ -7,6 +7,27 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request, ctx: { params: Promise<{ file: string }> }) {
   const { file } = await ctx.params;
   await initStore();
+  const img = (res: Response | null, maxAge = 86400) =>
+    res ? new Response(res.body, { headers: { "content-type": "image/png", "cache-control": `public, max-age=${maxAge}, s-maxage=${maxAge}` } }) : new Response("unavailable", { status: 502 });
+  const rs = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-restock-([A-Za-z0-9_]{4,40})-(\d{1,7})-(\d{1,7})\.png$/.exec(file);
+  if (rs) {
+    const { renderRestockImage } = await import("@/lib/discord/rank-image");
+    return img(await renderRestockImage(rs[2], Number(rs[3]), Number(rs[4])).catch(() => null));
+  }
+  const rc = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-receipt-([A-Za-z0-9_-]{6,64})\.png$/.exec(file);
+  if (rc) {
+    const shop = getShopBySlug(rc[1]);
+    if (!shop) return new Response("not found", { status: 404 });
+    const { renderReceiptImage } = await import("@/lib/discord/rank-image");
+    return img(await renderReceiptImage(shop.id, rc[2]).catch(() => null));
+  }
+  const pf = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-profile-(\d{15,25})-([0-9a-f]{12})\.png$/.exec(file);
+  if (pf) {
+    const shop = getShopBySlug(pf[1]);
+    if (!shop) return new Response("not found", { status: 404 });
+    const { renderProfileImage } = await import("@/lib/discord/rank-image");
+    return img(await renderProfileImage(shop.id, pf[2], pf[3]).catch(() => null), 3600);
+  }
   const rv = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-review-([0-9a-f-]{36})\.png$/.exec(file);
   if (rv) {
     const shop = getShopBySlug(rv[1]);

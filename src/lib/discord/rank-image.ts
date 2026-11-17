@@ -463,6 +463,98 @@ export async function renderReviewImage(shopId: string, reviewId: string) {
   return res.ok ? res : null;
 }
 
+async function productImg(productId: string | null | undefined) {
+  const { getProductById } = await import("@/lib/store");
+  const { CAPE_BY_TYPE } = await import("@/lib/capes-data");
+  const product = productId ? getProductById(productId) : null;
+  const capeHash = product?.productKind === "mc_cape" && product.capeType ? CAPE_BY_TYPE[product.capeType]?.hash : null;
+  return {
+    product,
+    imgKind: product?.productKind === "mc_account" ? "skin" : capeHash ? "cape" : product?.thumbnail?.trim() ? "thumb" : null,
+    img:
+      product?.productKind === "mc_account"
+        ? `https://doesmc.xyz/api/mc-account/${product.id}?asset=skin&v=${encodeURIComponent(product.mcVersion ?? "0")}`
+        : capeHash
+          ? `https://doesmc.xyz/api/capes/texture/${capeHash}`
+          : product?.thumbnail?.trim() || null,
+  };
+}
+
+async function postRender(d: unknown) {
+  const bind = await rankBinding();
+  if (!bind) return null;
+  const res = await bind.fetch("https://rank-image/", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: d }) });
+  return res.ok ? res : null;
+}
+
+/** 재입고 알림 이미지 */
+export async function renderRestockImage(productId: string, added: number, total: number) {
+  const { product, img, imgKind } = await productImg(productId);
+  if (!product) return null;
+  return postRender({ kind: "restock", product: product.name, price: product.price, img, imgKind, added, total, time: stamp().replace(" 갱신", "") });
+}
+
+/** 구매 영수증 (DM) 이미지 */
+export async function renderReceiptImage(shopId: string, orderUuid: string) {
+  const d = await purchaseLogData(shopId, orderUuid);
+  if (!d) return null;
+  return postRender({
+    kind: "receipt",
+    product: d.product,
+    img: d.img,
+    imgKind: d.imgKind,
+    order: orderUuid,
+    buyer: d.buyer,
+    quantity: d.quantity,
+    amount: d.amount,
+    time: d.time,
+    note: "상품 정보(16자리 코드)는 아래 메시지에서 확인하세요 · doesmc.xyz/check",
+  });
+}
+
+/** /내정보 카드 데이터 (해시가 맞을 때만 그린다 → 남의 정보를 주소로 볼 수 없음) */
+export async function profileData(shopId: string, discordId: string) {
+  const { getStoreForRead, userPremiumPlan } = await import("@/lib/store");
+  const store = getStoreForRead();
+  const user = store.users.find((u) => u.shopId === shopId && u.discordId === discordId);
+  const guildId = getShopSettings(shopId).discordGuildId || MFA_DISCORD_GUILD_ID;
+  const who = (await resolveNames(guildId, [discordId]))[discordId];
+  const counted = new Set(["dispensed", "paid", "awaiting_fulfillment"]);
+  const mine = user ? store.orders.filter((o) => o.shopId === shopId && o.userId === user.id && counted.has(o.status)) : [];
+  const { top } = purchaseRanking(shopId);
+  const idx = user ? top.findIndex((r) => r.key === user.id) : -1;
+  const tier = user?.tierId ? store.tiers.find((t) => t.id === user.tierId)?.name : null;
+  const j = user ? new Date(new Date(user.createdAt).getTime() + 9 * 3_600_000) : null;
+  return {
+    kind: "profile" as const,
+    linked: Boolean(user),
+    name: who?.name ?? user?.name ?? "회원",
+    avatar: who?.avatar ?? null,
+    plan: user ? userPremiumPlan(user) : null,
+    tier: tier ?? null,
+    joined: j ? `${j.getUTCFullYear()}.${String(j.getUTCMonth() + 1).padStart(2, "0")}.${String(j.getUTCDate()).padStart(2, "0")}` : "",
+    rank: idx >= 0 ? idx + 1 : null,
+    spent: mine.reduce((n, o) => n + o.amount, 0),
+    orders: mine.length,
+    points: user?.points ?? 0,
+    reviews: user ? store.reviews.filter((r) => r.shopId === shopId && r.userId === user.id).length : 0,
+  };
+}
+
+export async function profileImageUrl(shopId: string, discordId: string) {
+  if (!(await rankBinding())) return null;
+  const shop = getShopById(shopId);
+  if (!shop) return null;
+  const d = await profileData(shopId, discordId);
+  return { url: `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-profile-${discordId}-${await hashOf(d as unknown as StatusImageData)}.png`, linked: d.linked };
+}
+
+export async function renderProfileImage(shopId: string, discordId: string, hash: string) {
+  const d = await profileData(shopId, discordId);
+  if ((await hashOf(d as unknown as StatusImageData)) !== hash) return null;
+  return postRender(d);
+}
+
 async function hashOf(d: RankImageData | QueueImageData | StockImageData | StatusImageData) {
   const { updated: _u, ...rest } = d;
   void _u;

@@ -239,6 +239,7 @@ export function postRestockLog(
   shopId: string,
   input: {
     productName: string;
+    productId?: string;
     addedCount: number;
     newTotal: number;
     price?: number;
@@ -248,6 +249,26 @@ export function postRestockLog(
   const slug = getShopById(shopId)?.slug ?? "shop";
   const roleId = settings.discordRestockRoleId;
   const count = (n: number) => `${n.toLocaleString("ko-KR")}개`;
+  // 상품 그림 · 입고 수량 · 현재 재고 이미지 (상품을 알면)
+  const image =
+    input.productId && /^[A-Za-z0-9_]{4,40}$/.test(input.productId)
+      ? `https://doesmc.xyz/api/discord/rank-image/${slug}-restock-${input.productId}-${Math.max(0, input.addedCount)}-${Math.max(0, input.newTotal)}.png`
+      : null;
+  if (image) {
+    return scheduleLog(
+      shopId,
+      "restock",
+      [
+        mediaGallery([image]),
+        textDisplay(`**${escapeMd(input.productName)}** 상품이 입고되었어요 · <t:${Math.floor(Date.now() / 1000)}:R>`),
+        actionRow(
+          button({ label: "재고현황", customId: cid(slug, "stock_view") }),
+          button({ label: "바로 구매하기", url: shopUrl(slug, "/dashboard"), style: ButtonStyle.LINK }),
+        ),
+      ],
+      roleId ? { before: [textDisplay(`<@&${roleId}>`)], mentionRoles: [roleId] } : undefined,
+    );
+  }
   return scheduleLog(
     shopId,
     "restock",

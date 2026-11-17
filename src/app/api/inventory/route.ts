@@ -64,6 +64,7 @@ export async function POST(request: Request) {
         Promise.resolve(
           postRestockLog(shop.id, {
             productName: result.productName,
+            productId: parsed.data.productId,
             addedCount: result.added,
             newTotal: result.beforeAvailable + result.added,
           }),

@@ -228,6 +228,11 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "내정보",
+    description: "내 누적 구매 · 포인트 · 등급 · 랭킹을 카드로 보여 줍니다 (나만 보여요)",
+    type: 1,
+  },
+  {
     name: "문의대기",
     description: "문의 대기 현황 패널을 채널에 올립니다 · 3분마다 갱신 (관리자)",
     type: 1,

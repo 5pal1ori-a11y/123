@@ -234,6 +234,19 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         guildId: interaction.guild_id,
       });
     }
+    if (name === "내정보") {
+      const r = await import("@/lib/discord/rank-image").then((m) => m.profileImageUrl(shop.id, actor.id)).catch(() => null);
+      if (!r) return plainEphemeral("지금은 정보를 불러오지 못했어요. 잠시 뒤 다시 해 주세요.");
+      const { container, mediaGallery, textDisplay, actionRow, button, ButtonStyle } = await import("@/lib/discord/components");
+      const { shopUrl } = await import("@/lib/domain");
+      return v2Ephemeral([
+        container([
+          mediaGallery([r.url]),
+          textDisplay(r.linked ? "-# 나만 보이는 카드예요" : "-# 사이트 계정과 디스코드가 연동되지 않아 구매 정보가 비어 있어요 · 사이트 › 내 정보에서 Discord 연동을 해 주세요"),
+          actionRow(button({ label: "사이트에서 보기", url: shopUrl(shop.slug, "/dashboard"), style: ButtonStyle.LINK })),
+        ]),
+      ]);
+    }
     if (name === "문의대기") {
       const { handleTicketQueueCommand } = await import("@/lib/discord/ticket-queue");
       return handleTicketQueueCommand(shop.slug, actor.roles, perms, interaction.channel_id, interaction.guild_id);

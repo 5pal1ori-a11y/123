@@ -545,3 +545,112 @@ export function reviewHeight(d) {
   const lines = Math.max(1, Math.ceil(len / 32));
   return Math.max(400, 250 + lines * 45);
 }
+
+/* ───────── 공용: 상품 그림 ───────── */
+function productArt(d, big) {
+  const W = big ? 250 : 120;
+  if (d.img && d.imgKind === "cape") {
+    const k = big ? 15 : 7;
+    return h("div", { display: "flex", width: k * 10, height: k * 16, overflow: "hidden", borderRadius: 6, boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }, img(d.img, { width: k * 64, height: k * 32, marginLeft: -k, marginTop: -k }));
+  }
+  if (d.img && d.imgKind === "skin") return img(d.img, { width: W, height: Math.round(W * 1.16), objectFit: "contain" });
+  if (d.img) return img(d.img, { width: W - 20, height: W - 20, borderRadius: big ? 36 : 20, objectFit: "cover", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" });
+  return h("div", { display: "flex", width: W - 50, height: W - 50, borderRadius: 30, background: "rgba(255,255,255,0.08)" });
+}
+const chip = (text, color, bg, border) => h("div", { display: "flex", padding: "7px 14px", borderRadius: 30, background: bg, border: `1px solid ${border}`, fontSize: 16, fontWeight: 700, color }, text);
+
+/* ───────── 재입고 알림 ───────── */
+export function restockTree(d) {
+  return h(
+    "div",
+    { display: "flex", width: "100%", height: "100%", background: "radial-gradient(ellipse 40% 70% at 20% 50%, rgba(56,189,248,0.32) 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)", fontFamily: "Pretendard", color: "#fff" },
+    h("div", { display: "flex", width: 420, alignItems: "center", justifyContent: "center" }, productArt(d, true)),
+    h("div", { display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, padding: "40px 56px 40px 10px" },
+      h("div", { display: "flex", alignItems: "center" },
+        d.logo ? img(d.logo, { width: 40, height: 40, marginRight: 12 }) : null,
+        h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: "#7dd3fc", letterSpacing: 5 }, "RESTOCK"),
+      ),
+      h("div", { display: "flex", fontSize: 46, fontWeight: 900, marginTop: 10, letterSpacing: -1.5 }, "재입고됐어요!"),
+      h("div", { display: "flex", marginTop: 16, fontSize: 32, fontWeight: 900, letterSpacing: -0.8, maxWidth: 600, overflow: "hidden", whiteSpace: "nowrap" }, d.product ?? ""),
+      d.price ? h("div", { display: "flex", marginTop: 6, fontSize: 30, fontWeight: 900, color: "#facc15" }, `₩${num(d.price)}`) : null,
+      h("div", { display: "flex", alignItems: "center", marginTop: 20, gap: 10 },
+        chip(`+${num(d.added ?? 0)}개 입고`, "#7dd3fc", "rgba(56,189,248,0.14)", "rgba(56,189,248,0.4)"),
+        chip(`현재 재고 ${num(d.total ?? 0)}개`, "#4ade80", "rgba(34,197,94,0.14)", "rgba(34,197,94,0.35)"),
+        h("div", { display: "flex", marginLeft: 4, fontSize: 16, fontWeight: 500, color: "#64748b" }, d.time ?? ""),
+      ),
+    ),
+  );
+}
+
+/* ───────── 구매 영수증 (DM) ───────── */
+export function receiptTree(d) {
+  const row = (k, v, strong) =>
+    h("div", { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 },
+      h("div", { display: "flex", fontSize: 18, fontWeight: 500, color: "#94a3b8" }, k),
+      h("div", { display: "flex", fontSize: strong ? 26 : 19, fontWeight: strong ? 900 : 700, color: strong ? "#facc15" : "#f1f5f9", maxWidth: 420, overflow: "hidden", whiteSpace: "nowrap" }, v),
+    );
+  return h(
+    "div",
+    { display: "flex", width: "100%", height: "100%", background: "linear-gradient(180deg, #0d1120 0%, #070910 100%)", fontFamily: "Pretendard", color: "#fff", padding: 34 },
+    h("div", { display: "flex", width: "100%", borderRadius: 28, background: "linear-gradient(135deg, rgba(99,102,241,0.16), rgba(255,255,255,0.03))", border: "1px solid rgba(255,255,255,0.1)", overflow: "hidden" },
+      h("div", { display: "flex", width: 330, alignItems: "center", justifyContent: "center", background: "radial-gradient(circle at 50% 50%, rgba(99,102,241,0.35), rgba(0,0,0,0) 70%)", borderRight: "2px dashed rgba(255,255,255,0.14)" }, productArt(d, true)),
+      h("div", { display: "flex", flexDirection: "column", flexGrow: 1, padding: "30px 40px" },
+        h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+          h("div", { display: "flex", alignItems: "center" },
+            d.logo ? img(d.logo, { width: 36, height: 36, marginRight: 10 }) : null,
+            h("div", { display: "flex", fontSize: 15, fontWeight: 700, color: "#a5b4fc", letterSpacing: 5 }, "RECEIPT"),
+          ),
+          chip("결제 완료", "#4ade80", "rgba(34,197,94,0.14)", "rgba(34,197,94,0.35)"),
+        ),
+        h("div", { display: "flex", marginTop: 12, fontSize: 32, fontWeight: 900, letterSpacing: -1, maxWidth: 560, overflow: "hidden", whiteSpace: "nowrap" }, d.product ?? ""),
+        h("div", { display: "flex", height: 1, marginTop: 14, background: "rgba(255,255,255,0.1)" }),
+        row("주문번호", d.order ?? ""),
+        row("구매자", d.buyer ?? ""),
+        row("수량", `${d.quantity ?? 1}개`),
+        row("구매 시각", d.time ?? ""),
+        h("div", { display: "flex", height: 1, marginTop: 14, background: "rgba(255,255,255,0.1)" }),
+        row("결제 금액", `₩${num(d.amount ?? 0)}`, true),
+        h("div", { display: "flex", marginTop: 14, fontSize: 15, fontWeight: 500, color: "#64748b" }, d.note ?? ""),
+      ),
+    ),
+  );
+}
+
+/* ───────── 내 정보 카드 ───────── */
+export function profileTree(d) {
+  const PLAN = { plus: { label: "DOES PASS+", color: "#f0abfc", bg: "rgba(217,70,239,0.16)" }, basic: { label: "BASIC PASS", color: "#7dd3fc", bg: "rgba(56,189,248,0.14)" } };
+  const plan = PLAN[d.plan] ?? null;
+  const stat = (label, value, color) =>
+    h("div", { display: "flex", flexDirection: "column", flexGrow: 1, flexBasis: 0, padding: "16px 20px", borderRadius: 20, background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)" },
+      h("div", { display: "flex", fontSize: 16, fontWeight: 500, color: "#94a3b8" }, label),
+      h("div", { display: "flex", marginTop: 4, fontSize: 30, fontWeight: 900, color: color ?? "#fff", letterSpacing: -0.8 }, value),
+    );
+  return h(
+    "div",
+    { display: "flex", flexDirection: "column", width: "100%", height: "100%", padding: "40px 52px 34px", background: "radial-gradient(ellipse 45% 70% at 12% 30%, rgba(99,102,241,0.32) 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)", fontFamily: "Pretendard", color: "#fff" },
+    h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+      h("div", { display: "flex", alignItems: "center" },
+        d.logo ? img(d.logo, { width: 34, height: 34, marginRight: 10 }) : null,
+        h("div", { display: "flex", fontSize: 15, fontWeight: 700, color: "#a5b4fc", letterSpacing: 5 }, "MY PROFILE"),
+      ),
+      d.rank ? chip(`구매 랭킹 ${d.rank}위`, "#facc15", "rgba(250,204,21,0.12)", "rgba(250,204,21,0.35)") : null,
+    ),
+    h("div", { display: "flex", alignItems: "center", marginTop: 22 },
+      avatar(d.avatar, 132, "linear-gradient(135deg,#a5b4fc,#6366f1 50%,#ec4899)", "rgba(99,102,241,0.45)"),
+      h("div", { display: "flex", flexDirection: "column", marginLeft: 28 },
+        h("div", { display: "flex", fontSize: 46, fontWeight: 900, letterSpacing: -1.5, maxWidth: 640, overflow: "hidden", whiteSpace: "nowrap" }, d.name ?? "회원"),
+        h("div", { display: "flex", alignItems: "center", marginTop: 10, gap: 8 },
+          plan ? chip(plan.label, plan.color, plan.bg, `${plan.color}66`) : chip("무료 회원", "#cbd5e1", "rgba(255,255,255,0.06)", "rgba(255,255,255,0.14)"),
+          d.tier ? chip(d.tier, "#fde68a", "rgba(250,204,21,0.1)", "rgba(250,204,21,0.3)") : null,
+          d.joined ? h("div", { display: "flex", marginLeft: 6, fontSize: 16, fontWeight: 500, color: "#64748b" }, `가입 ${d.joined}`) : null,
+        ),
+      ),
+    ),
+    h("div", { display: "flex", marginTop: 30, gap: 14 },
+      stat("누적 구매", `₩${num(d.spent ?? 0)}`, "#facc15"),
+      stat("구매 횟수", `${num(d.orders ?? 0)}건`),
+      stat("보유 포인트", `${num(d.points ?? 0)}P`, "#4ade80"),
+      stat("작성한 후기", `${num(d.reviews ?? 0)}개`, "#f9a8d4"),
+    ),
+  );
+}

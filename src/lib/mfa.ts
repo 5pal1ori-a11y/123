@@ -233,7 +233,7 @@ async function announceRestocks(shopId: string, counts: Record<string, number>) 
     for (const p of restocked) {
       const before = seen[p.id] ?? 0;
       const added = counts[p.id]! - before;
-      postRestockLog(shopId, { productName: p.name, addedCount: added, newTotal: counts[p.id]!, price: p.price });
+      postRestockLog(shopId, { productName: p.name, productId: p.id, addedCount: added, newTotal: counts[p.id]!, price: p.price });
       if (before === 0) notifyRestockWatchers(shopId, p.id, p.name, added);
     }
     scheduleDiscordBackground(refreshStockBoard(shopId).catch(() => null));

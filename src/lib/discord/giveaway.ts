@@ -36,10 +36,26 @@ async function hub(op: string, body: Record<string, unknown>) {
   return { ok: res.ok, status: res.status, data: (await res.json()) as Record<string, unknown> };
 }
 
-function giveawayMessage(g: Giveaway) {
+async function giveawayMessage(g: Giveaway) {
   const end = Math.floor(g.endsAt / 1000);
   const origin = (process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://vendix.team").replace(/\/$/, "");
-  const banner = `${origin}${g.ended ? BANNER_PATHS.giveawayEnd : BANNER_PATHS.giveaway}`;
+  const endKst = new Date(g.endsAt + 9 * 3_600_000);
+  const endText = `${endKst.getUTCMonth() + 1}월 ${endKst.getUTCDate()}일 ${String(endKst.getUTCHours()).padStart(2, "0")}:${String(endKst.getUTCMinutes()).padStart(2, "0")}`;
+  // 경품 · 인원 · 마감이 들어간 카드 (참여자 수가 바뀌면 주소도 바뀐다)
+  const card = await import("@/lib/discord/rank-image")
+    .then((m) =>
+      m.cardImageUrl(g.shopSlug, {
+        theme: g.ended ? "green" : "party",
+        eyebrow: g.ended ? "GIVEAWAY ENDED" : "GIVEAWAY",
+        title: g.ended ? "이벤트가 끝났어요" : "이벤트 진행 중!",
+        ...(g.ended && g.winnerIds.length ? { people: g.winnerIds.slice(0, 6).map((id) => ({ id, label: "당첨" })) } : {}),
+        subtitle: g.prize,
+        chips: [`당첨 ${g.winners}명`, `참여 ${g.entrants.length.toLocaleString("ko-KR")}명`, g.ended ? "추첨 완료" : `마감 ${endText}`],
+        note: g.ended ? "당첨자는 이 채널에서 멘션으로 발표돼요" : "아래 버튼으로 참여하세요 · 마감 시각에 자동으로 추첨해요",
+      }),
+    )
+    .catch(() => null);
+  const banner = card ?? `${origin}${g.ended ? BANNER_PATHS.giveawayEnd : BANNER_PATHS.giveaway}`;
   const winners = g.ended
     ? g.winnerIds.length
       ? g.winnerIds.map((id) => `<@${id}>`).join(" ")
@@ -124,7 +140,7 @@ export async function handleGiveawayCreate(
     renderedAt: now,
   };
 
-  const posted = await postChannelMessage(g.channelId, giveawayMessage(g), shop.id);
+  const posted = await postChannelMessage(g.channelId, await giveawayMessage(g), shop.id);
   const messageId = (posted.json as { id?: string } | null)?.id;
   if (!posted.ok || !messageId) {
     return plainEphemeral(`<#${g.channelId}> 에 이벤트를 올리지 못했어요. 봇에게 그 채널의 메시지 보내기 권한이 있는지 확인해 주세요.`);
@@ -146,7 +162,7 @@ export async function handleGiveawayJoin(shop: Shop, giveawayId: string, userId:
   if (res.data.ended) return plainEphemeral("이미 끝난 이벤트예요.");
   if (res.data.refresh && g.messageId) {
     const { scheduleDiscordBackground } = await import("@/lib/discord/schedule");
-    scheduleDiscordBackground(editChannelMessage(g.channelId, g.messageId, giveawayMessage(g), shop.id));
+    scheduleDiscordBackground(giveawayMessage(g).then((m) => editChannelMessage(g.channelId, g.messageId!, m, shop.id)));
   }
   const count = Number(res.data.count) || 0;
   return res.data.joined
@@ -178,7 +194,7 @@ export async function finishGiveaway(id: string) {
   const g = done.data.giveaway as Giveaway;
   const shop = getShopBySlug(g.shopSlug);
 
-  if (g.messageId) await editChannelMessage(g.channelId, g.messageId, giveawayMessage(g), shop?.id);
+  if (g.messageId) await editChannelMessage(g.channelId, g.messageId, await giveawayMessage(g), shop?.id);
   const announce = g.winnerIds.length
     ? `## ${appEmoji("does_party")} 당첨을 축하합니다!\n**${g.prize}**\n${g.winnerIds.map((uid) => `<@${uid}>`).join(" ")}\n-# 주최자 <@${g.hostId}> 에게 연락해 경품을 받아 가세요.`
     : `## 이벤트 종료\n**${g.prize}** 이벤트에 참여자가 없어 당첨자가 없어요.`;

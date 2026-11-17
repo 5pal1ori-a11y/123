@@ -224,11 +224,30 @@ export async function closeTicketFlow(input: {
   const reasonLabel =
     TICKET_CLOSE_REASONS.find((r) => r.id === closed.ticket.closeReason)?.label || "-";
 
+  let closeCard: string | null = null;
+  try {
+    const { MFA_DISCORD_GUILD_ID, MFA_SHOP_SLUG } = await import("@/lib/store");
+    if (closed.ticket.guildId === MFA_DISCORD_GUILD_ID && /^\d{15,25}$/.test(closed.ticket.openerId)) {
+      closeCard = await (await import("@/lib/discord/rank-image")).cardImageUrl(MFA_SHOP_SLUG, {
+        theme: "green",
+        eyebrow: "TICKET CLOSED",
+        title: "문의가 처리됐어요",
+        people: [{ id: closed.ticket.openerId, label: "요청자" }],
+        subtitle: closed.ticket.topicName,
+        chips: [`사유 ${reasonLabel}`, closed.ticket.csat != null ? `만족도 ${"★".repeat(closed.ticket.csat)}` : "만족도 -"],
+        note: `닫은 사람 ${input.closedByLabel}`.slice(0, 80),
+      });
+    }
+  } catch {
+    closeCard = null;
+  }
+
   if (guild.logChannelId) {
     await postTicketChannelMessage(guild.logChannelId, {
       flags: MessageFlags.IS_COMPONENTS_V2,
       components: [
         container([
+          ...(closeCard ? [mediaGallery([closeCard])] : []),
           textDisplay("## 티켓 종료"),
           separator(true, 1),
           textDisplay(`**주제**\n${closed.ticket.topicName}`),

@@ -45,14 +45,29 @@ function rangeText(g: Game) {
   return "정답 숫자를 맞혀 보세요.";
 }
 
-function startPanel(shopName: string, g: Game) {
+async function startPanel(shopName: string, g: Game, shopSlug?: string) {
   const ended = Boolean(g.winnerId);
+  const card = shopSlug
+    ? await import("@/lib/discord/rank-image")
+        .then((m) =>
+          m.cardImageUrl(shopSlug, {
+            theme: ended ? "green" : "gold",
+            eyebrow: "NUMBER GUESS",
+            title: ended ? "숫자 맞추기 종료" : "숫자 맞추기 시작!",
+            ...(ended && g.winnerId ? { people: [{ id: g.winnerId, label: "정답자" }] } : {}),
+            subtitle: ended ? `정답 ${g.answer.toLocaleString("ko-KR")}` : g.min != null && g.max != null ? `${g.min.toLocaleString("ko-KR")} ~ ${g.max.toLocaleString("ko-KR")} 사이 숫자` : "숫자를 맞혀 보세요",
+            chips: [...(g.prize ? [`보상 ${g.prize}`] : []), ended ? `시도 ${g.attempts}번` : "먼저 맞힌 1명 당첨"],
+            note: ended ? "다음 게임을 기다려 주세요" : "이 채널에 숫자만 보내면 돼요",
+          }),
+        )
+        .catch(() => null)
+    : null;
   return {
     flags: MessageFlags.IS_COMPONENTS_V2,
     components: [
       container(
         [
-          mediaGallery([`${origin()}/brand/number-guess-3d.gif`]),
+          mediaGallery([card ?? `${origin()}/brand/number-guess-3d.gif`]),
           textDisplay(`-# ${shopName}`),
           textDisplay(ended ? `## ${appEmoji("does_question")} 숫자 맞추기 종료` : `## ${appEmoji("does_question")} 숫자 맞추기 시작!`),
           textDisplay(
@@ -167,7 +182,7 @@ export async function handleNumberGuessStart(
   };
   // 지난 게임에서 잠근 채널을 다시 연다
   const unlock = await setGuessChannelLocked(channelId, false, shop.id);
-  const posted = await postChannelMessage(channelId, startPanel(shop.name, game), shop.id);
+  const posted = await postChannelMessage(channelId, await startPanel(shop.name, game, shop.slug), shop.id);
   const id = posted.ok ? (posted.json as { id?: string } | null)?.id : null;
   if (!id) return errorPanel("게임을 올리지 못했어요. 봇이 그 채널에 글을 쓸 수 있는지 확인해 주세요.");
   game.messageId = String(id);
@@ -205,7 +220,7 @@ export async function handleNumberGuess(shop: Shop, interaction: DiscordInteract
     },
     shop.id,
   );
-  if (game.messageId) await editChannelMessage(channelId, game.messageId, startPanel(shop.name, game), shop.id).catch(() => null);
+  if (game.messageId) await editChannelMessage(channelId, game.messageId, await startPanel(shop.name, game, shop.slug), shop.id).catch(() => null);
   await setGuessChannelLocked(channelId, true, shop.id);
   return plainEphemeral(`${plainEmoji("does_party")} 정답이에요! **${guess}** — 축하합니다!`);
 }
@@ -276,7 +291,7 @@ export async function handleNumberGuessMessage(
     { ...(await winPanel(shop.name, game, shop.slug)), message_reference: { message_id: messageId, fail_if_not_exists: false } },
     shop.id,
   );
-  if (game.messageId) await editChannelMessage(channelId, game.messageId, startPanel(shop.name, game), shop.id).catch(() => null);
+  if (game.messageId) await editChannelMessage(channelId, game.messageId, await startPanel(shop.name, game, shop.slug), shop.id).catch(() => null);
   // 정답이 나오면 관리자가 새로 시작할 때까지 일반 사용자는 채팅을 못 치게 막는다
   await setGuessChannelLocked(channelId, true, shop.id);
   return { ok: true, correct: true };

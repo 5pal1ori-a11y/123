@@ -662,6 +662,7 @@ const CARD_THEME = {
   green: { a: "#4ade80", glow: "rgba(34,197,94,0.28)", ring: "linear-gradient(135deg,#bbf7d0,#22c55e 50%,#0e7490)" },
   blue: { a: "#7dd3fc", glow: "rgba(56,189,248,0.28)", ring: "linear-gradient(135deg,#e0f2fe,#38bdf8 50%,#6366f1)" },
   pink: { a: "#f9a8d4", glow: "rgba(236,72,153,0.26)", ring: "linear-gradient(135deg,#fce7f3,#ec4899 50%,#7c3aed)" },
+  red: { a: "#f87171", glow: "rgba(239,68,68,0.28)", ring: "linear-gradient(135deg,#fecaca,#ef4444 50%,#7f1d1d)" },
 };
 export function cardTree(d) {
   const t = CARD_THEME[d.theme] ?? CARD_THEME.party;

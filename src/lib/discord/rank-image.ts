@@ -557,7 +557,7 @@ export async function renderProfileImage(shopId: string, discordId: string, hash
 
 /* ───────── 공용 발표 카드 (서명된 주소) ───────── */
 export type CardPayload = {
-  theme: "party" | "gold" | "green" | "blue" | "pink";
+  theme: "party" | "gold" | "green" | "blue" | "pink" | "red";
   eyebrow: string;
   title: string;
   people?: { id: string; label?: string }[];

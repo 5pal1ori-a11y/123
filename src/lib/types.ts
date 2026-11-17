@@ -741,7 +741,7 @@ export type AuthSession = {
 export type AdminNotification = {
   id: string;
   shopId: string;
-  type: "low_stock" | "license_expiry" | "sales_digest" | "resale_request" | "premium_request";
+  type: "low_stock" | "license_expiry" | "sales_digest" | "resale_request" | "premium_request" | "checklock";
   title: string;
   body: string;
   read: boolean;

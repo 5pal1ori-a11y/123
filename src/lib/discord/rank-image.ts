@@ -303,6 +303,58 @@ export async function renderStatusImage(shopId: string) {
   return res.ok ? res : null;
 }
 
+/** 구매 로그 이미지 데이터 — 주문 번호로 상품 · 구매자 · 금액을 찾는다 */
+export async function purchaseLogData(shopId: string, orderUuid: string) {
+  const { getStoreForRead, getProductById } = await import("@/lib/store");
+  const { CAPE_BY_TYPE } = await import("@/lib/capes-data");
+  const store = getStoreForRead();
+  const orders = store.orders.filter((o) => o.shopId === shopId && o.orderUuid === orderUuid);
+  const first = orders[0];
+  if (!first) return null;
+  const product = getProductById(first.productId);
+  const user = store.users.find((u) => u.id === first.userId);
+  const guildId = getShopSettings(shopId).discordGuildId || MFA_DISCORD_GUILD_ID;
+  const who = user?.discordId ? (await resolveNames(guildId, [user.discordId]))[user.discordId] : undefined;
+  const capeHash = product?.productKind === "mc_cape" && product.capeType ? CAPE_BY_TYPE[product.capeType]?.hash : null;
+  const counted = new Set(["dispensed", "paid", "awaiting_fulfillment"]);
+  const totalSold = store.orders.reduce((n, o) => (o.shopId === shopId && o.productId === first.productId && counted.has(o.status) ? n + (o.quantity || 1) : n), 0);
+  const t = new Date(new Date(first.createdAt).getTime() + 9 * 3_600_000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    kind: "purchase_log" as const,
+    buyer: who?.name ?? maskShort(user?.name || "회원"),
+    avatar: who?.avatar ?? null,
+    product: product?.name ?? "상품",
+    imgKind: product?.productKind === "mc_account" ? "skin" : capeHash ? "cape" : product?.thumbnail?.trim() ? "thumb" : null,
+    img:
+      product?.productKind === "mc_account"
+        ? `https://doesmc.xyz/api/mc-account/${product.id}?asset=skin&v=${encodeURIComponent(product.mcVersion ?? "0")}`
+        : capeHash
+          ? `https://doesmc.xyz/api/capes/texture/${capeHash}`
+          : product?.thumbnail?.trim() || null,
+    quantity: orders.reduce((n, o) => n + (o.quantity || 1), 0),
+    amount: orders.reduce((n, o) => n + (o.amount || 0), 0),
+    totalSold,
+    time: `${t.getUTCFullYear()}.${pad(t.getUTCMonth() + 1)}.${pad(t.getUTCDate())}  ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}`,
+  };
+}
+
+export async function purchaseLogImageUrl(shopId: string, orderUuid: string) {
+  if (!(await rankBinding())) return null;
+  const shop = getShopById(shopId);
+  if (!shop || !/^[A-Za-z0-9_-]{6,64}$/.test(orderUuid)) return null;
+  return `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-order-${orderUuid}.png`;
+}
+
+export async function renderPurchaseLogImage(shopId: string, orderUuid: string) {
+  const bind = await rankBinding();
+  if (!bind) return null;
+  const d = await purchaseLogData(shopId, orderUuid);
+  if (!d) return null;
+  const res = await bind.fetch("https://rank-image/", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: d }) });
+  return res.ok ? res : null;
+}
+
 async function hashOf(d: RankImageData | QueueImageData | StockImageData | StatusImageData) {
   const { updated: _u, ...rest } = d;
   void _u;

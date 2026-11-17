@@ -87,7 +87,7 @@ function scheduleLog(shopId: string, kind: DiscordLogKind, kids: unknown[], extr
   return task;
 }
 
-/** 버튼자판기 ## 구매 로그 */
+/** 버튼자판기 ## 구매 로그 — 이미지 워커가 있으면 이미지 한 장 (구매자 · 상품 그림 · 금액 · 누적 판매) */
 export function postPurchaseLog(
   shopId: string,
   input: {
@@ -96,18 +96,35 @@ export function postPurchaseLog(
     quantity: number;
     /** 이 제품의 누적 판매 개수 (이번 구매 포함) */
     totalSold: number;
+    orderUuid?: string;
   },
 ) {
-  const kids: unknown[] = [];
-  if (getShopById(shopId)?.slug === MFA_SHOP_SLUG) kids.push(mediaGallery([DOES_PURCHASE_BANNER]));
-  kids.push(
-    textDisplay("## 구매 로그"),
-    separator(true, 1),
-    textDisplay(`${input.buyerMention} 님 **${escapeMd(input.productName)}** **${input.quantity}개** 구매 감사드립니다!`),
-    separator(true, 1),
-    textDisplay(`누적판매 **${input.totalSold.toLocaleString("ko-KR")}개**  ·  <t:${Math.floor(Date.now() / 1000)}:f>`),
-  );
-  return scheduleLog(shopId, "purchase", kids);
+  const textKids = () => {
+    const kids: unknown[] = [];
+    if (getShopById(shopId)?.slug === MFA_SHOP_SLUG) kids.push(mediaGallery([DOES_PURCHASE_BANNER]));
+    kids.push(
+      textDisplay("## 구매 로그"),
+      separator(true, 1),
+      textDisplay(`${input.buyerMention} 님 **${escapeMd(input.productName)}** **${input.quantity}개** 구매 감사드립니다!`),
+      separator(true, 1),
+      textDisplay(`누적판매 **${input.totalSold.toLocaleString("ko-KR")}개**  ·  <t:${Math.floor(Date.now() / 1000)}:f>`),
+    );
+    return kids;
+  };
+  const task = (async () => {
+    const url = input.orderUuid
+      ? await import("@/lib/discord/rank-image").then((m) => m.purchaseLogImageUrl(shopId, input.orderUuid!)).catch(() => null)
+      : null;
+    const kids = url
+      ? [mediaGallery([url]), textDisplay(`-# ${input.buyerMention} 님 구매 감사드립니다 · <t:${Math.floor(Date.now() / 1000)}:f>`)]
+      : textKids();
+    return postV2Log(shopId, "purchase", kids);
+  })().catch((err) => {
+    console.error("[discord-log] failed", "purchase", err);
+    return { ok: false as const, status: 0, json: null };
+  });
+  scheduleDiscordBackground(task);
+  return task;
 }
 
 export function postRandomBoxLog(

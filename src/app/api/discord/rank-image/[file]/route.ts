@@ -7,6 +7,15 @@ export const dynamic = "force-dynamic";
 export async function GET(_request: Request, ctx: { params: Promise<{ file: string }> }) {
   const { file } = await ctx.params;
   await initStore();
+  const od = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-order-([A-Za-z0-9_-]{6,64})\.png$/.exec(file);
+  if (od) {
+    const shop = getShopBySlug(od[1]);
+    if (!shop) return new Response("not found", { status: 404 });
+    const { renderPurchaseLogImage } = await import("@/lib/discord/rank-image");
+    const res = await renderPurchaseLogImage(shop.id, od[2]).catch(() => null);
+    if (!res) return new Response("unavailable", { status: 502 });
+    return new Response(res.body, { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400, s-maxage=86400" } });
+  }
   const ad = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-status-([0-9a-f]{12})\.png$/.exec(file);
   if (ad) {
     const shop = getShopBySlug(ad[1]);

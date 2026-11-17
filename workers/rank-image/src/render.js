@@ -346,3 +346,55 @@ export function statusTree(d) {
     ),
   );
 }
+
+/* ───────── 구매 로그 ───────── */
+export function purchaseTree(d) {
+  const art = (() => {
+    if (d.img && d.imgKind === "cape")
+      return h("div", { display: "flex", width: 150, height: 240, overflow: "hidden", borderRadius: 8, boxShadow: "0 20px 50px rgba(0,0,0,0.5)" },
+        img(d.img, { width: 960, height: 480, marginLeft: -15, marginTop: -15 }));
+    if (d.img && d.imgKind === "skin") return img(d.img, { width: 250, height: 290, objectFit: "contain" });
+    if (d.img) return img(d.img, { width: 230, height: 230, borderRadius: 36, objectFit: "cover", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" });
+    return h("div", { display: "flex", width: 200, height: 200, borderRadius: 40, background: "rgba(255,255,255,0.08)" });
+  })();
+  const dots = [[70, 40, "#f472b6"], [330, 70, "#facc15"], [40, 300, "#22d3ee"], [360, 330, "#a78bfa"], [120, 360, "#4ade80"], [300, 20, "#fb923c"]];
+  return h(
+    "div",
+    {
+      display: "flex",
+      width: "100%",
+      height: "100%",
+      background: "radial-gradient(ellipse 40% 70% at 20% 50%, rgba(99,102,241,0.38) 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)",
+      fontFamily: "Pretendard",
+      color: "#fff",
+    },
+    // 왼쪽: 상품 그림
+    h("div", { display: "flex", position: "relative", width: 420, alignItems: "center", justifyContent: "center" },
+      ...dots.map(([x, y, c]) => h("div", { display: "flex", position: "absolute", left: x, top: y, width: 12, height: 12, borderRadius: 3, background: c, transform: "rotate(30deg)", opacity: 0.8 })),
+      art,
+    ),
+    // 오른쪽: 내용
+    h("div", { display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, padding: "40px 56px 40px 10px" },
+      h("div", { display: "flex", alignItems: "center" },
+        d.logo ? img(d.logo, { width: 40, height: 40, marginRight: 12 }) : null,
+        h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: "#a5b4fc", letterSpacing: 5 }, "NEW PURCHASE"),
+      ),
+      h("div", { display: "flex", fontSize: 46, fontWeight: 900, marginTop: 10, letterSpacing: -1.5 }, "구매 감사합니다!"),
+      h("div", { display: "flex", alignItems: "center", marginTop: 18 },
+        avatar(d.avatar, 52, "linear-gradient(135deg,#a5b4fc,#6366f1)"),
+        h("div", { display: "flex", marginLeft: 14, fontSize: 24, fontWeight: 700, color: "#e2e8f0", maxWidth: 420, overflow: "hidden", whiteSpace: "nowrap" }, d.buyer ?? "회원"),
+        h("div", { display: "flex", marginLeft: 8, fontSize: 20, fontWeight: 500, color: "#94a3b8" }, "님"),
+      ),
+      h("div", { display: "flex", height: 1, marginTop: 22, background: "linear-gradient(90deg, rgba(255,255,255,0.18), rgba(255,255,255,0))" }),
+      h("div", { display: "flex", marginTop: 20, fontSize: 30, fontWeight: 900, letterSpacing: -0.8, maxWidth: 600, overflow: "hidden", whiteSpace: "nowrap" }, d.product ?? ""),
+      h("div", { display: "flex", alignItems: "baseline", marginTop: 8 },
+        h("div", { display: "flex", fontSize: 22, fontWeight: 700, color: "#cbd5e1" }, `${d.quantity ?? 1}개`),
+        d.amount ? h("div", { display: "flex", marginLeft: 14, fontSize: 30, fontWeight: 900, color: "#facc15" }, `₩${num(d.amount)}`) : null,
+      ),
+      h("div", { display: "flex", alignItems: "center", marginTop: 20 },
+        h("div", { display: "flex", padding: "7px 14px", borderRadius: 30, background: "rgba(34,197,94,0.14)", border: "1px solid rgba(34,197,94,0.35)", fontSize: 16, fontWeight: 700, color: "#4ade80" }, `누적 판매 ${num(d.totalSold ?? 0)}개`),
+        h("div", { display: "flex", marginLeft: 14, fontSize: 16, fontWeight: 500, color: "#64748b" }, d.time ?? ""),
+      ),
+    ),
+  );
+}

@@ -4621,6 +4621,7 @@ export function purchaseWithPoints(
         productName: product.name,
         quantity,
         totalSold,
+        orderUuid: first.orderUuid,
       }),
     ),
   );

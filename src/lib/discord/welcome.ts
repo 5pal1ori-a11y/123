@@ -62,6 +62,7 @@ export function welcomePanel(
   shopName: string,
   cfg: WelcomeConfig,
   member: { userId: string; avatar?: string | null; memberCount?: number | null; guildId?: string | null },
+  shopSlug?: string | null,
 ) {
   const created = createdAtSec(member.userId);
   const info = [
@@ -81,13 +82,22 @@ export function welcomePanel(
   if (cfg.shopChannelId) shortcuts.push({ channelId: cfg.shopChannelId, title: "구매하기", desc: "상품을 보고 바로 구매할 수 있어요" });
   if (cfg.ticketChannelId) shortcuts.push({ channelId: cfg.ticketChannelId, title: "문의하기", desc: "궁금한 점은 티켓으로 물어봐 주세요" });
 
-  const kids: unknown[] = [
-    sectionText({
-      text: `## 환영합니다!\n<@${member.userId}> 님, **${shopName}** 에 오신 걸 환영해요 ${appEmoji("does_star")}${info ? `\n-# ${info}` : ""}`,
-      accessory: thumbnail(avatarUrl(member.userId, member.avatar)),
-    }),
-    mediaGallery([`${appOrigin()}/brand/welcome-3d.gif`]),
-  ];
+  // 환영 이미지 (프로필 · 이름 · 몇 번째 멤버 · 가입일) — 상점 주소를 알면 이미지, 아니면 예전 GIF 패널
+  const image = shopSlug
+    ? `https://doesmc.xyz/api/discord/rank-image/${shopSlug}-welcome-${member.guildId ?? "0"}-${member.userId}-${member.memberCount ?? 0}-${member.avatar || "0"}.png`
+    : null;
+  const kids: unknown[] = image
+    ? [
+        textDisplay(`<@${member.userId}> 님, **${shopName}** 에 오신 걸 환영해요 ${appEmoji("does_star")}`),
+        mediaGallery([image]),
+      ]
+    : [
+        sectionText({
+          text: `## 환영합니다!\n<@${member.userId}> 님, **${shopName}** 에 오신 걸 환영해요 ${appEmoji("does_star")}${info ? `\n-# ${info}` : ""}`,
+          accessory: thumbnail(avatarUrl(member.userId, member.avatar)),
+        }),
+        mediaGallery([`${appOrigin()}/brand/welcome-3d.gif`]),
+      ];
   if (shortcuts.length) {
     kids.push(separator(true, 1), textDisplay("### 바로가기"));
     for (const sc of shortcuts) {
@@ -134,7 +144,7 @@ export async function handleWelcomeSetup(
   await persistAsync();
   // 미리보기: 설정한 사람으로 한 번 올려 본다
   if (opts.userId) {
-    await postChannelMessage(cfg.channelId, welcomePanel(shop.name, cfg, { userId: opts.userId, guildId: opts.guildId }), shop.id).catch(() => null);
+    await postChannelMessage(cfg.channelId, welcomePanel(shop.name, cfg, { userId: opts.userId, guildId: opts.guildId }, shop.slug), shop.id).catch(() => null);
   }
   return plainEphemeral(
     `입장 환영 채널을 <#${cfg.channelId}> 로 정했어요. 미리보기를 한 번 올렸어요.\n-# 새 멤버가 들어오면 자동으로 올라가요 · 디스코드 개발자 포털에서 봇의 **Server Members Intent** 가 켜져 있어야 해요`,
@@ -149,6 +159,6 @@ export async function postWelcome(shopId: string, member: { userId: string; avat
   let memberCount: number | null = null;
   const g = await discordRest("GET", `/guilds/${member.guildId}?with_counts=true`, undefined, shopId).catch(() => null);
   if (g?.ok) memberCount = (g.json as { approximate_member_count?: number })?.approximate_member_count ?? null;
-  const r = await postChannelMessage(cfg.channelId, welcomePanel(shop.name, cfg, { ...member, memberCount }), shopId);
+  const r = await postChannelMessage(cfg.channelId, welcomePanel(shop.name, cfg, { ...member, memberCount }, shop.slug), shopId);
   return { ok: r.ok, status: r.status };
 }

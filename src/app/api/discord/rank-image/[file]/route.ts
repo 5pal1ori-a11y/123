@@ -7,6 +7,17 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request, ctx: { params: Promise<{ file: string }> }) {
   const { file } = await ctx.params;
   await initStore();
+  const wl = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-welcome-(\d{1,25})-(\d{15,25})-(\d{1,9})-((?:a_)?[0-9a-f]{32}|0)\.png$/.exec(file);
+  if (wl) {
+    const shop = getShopBySlug(wl[1]);
+    if (!shop) return new Response("not found", { status: 404 });
+    const { getShopSettings, MFA_DISCORD_GUILD_ID } = await import("@/lib/store");
+    const guildId = wl[2] !== "0" ? wl[2] : getShopSettings(shop.id).discordGuildId || MFA_DISCORD_GUILD_ID;
+    const { renderWelcomeImage } = await import("@/lib/discord/rank-image");
+    const res = await renderWelcomeImage(shop.id, guildId, wl[3], Number(wl[4]), wl[5]).catch(() => null);
+    if (!res) return new Response("unavailable", { status: 502 });
+    return new Response(res.body, { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400, s-maxage=86400" } });
+  }
   const ch = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-charge-([A-Za-z0-9_-]{4,64})\.png$/.exec(file);
   if (ch) {
     const shop = getShopBySlug(ch[1]);

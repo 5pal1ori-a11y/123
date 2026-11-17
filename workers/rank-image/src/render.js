@@ -449,3 +449,42 @@ export function chargeTree(d) {
     ),
   );
 }
+
+/* ───────── 입장 환영 ───────── */
+export function welcomeTree(d) {
+  const dots = [[90, 60, "#f472b6"], [980, 80, "#facc15"], [60, 330, "#22d3ee"], [1020, 340, "#a78bfa"], [200, 380, "#4ade80"], [880, 30, "#fb923c"], [300, 40, "#38bdf8"], [760, 390, "#f472b6"]];
+  return h(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      position: "relative",
+      width: "100%",
+      height: "100%",
+      padding: "34px 60px 30px",
+      background: "radial-gradient(ellipse 45% 60% at 50% 42%, rgba(52,211,153,0.30) 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)",
+      fontFamily: "Pretendard",
+      color: "#fff",
+    },
+    ...dots.map(([x, y, c]) => h("div", { display: "flex", position: "absolute", left: x, top: y, width: 12, height: 12, borderRadius: 3, background: c, transform: "rotate(25deg)", opacity: 0.75 })),
+    h("div", { display: "flex", alignItems: "center" },
+      d.logo ? img(d.logo, { width: 34, height: 34, marginRight: 10 }) : null,
+      h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: "#6ee7b7", letterSpacing: 6 }, "WELCOME"),
+    ),
+    h("div", { display: "flex", marginTop: 18 },
+      h("div", { display: "flex", width: 168, height: 168, borderRadius: 168, padding: 6, background: "linear-gradient(135deg,#6ee7b7,#10b981 50%,#3b82f6)", boxShadow: "0 0 60px rgba(52,211,153,0.5)" },
+        d.avatar ? img(d.avatar, { width: 156, height: 156, borderRadius: 156, objectFit: "cover" }) : h("div", { display: "flex", width: 156, height: 156, borderRadius: 156, background: "#1f2937" }),
+      ),
+    ),
+    h("div", { display: "flex", alignItems: "baseline", marginTop: 18 },
+      h("div", { display: "flex", fontSize: 44, fontWeight: 900, letterSpacing: -1.5, maxWidth: 760, overflow: "hidden", whiteSpace: "nowrap" }, d.name ?? "새 멤버"),
+      h("div", { display: "flex", marginLeft: 10, fontSize: 26, fontWeight: 700, color: "#94a3b8" }, "님"),
+    ),
+    h("div", { display: "flex", marginTop: 4, fontSize: 24, fontWeight: 700, color: "#e2e8f0" }, `${d.shop ?? "DOES"}에 오신 걸 환영해요!`),
+    h("div", { display: "flex", marginTop: 18, gap: 10 },
+      d.memberCount ? h("div", { display: "flex", padding: "8px 16px", borderRadius: 30, background: "rgba(52,211,153,0.14)", border: "1px solid rgba(52,211,153,0.4)", fontSize: 17, fontWeight: 700, color: "#6ee7b7" }, `${num(d.memberCount)}번째 멤버`) : null,
+      d.created ? h("div", { display: "flex", padding: "8px 16px", borderRadius: 30, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", fontSize: 17, fontWeight: 700, color: "#cbd5e1" }, `디스코드 가입 ${d.created}`) : null,
+    ),
+  );
+}

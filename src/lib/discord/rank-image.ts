@@ -396,6 +396,32 @@ export async function renderChargeLogImage(shopId: string, chargeId: string, bal
   return res.ok ? res : null;
 }
 
+/** 입장 환영 이미지 데이터 */
+export async function welcomeData(shopId: string, guildId: string, userId: string, memberCount: number, avatarHash: string) {
+  const shop = getShopById(shopId);
+  const who = (await resolveNames(guildId, [userId]))[userId];
+  let created = "";
+  try {
+    const t = new Date(Number((BigInt(userId) >> BigInt(22)) + BigInt(1420070400000)) + 9 * 3_600_000);
+    created = `${t.getUTCFullYear()}.${String(t.getUTCMonth() + 1).padStart(2, "0")}.${String(t.getUTCDate()).padStart(2, "0")}`;
+  } catch {
+    /* ignore */
+  }
+  const avatar =
+    avatarHash && avatarHash !== "0" && /^(a_)?[0-9a-f]{32}$/.test(avatarHash)
+      ? `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.png?size=256`
+      : (who?.avatar ?? null);
+  return { kind: "welcome" as const, shop: shop?.name ?? "DOES", name: who?.name ?? "새 멤버", avatar, memberCount, created };
+}
+
+export async function renderWelcomeImage(shopId: string, guildId: string, userId: string, memberCount: number, avatarHash: string) {
+  const bind = await rankBinding();
+  if (!bind) return null;
+  const d = await welcomeData(shopId, guildId, userId, memberCount, avatarHash);
+  const res = await bind.fetch("https://rank-image/", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: d }) });
+  return res.ok ? res : null;
+}
+
 async function hashOf(d: RankImageData | QueueImageData | StockImageData | StatusImageData) {
   const { updated: _u, ...rest } = d;
   void _u;

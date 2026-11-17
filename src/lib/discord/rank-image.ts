@@ -355,6 +355,47 @@ export async function renderPurchaseLogImage(shopId: string, orderUuid: string) 
   return res.ok ? res : null;
 }
 
+const METHOD_LABEL: Record<string, string> = { bank: "계좌이체", culture_gift: "문화상품권", coin: "코인" };
+
+/** 충전 완료 로그 이미지 데이터 — 입금자명은 가운데를 가린다 */
+export async function chargeLogData(shopId: string, chargeId: string, balance: number) {
+  const { getPointCharge, getStoreForRead } = await import("@/lib/store");
+  const charge = getPointCharge(chargeId, shopId);
+  if (!charge) return null;
+  const user = getStoreForRead().users.find((u) => u.id === charge.userId);
+  const guildId = getShopSettings(shopId).discordGuildId || MFA_DISCORD_GUILD_ID;
+  const who = user?.discordId ? (await resolveNames(guildId, [user.discordId]))[user.discordId] : undefined;
+  const t = new Date(new Date(charge.completedAt || charge.createdAt).getTime() + 9 * 3_600_000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const dep = (charge.depositorName ?? "").trim();
+  return {
+    kind: "charge_log" as const,
+    user: who?.name ?? maskShort(user?.name || "회원"),
+    avatar: who?.avatar ?? null,
+    amount: charge.amount,
+    method: METHOD_LABEL[charge.method] ?? "",
+    depositor: dep && charge.method === "bank" ? maskShort(dep) : "",
+    balance,
+    time: `${t.getUTCFullYear()}.${pad(t.getUTCMonth() + 1)}.${pad(t.getUTCDate())}  ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}`,
+  };
+}
+
+export async function chargeLogImageUrl(shopId: string, chargeId: string, balance: number) {
+  if (!(await rankBinding())) return null;
+  const shop = getShopById(shopId);
+  if (!shop || !/^[A-Za-z0-9_-]{4,64}$/.test(chargeId)) return null;
+  return `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-charge-${chargeId}.png?b=${Math.max(0, Math.round(balance))}`;
+}
+
+export async function renderChargeLogImage(shopId: string, chargeId: string, balance: number) {
+  const bind = await rankBinding();
+  if (!bind) return null;
+  const d = await chargeLogData(shopId, chargeId, balance);
+  if (!d) return null;
+  const res = await bind.fetch("https://rank-image/", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: d }) });
+  return res.ok ? res : null;
+}
+
 async function hashOf(d: RankImageData | QueueImageData | StockImageData | StatusImageData) {
   const { updated: _u, ...rest } = d;
   void _u;

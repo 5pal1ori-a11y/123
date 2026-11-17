@@ -398,3 +398,54 @@ export function purchaseTree(d) {
     ),
   );
 }
+
+/* ───────── 충전 완료 로그 ───────── */
+const COIN_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3b0"/><stop offset=".5" stop-color="#facc15"/><stop offset="1" stop-color="#b45309"/></linearGradient>
+<linearGradient id="e" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d97706"/><stop offset="1" stop-color="#78350f"/></linearGradient></defs>
+<ellipse cx="120" cy="196" rx="86" ry="22" fill="url(#e)"/><rect x="34" y="176" width="172" height="20" fill="url(#e)"/><ellipse cx="120" cy="176" rx="86" ry="22" fill="url(#g)"/>
+<ellipse cx="120" cy="160" rx="86" ry="22" fill="url(#e)"/><rect x="34" y="140" width="172" height="20" fill="url(#e)"/><ellipse cx="120" cy="140" rx="86" ry="22" fill="url(#g)"/>
+<circle cx="120" cy="86" r="70" fill="url(#e)"/><circle cx="120" cy="80" r="70" fill="url(#g)"/><circle cx="120" cy="80" r="54" fill="none" stroke="#b45309" stroke-width="5" opacity=".6"/>
+
+<path d="M88 52h64" stroke="#92400e" stroke-width="0"/><ellipse cx="96" cy="44" rx="20" ry="9" fill="#fff" opacity=".55" transform="rotate(-25 96 44)"/></svg>`)}`;
+
+export function chargeTree(d) {
+  const dots = [[60, 50, "#4ade80"], [340, 70, "#facc15"], [50, 310, "#22d3ee"], [350, 320, "#a3e635"], [130, 360, "#fbbf24"], [290, 30, "#34d399"]];
+  return h(
+    "div",
+    {
+      display: "flex",
+      width: "100%",
+      height: "100%",
+      background: "radial-gradient(ellipse 40% 70% at 20% 50%, rgba(34,197,94,0.32) 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)",
+      fontFamily: "Pretendard",
+      color: "#fff",
+    },
+    h("div", { display: "flex", position: "relative", width: 420, alignItems: "center", justifyContent: "center" },
+      ...dots.map(([x, y, c]) => h("div", { display: "flex", position: "absolute", left: x, top: y, width: 12, height: 12, borderRadius: 12, background: c, opacity: 0.75 })),
+      img(COIN_SVG, { width: 250, height: 250 }),
+    ),
+    h("div", { display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, padding: "40px 56px 40px 10px" },
+      h("div", { display: "flex", alignItems: "center" },
+        d.logo ? img(d.logo, { width: 40, height: 40, marginRight: 12 }) : null,
+        h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: "#4ade80", letterSpacing: 5 }, "CHARGE COMPLETE"),
+      ),
+      h("div", { display: "flex", fontSize: 46, fontWeight: 900, marginTop: 10, letterSpacing: -1.5 }, "충전 완료!"),
+      h("div", { display: "flex", alignItems: "center", marginTop: 18 },
+        avatar(d.avatar, 52, "linear-gradient(135deg,#86efac,#16a34a)"),
+        h("div", { display: "flex", marginLeft: 14, fontSize: 24, fontWeight: 700, color: "#e2e8f0", maxWidth: 420, overflow: "hidden", whiteSpace: "nowrap" }, d.user ?? "회원"),
+        h("div", { display: "flex", marginLeft: 8, fontSize: 20, fontWeight: 500, color: "#94a3b8" }, "님"),
+      ),
+      h("div", { display: "flex", height: 1, marginTop: 22, background: "linear-gradient(90deg, rgba(255,255,255,0.18), rgba(255,255,255,0))" }),
+      h("div", { display: "flex", alignItems: "baseline", marginTop: 16 },
+        h("div", { display: "flex", fontSize: 58, fontWeight: 900, color: "#4ade80", letterSpacing: -2 }, `+₩${num(d.amount ?? 0)}`),
+      ),
+      h("div", { display: "flex", alignItems: "center", marginTop: 16, gap: 10 },
+        d.method ? h("div", { display: "flex", padding: "7px 14px", borderRadius: 30, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }, d.method) : null,
+        d.depositor ? h("div", { display: "flex", padding: "7px 14px", borderRadius: 30, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", fontSize: 16, fontWeight: 700, color: "#e2e8f0" }, `입금자 ${d.depositor}`) : null,
+        h("div", { display: "flex", padding: "7px 14px", borderRadius: 30, background: "rgba(250,204,21,0.12)", border: "1px solid rgba(250,204,21,0.35)", fontSize: 16, fontWeight: 700, color: "#facc15" }, `잔액 ₩${num(d.balance ?? 0)}`),
+        h("div", { display: "flex", marginLeft: 4, fontSize: 16, fontWeight: 500, color: "#64748b" }, d.time ?? ""),
+      ),
+    ),
+  );
+}

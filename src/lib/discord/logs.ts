@@ -199,16 +199,30 @@ export function postChargeCompleteLog(
     depositorName: string;
     amount: number;
     balance: number;
+    chargeId?: string;
   },
 ) {
-  return scheduleLog(shopId, "charge_complete", [
-    textDisplay("## 충전 완료"),
-    separator(true, 1),
-    textDisplay(`**사용자**\n${input.userMention} (${input.userName})`),
-    textDisplay(`**입금자명**\n${input.depositorName}`),
-    textDisplay(`**충전 금액**\n${input.amount.toLocaleString()}원`),
-    textDisplay(`**현재 잔액**\n${input.balance.toLocaleString()}원`),
-  ]);
+  const task = (async () => {
+    const url = input.chargeId
+      ? await import("@/lib/discord/rank-image").then((m) => m.chargeLogImageUrl(shopId, input.chargeId!, input.balance)).catch(() => null)
+      : null;
+    const kids = url
+      ? [mediaGallery([url]), textDisplay(`-# ${input.userMention} 님 충전이 완료됐어요 · <t:${Math.floor(Date.now() / 1000)}:f>`)]
+      : [
+          textDisplay("## 충전 완료"),
+          separator(true, 1),
+          textDisplay(`**사용자**\n${input.userMention} (${input.userName})`),
+          textDisplay(`**입금자명**\n${input.depositorName}`),
+          textDisplay(`**충전 금액**\n${input.amount.toLocaleString()}원`),
+          textDisplay(`**현재 잔액**\n${input.balance.toLocaleString()}원`),
+        ];
+    return postV2Log(shopId, "charge_complete", kids);
+  })().catch((err) => {
+    console.error("[discord-log] failed", "charge_complete", err);
+    return { ok: false as const, status: 0, json: null };
+  });
+  scheduleDiscordBackground(task);
+  return task;
 }
 
 /** ## 입고 알림 — /입고알림 으로 정한 채널에, 정한 역할을 멘션해서 보낸다 */

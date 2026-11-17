@@ -3914,6 +3914,7 @@ export function confirmPointCharge(
         depositorName: depositor,
         amount: charge.amount,
         balance,
+        chargeId,
       }),
     ),
   );

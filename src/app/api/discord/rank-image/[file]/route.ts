@@ -4,9 +4,19 @@ import { renderRankImage } from "@/lib/discord/rank-image";
 export const dynamic = "force-dynamic";
 
 /** GET /api/discord/rank-image/<상점>-<해시>.png → 구매 랭킹 PNG (해시는 디스코드 캐시 깨기용) */
-export async function GET(_request: Request, ctx: { params: Promise<{ file: string }> }) {
+export async function GET(request: Request, ctx: { params: Promise<{ file: string }> }) {
   const { file } = await ctx.params;
   await initStore();
+  const ch = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-charge-([A-Za-z0-9_-]{4,64})\.png$/.exec(file);
+  if (ch) {
+    const shop = getShopBySlug(ch[1]);
+    if (!shop) return new Response("not found", { status: 404 });
+    const balance = Number(new URL(request.url).searchParams.get("b") ?? 0) || 0;
+    const { renderChargeLogImage } = await import("@/lib/discord/rank-image");
+    const res = await renderChargeLogImage(shop.id, ch[2], balance).catch(() => null);
+    if (!res) return new Response("unavailable", { status: 502 });
+    return new Response(res.body, { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400, s-maxage=86400" } });
+  }
   const od = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-order-([A-Za-z0-9_-]{6,64})\.png$/.exec(file);
   if (od) {
     const shop = getShopBySlug(od[1]);

@@ -74,7 +74,21 @@ const COMMANDS: Cmd[] = [
   { names: ["이름변경", "닉변"], usage: "!이름변경 <@유저|ID> <새 이름>", desc: "유저의 서버 별명을 바꿔요 (이름을 비우면 초기화)", perm: P.MANAGE_NICKNAMES, permLabel: "별명 관리" },
   { names: ["채널복제"], usage: "!채널복제 <채널ID|#채널>", desc: "채널을 설정·권한 그대로 하나 더 만들어요", perm: P.MANAGE_CHANNELS, permLabel: "채널 관리" },
   { names: ["카테고리복제"], usage: "!카테고리복제 <카테고리ID>", desc: "카테고리와 안의 채널을 통째로 복제해요", perm: P.MANAGE_CHANNELS, permLabel: "채널 관리" },
+  { names: ["청소"], usage: "!청소 <개수>", desc: "이 채널의 최근 메시지를 한 번에 지워요 (1~100개 · 14일 지난 메시지는 못 지워요)", perm: P.MANAGE_CHANNELS, permLabel: "" },
+  { names: ["슬로우모드", "슬로우"], usage: "!슬로우모드 <시간>", desc: "이 채널에 슬로우모드를 걸어요 (예: 10초 · 1분 · 0 이면 해제 · 최대 6시간)", perm: P.MANAGE_CHANNELS, permLabel: "" },
+  { names: ["잠금"], usage: "!잠금 [사유]", desc: "이 채널에서 일반 멤버가 채팅하지 못하게 잠가요", perm: P.MANAGE_CHANNELS, permLabel: "" },
+  { names: ["해제", "잠금해제"], usage: "!해제", desc: "잠근 채널을 다시 열어요", perm: P.MANAGE_CHANNELS, permLabel: "" },
+  { names: ["역할"], usage: "!역할 <@유저|ID> <@역할|역할ID|역할이름>", desc: "역할을 주거나, 이미 있으면 빼요", perm: P.MANAGE_CHANNELS, permLabel: "" },
+  { names: ["경고"], usage: "!경고 <@유저|ID> [사유]", desc: "경고를 줘요 · 3회 쌓일 때마다 자동으로 1시간 타임아웃", perm: P.MODERATE, permLabel: "" },
+  { names: ["경고확인"], usage: "!경고확인 <@유저|ID>", desc: "받은 경고 횟수와 최근 사유를 보여 줘요", perm: P.MODERATE, permLabel: "" },
+  { names: ["경고초기화"], usage: "!경고초기화 <@유저|ID>", desc: "경고를 모두 지워요", perm: P.MODERATE, permLabel: "" },
 ];
+
+const SEND_MESSAGES = BigInt(2048);
+const SEND_IN_THREADS = BigInt(1) << BigInt(38);
+const WARN_LIMIT = 3;
+type Warn = { at: string; by: string; reason: string };
+const warnKey = (guildId: string, userId: string) => `does-auto:warn:${guildId}:${userId}`;
 
 function findCmd(name: string) {
   return COMMANDS.find((c) => c.names.includes(name));
@@ -356,6 +370,113 @@ export async function handlePrefixCommand(input: PrefixInput, opts: PrefixOption
       `**${cat.name}** → **${newCat.name}** · 채널 ${copied}개${failed.length ? `\n못 만든 채널: ${failed.slice(0, 10).join(", ")}` : ""}`,
     );
     return { ok: true, copied, failed: failed.length };
+  }
+
+  if (name === "청소") {
+    const n = Number(args[0]);
+    if (!Number.isInteger(n) || n < 1 || n > 100) return fail(api, input, "1~100 사이 개수를 적어 주세요", "`!청소 20`").then(() => ({ bad: true }));
+    const list = await api("GET", `/channels/${input.channelId}/messages?limit=100&before=${input.messageId}`);
+    if (!list.ok) return fail(api, input, "메시지를 불러오지 못했어요", errText(list)).then(() => ({ error: list.status }));
+    const cutoff = Date.now() - 13.9 * 8.64e7;
+    const ids = ((list.json as { id: string; timestamp: string }[]) ?? [])
+      .slice(0, n)
+      .filter((m) => new Date(m.timestamp).getTime() > cutoff)
+      .map((m) => m.id);
+    const all = [...ids, input.messageId];
+    const r =
+      all.length >= 2
+        ? await api("POST", `/channels/${input.channelId}/messages/bulk-delete`, { messages: all }, auditBy("청소"))
+        : await api("DELETE", `/channels/${input.channelId}/messages/${input.messageId}`);
+    if (!r.ok) return fail(api, input, "메시지를 지우지 못했어요", errText(r)).then(() => ({ error: r.status }));
+    const done = await api("POST", `/channels/${input.channelId}/messages`, {
+      flags: MessageFlags.IS_COMPONENTS_V2,
+      components: [container([textDisplay(`### ${appEmoji("does_check")} 메시지 ${ids.length}개를 지웠어요`), textDisplay(`-# DOES Auto · 이 안내는 5초 뒤에 사라져요${ids.length < n ? " · 14일 지난 메시지는 남겨 뒀어요" : ""}`)], GREEN)],
+      allowed_mentions: { parse: [] },
+    });
+    const doneId = (done.json as { id?: string } | null)?.id;
+    if (doneId) {
+      await new Promise((res) => setTimeout(res, 5000));
+      await api("DELETE", `/channels/${input.channelId}/messages/${doneId}`).catch(() => null);
+    }
+    return { ok: true, deleted: ids.length };
+  }
+
+  if (name === "슬로우모드") {
+    const ms = parseDuration(args[0]);
+    if (ms === null) return fail(api, input, "시간을 적어 주세요", "`!슬로우모드 10초` · `!슬로우모드 0` (해제)").then(() => ({ bad: true }));
+    const sec = Math.round(ms / 1000);
+    if (sec > 21600) return fail(api, input, "슬로우모드는 최대 6시간이에요").then(() => ({ bad: true }));
+    const r = await api("PATCH", `/channels/${input.channelId}`, { rate_limit_per_user: sec }, auditBy("슬로우모드"));
+    if (!r.ok) return fail(api, input, "슬로우모드를 못 바꿨어요", errText(r)).then(() => ({ error: r.status }));
+    await ok(api, input, sec ? `슬로우모드 ${durationText(sec * 1000)}` : "슬로우모드를 껐어요", sec ? "멤버는 이 간격마다 한 번씩만 채팅할 수 있어요." : "");
+    return { ok: true };
+  }
+
+  if (name === "잠금" || name === "해제") {
+    const ch = await api("GET", `/channels/${input.channelId}`);
+    if (!ch.ok) return fail(api, input, "채널을 불러오지 못했어요", errText(ch)).then(() => ({ error: ch.status }));
+    const ow = ((ch.json as Channel).permission_overwrites as { id: string; type: number; allow: string; deny: string }[] | undefined)?.find((o) => o.id === input.guildId);
+    let allow = BigInt(ow?.allow ?? "0");
+    let deny = BigInt(ow?.deny ?? "0");
+    const bits = SEND_MESSAGES | SEND_IN_THREADS;
+    if (name === "잠금") {
+      deny |= bits;
+      allow &= ~bits;
+    } else deny &= ~bits;
+    const r = await api("PUT", `/channels/${input.channelId}/permissions/${input.guildId}`, { type: 0, allow: allow.toString(), deny: deny.toString() }, auditBy(name === "잠금" ? reasonTail(0) || "채널 잠금" : "채널 잠금 해제"));
+    if (!r.ok) return fail(api, input, `채널을 ${name === "잠금" ? "잠그지" : "열지"} 못했어요`, errText(r)).then(() => ({ error: r.status }));
+    if (name === "잠금") await reply(api, input, `${appEmoji("does_lock")} 채널을 잠갔어요`, `관리자만 채팅할 수 있어요.${reasonTail(0) ? `\n**사유** ${reasonTail(0)}` : ""}\n-# \`!해제\` 로 다시 열어요`, 0xf59e0b);
+    else await ok(api, input, "채널을 다시 열었어요", "이제 멤버들이 채팅할 수 있어요.");
+    return { ok: true };
+  }
+
+  if (name === "역할") {
+    const target = parseUserId(args[0]);
+    const roleArg = args.slice(1).join(" ").trim();
+    if (!target || !roleArg) return fail(api, input, "대상과 역할을 적어 주세요", `\`${cmd.usage}\``).then(() => ({ bad: true }));
+    const rid = /^<@&(\d{15,25})>$/.exec(roleArg)?.[1] ?? /^(\d{15,25})$/.exec(roleArg)?.[1] ?? null;
+    const role = rid ? guild.roles.find((r) => r.id === rid) : guild.roles.find((r) => (r as Role & { name?: string }).name === roleArg.replace(/^@/, ""));
+    if (!role || role.id === guild.id) return fail(api, input, "역할을 찾지 못했어요", "역할을 멘션하거나 ID · 정확한 이름으로 적어 주세요.").then(() => ({ bad: true }));
+    if (role.position >= me.top) return fail(api, input, "그 역할은 다룰 수 없어요", "나보다 높거나 같은 역할이에요.").then(() => ({ denied: true }));
+    const t = await api("GET", `/guilds/${input.guildId}/members/${target}`);
+    if (!t.ok) return fail(api, input, "서버에 없는 유저예요").then(() => ({ bad: true }));
+    const has = (t.json as Member).roles.includes(role.id);
+    const r = await api(has ? "DELETE" : "PUT", `/guilds/${input.guildId}/members/${target}/roles/${role.id}`, undefined, auditBy(has ? "역할 회수" : "역할 지급"));
+    if (!r.ok) return fail(api, input, "역할을 바꾸지 못했어요", errText(r)).then(() => ({ error: r.status }));
+    await ok(api, input, has ? "역할을 뺐어요" : "역할을 줬어요", `<@${target}> ${has ? "−" : "+"} <@&${role.id}>`);
+    return { ok: true };
+  }
+
+  if (name === "경고" || name === "경고확인" || name === "경고초기화") {
+    const target = parseUserId(args[0]);
+    if (!target) return fail(api, input, "대상을 적어 주세요", `\`${cmd.usage}\``).then(() => ({ bad: true }));
+    const { kvGetJson, kvPutJson } = await import("@/lib/world/kv");
+    const key = warnKey(input.guildId, target);
+    const warns = (await kvGetJson<Warn[]>(key)) ?? [];
+    if (name === "경고확인") {
+      const recent = warns.slice(-5).reverse().map((w) => `- ${w.reason || "사유 없음"} · <@${w.by}> · <t:${Math.floor(new Date(w.at).getTime() / 1000)}:R>`);
+      await reply(api, input, `${appEmoji("does_warning")} 경고 ${warns.length}회`, `<@${target}>${recent.length ? `\n${recent.join("\n")}` : "\n받은 경고가 없어요."}`, 0xf59e0b);
+      return { ok: true };
+    }
+    if (name === "경고초기화") {
+      await kvPutJson(key, []);
+      await ok(api, input, "경고를 모두 지웠어요", `<@${target}> · 이전 ${warns.length}회`);
+      return { ok: true };
+    }
+    const blocked = await checkTarget(target, true);
+    if (blocked) return fail(api, input, "경고할 수 없어요", blocked).then(() => ({ denied: true }));
+    const reason = reasonTail(1);
+    warns.push({ at: new Date().toISOString(), by: input.userId, reason: reason.slice(0, 200) });
+    await kvPutJson(key, warns.slice(-50));
+    const count = warns.length;
+    let extra = `다음 자동 타임아웃까지 ${WARN_LIMIT - (count % WARN_LIMIT)}회`;
+    if (count % WARN_LIMIT === 0) {
+      const until = new Date(Date.now() + 3.6e6).toISOString();
+      const r = await api("PATCH", `/guilds/${input.guildId}/members/${target}`, { communication_disabled_until: until }, auditBy(`경고 ${count}회 누적`));
+      extra = r.ok ? `**경고 ${count}회 누적 → 1시간 타임아웃**` : `경고 ${count}회 누적 · 타임아웃 실패 (${errText(r)})`;
+    }
+    await reply(api, input, `${appEmoji("does_warning")} 경고 ${count}회`, `<@${target}>\n**사유** ${reason || "없음"}\n${extra}`, 0xf59e0b);
+    return { ok: true, count };
   }
 
   return { skipped: "unhandled" };

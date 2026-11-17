@@ -12,6 +12,10 @@
     {
       "binding": "WORKER_SELF_REFERENCE",
       "service": "vendix"
+    },
+    {
+      "binding": "RANK_IMG",
+      "service": "does-rank-image"
     }
   ],
   "kv_namespaces": [

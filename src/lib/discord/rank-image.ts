@@ -422,6 +422,47 @@ export async function renderWelcomeImage(shopId: string, guildId: string, userId
   return res.ok ? res : null;
 }
 
+/** 후기 로그 이미지 데이터 */
+export async function reviewData(shopId: string, reviewId: string) {
+  const { getStoreForRead } = await import("@/lib/store");
+  const { CAPE_BY_TYPE } = await import("@/lib/capes-data");
+  const store = getStoreForRead();
+  const review = store.reviews.find((r) => r.id === reviewId && r.shopId === shopId);
+  if (!review) return null;
+  const user = store.users.find((u) => u.id === review.userId);
+  const product = review.productId ? store.products.find((p) => p.id === review.productId) : null;
+  const guildId = getShopSettings(shopId).discordGuildId || MFA_DISCORD_GUILD_ID;
+  const who = user?.discordId ? (await resolveNames(guildId, [user.discordId]))[user.discordId] : undefined;
+  const capeHash = product?.productKind === "mc_cape" && product.capeType ? CAPE_BY_TYPE[product.capeType]?.hash : null;
+  const t = new Date(new Date(review.createdAt).getTime() + 9 * 3_600_000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    kind: "review" as const,
+    author: who?.name ?? maskShort(user?.name || "회원"),
+    avatar: who?.avatar ?? null,
+    product: product?.name ?? "상품",
+    imgKind: product?.productKind === "mc_account" ? "skin" : capeHash ? "cape" : product?.thumbnail?.trim() ? "thumb" : null,
+    img:
+      product?.productKind === "mc_account"
+        ? `https://doesmc.xyz/api/mc-account/${product.id}?asset=skin&v=${encodeURIComponent(product.mcVersion ?? "0")}`
+        : capeHash
+          ? `https://doesmc.xyz/api/capes/texture/${capeHash}`
+          : product?.thumbnail?.trim() || null,
+    rating: Math.max(0, Math.min(5, Math.round(review.rating || 0))),
+    body: review.body,
+    time: `${t.getUTCFullYear()}.${pad(t.getUTCMonth() + 1)}.${pad(t.getUTCDate())}  ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}`,
+  };
+}
+
+export async function renderReviewImage(shopId: string, reviewId: string) {
+  const bind = await rankBinding();
+  if (!bind) return null;
+  const d = await reviewData(shopId, reviewId);
+  if (!d) return null;
+  const res = await bind.fetch("https://rank-image/", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: d }) });
+  return res.ok ? res : null;
+}
+
 async function hashOf(d: RankImageData | QueueImageData | StockImageData | StatusImageData) {
   const { updated: _u, ...rest } = d;
   void _u;
@@ -437,6 +478,10 @@ async function rankBinding() {
   } catch {
     return null;
   }
+}
+
+export async function hasRankImage() {
+  return Boolean(await rankBinding());
 }
 
 /** 구매 랭킹판에 넣을 이미지 주소 (이미지 워커가 없으면 null) */

@@ -536,6 +536,7 @@ export function createReview(input: {
         authorDiscordId: user?.discordId ?? null,
         productName: product?.name ?? "상품",
         body: review.body,
+        reviewId: review.id,
       }),
     ),
   );

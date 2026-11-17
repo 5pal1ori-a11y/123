@@ -488,3 +488,60 @@ export function welcomeTree(d) {
     ),
   );
 }
+
+/* ───────── 후기 ───────── */
+export function reviewTree(d) {
+  const body = (d.body ?? "").slice(0, 260) + ((d.body ?? "").length > 260 ? "…" : "");
+  const thumb = (() => {
+    if (d.img && d.imgKind === "cape")
+      return h("div", { display: "flex", width: 40, height: 64, overflow: "hidden", borderRadius: 4 }, img(d.img, { width: 256, height: 128, marginLeft: -4, marginTop: -4 }));
+    if (d.img) return img(d.img, { width: 64, height: 64, objectFit: d.imgKind === "skin" ? "contain" : "cover", borderRadius: 12 });
+    return h("div", { display: "flex", width: 64, height: 64, borderRadius: 12, background: "rgba(255,255,255,0.08)" });
+  })();
+  return h(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      width: "100%",
+      height: "100%",
+      padding: "40px 60px 34px",
+      background: "radial-gradient(ellipse 50% 60% at 15% 20%, rgba(236,72,153,0.22) 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)",
+      fontFamily: "Pretendard",
+      color: "#fff",
+    },
+    h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+      h("div", { display: "flex", alignItems: "center" },
+        d.logo ? img(d.logo, { width: 38, height: 38, marginRight: 12 }) : null,
+        h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: "#f9a8d4", letterSpacing: 5 }, "NEW REVIEW"),
+      ),
+      d.rating ? h("div", { display: "flex", fontSize: 30, color: "#facc15", letterSpacing: 4 }, "★".repeat(Math.min(5, d.rating)) + "☆".repeat(Math.max(0, 5 - d.rating))) : null,
+    ),
+    h("div", { display: "flex", marginTop: 6 },
+      h("div", { display: "flex", fontSize: 120, fontWeight: 900, color: "rgba(244,114,182,0.35)", lineHeight: 1, marginRight: 14, marginTop: -10 }, "“"),
+      h("div", { display: "flex", flexGrow: 1, marginTop: 24, fontSize: 30, fontWeight: 700, lineHeight: 1.5, color: "#f8fafc", wordBreak: "keep-all" }, body || "-"),
+    ),
+    h("div", { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", paddingTop: 22, borderTop: "1px solid rgba(255,255,255,0.08)" },
+      h("div", { display: "flex", alignItems: "center" },
+        avatar(d.avatar, 56, "linear-gradient(135deg,#f9a8d4,#db2777)"),
+        h("div", { display: "flex", flexDirection: "column", marginLeft: 14 },
+          h("div", { display: "flex", fontSize: 22, fontWeight: 700 }, d.author ?? "회원"),
+          h("div", { display: "flex", fontSize: 15, fontWeight: 500, color: "#64748b", marginTop: 2 }, d.time ?? ""),
+        ),
+      ),
+      h("div", { display: "flex", alignItems: "center", padding: "8px 16px 8px 8px", borderRadius: 18, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" },
+        h("div", { display: "flex", width: 64, height: 64, alignItems: "center", justifyContent: "center" }, thumb),
+        h("div", { display: "flex", flexDirection: "column", marginLeft: 12 },
+          h("div", { display: "flex", fontSize: 14, fontWeight: 500, color: "#94a3b8" }, "구매한 상품"),
+          h("div", { display: "flex", fontSize: 20, fontWeight: 900, maxWidth: 360, overflow: "hidden", whiteSpace: "nowrap" }, d.product ?? ""),
+        ),
+      ),
+    ),
+  );
+}
+
+export function reviewHeight(d) {
+  const len = Math.min(261, (d.body ?? "").length);
+  const lines = Math.max(1, Math.ceil(len / 32));
+  return Math.max(400, 250 + lines * 45);
+}

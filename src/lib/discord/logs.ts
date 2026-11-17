@@ -168,10 +168,19 @@ export function postReviewLog(
     authorDiscordId: string | null;
     productName: string;
     body: string;
+    reviewId?: string;
   },
 ) {
   const head = `## 후기 감사합니다\n**${escapeMd(input.productName)}**`;
   const task = (async () => {
+    // 이미지 한 장 (후기 내용 · 별점 · 작성자 · 구매 상품)
+    const slug = getShopById(shopId)?.slug;
+    if (input.reviewId && slug && (await import("@/lib/discord/rank-image").then((m) => m.hasRankImage()).catch(() => false))) {
+      return postV2Log(shopId, "review", [
+        mediaGallery([`https://doesmc.xyz/api/discord/rank-image/${slug}-review-${input.reviewId}.png`]),
+        textDisplay(`-# ${input.authorMention} 님 후기 감사합니다 · <t:${Math.floor(Date.now() / 1000)}:f>`),
+      ]);
+    }
     const avatar = input.authorDiscordId ? await discordAvatarUrl(shopId, input.authorDiscordId) : null;
     return postV2Log(shopId, "review", [
       avatar ? sectionText({ text: head, accessory: thumbnail(avatar) }) : textDisplay(head),

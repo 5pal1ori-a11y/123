@@ -73,7 +73,35 @@ function startPanel(shopName: string, g: Game) {
   };
 }
 
-function winPanel(shopName: string, g: Game) {
+async function winPanel(shopName: string, g: Game, shopSlug?: string) {
+  const card =
+    shopSlug && g.winnerId
+      ? await import("@/lib/discord/rank-image")
+          .then((m) =>
+            m.cardImageUrl(shopSlug, {
+              theme: "gold",
+              eyebrow: "NUMBER GUESS",
+              title: "정답자 탄생!",
+              people: [{ id: g.winnerId! }],
+              subtitle: `정답 ${g.answer.toLocaleString("ko-KR")}`,
+              chips: [`시도 ${g.attempts}번`, ...(g.prize ? [`보상 ${g.prize}`] : [])],
+              note: "다음 게임이 시작될 때까지 채널이 잠겨요",
+            }),
+          )
+          .catch(() => null)
+      : null;
+  if (card) {
+    return {
+      flags: MessageFlags.IS_COMPONENTS_V2,
+      components: [
+        container(
+          [mediaGallery([card]), textDisplay(`<@${g.winnerId}> 님이 맞혔어요! **상품** ${g.prize || "-"} — 티켓을 열어 받아 주세요`)],
+          0xf59e0b,
+        ),
+      ],
+      allowed_mentions: { users: g.winnerId ? [g.winnerId] : [] },
+    };
+  }
   return {
     flags: MessageFlags.IS_COMPONENTS_V2,
     components: [
@@ -172,7 +200,7 @@ export async function handleNumberGuess(shop: Shop, interaction: DiscordInteract
   await postChannelMessage(
     channelId,
     {
-      ...winPanel(shop.name, game),
+      ...(await winPanel(shop.name, game, shop.slug)),
       ...(game.messageId ? { message_reference: { message_id: game.messageId, fail_if_not_exists: false } } : {}),
     },
     shop.id,
@@ -245,7 +273,7 @@ export async function handleNumberGuessMessage(
   await react(channelId, messageId, reactionEmoji("does_check"), shop.id);
   await postChannelMessage(
     channelId,
-    { ...winPanel(shop.name, game), message_reference: { message_id: messageId, fail_if_not_exists: false } },
+    { ...(await winPanel(shop.name, game, shop.slug)), message_reference: { message_id: messageId, fail_if_not_exists: false } },
     shop.id,
   );
   if (game.messageId) await editChannelMessage(channelId, game.messageId, startPanel(shop.name, game), shop.id).catch(() => null);

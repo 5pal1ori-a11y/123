@@ -8,7 +8,7 @@ import { pushUserNotification } from "@/lib/store-ext";
 import { MC_RESALE_CATEGORY } from "@/lib/mc-account";
 import { listResaleRequests, RESALE_CAPE_CHOICES, resaleProductName, updateResaleRequest, type ResaleRequest } from "@/lib/resale";
 import { sendDiscordDm } from "@/lib/discord/dm";
-import { container, MessageFlags, separator, textDisplay } from "@/lib/discord/components";
+import { container, mediaGallery, MessageFlags, separator, textDisplay } from "@/lib/discord/components";
 
 const schema = z.discriminatedUnion("action", [
   z.object({
@@ -25,14 +25,19 @@ function capeLabels(r: ResaleRequest) {
   return r.capes.map((c) => RESALE_CAPE_CHOICES.find((x) => x.type === c)?.label ?? c).join(", ");
 }
 
-async function dm(r: ResaleRequest, title: string, lines: string[], color: number, shopId: string) {
+async function dm(r: ResaleRequest, title: string, lines: string[], color: number, shopId: string, image?: string | null) {
   if (!r.discordId) return;
   await ensureAppEmojis().catch(() => null);
   await sendDiscordDm(
     r.discordId,
     {
       flags: MessageFlags.IS_COMPONENTS_V2,
-      components: [container([textDisplay(`## ${title}`), separator(true, 1), textDisplay(lines.filter(Boolean).join("\n"))], color)],
+      components: [
+        container(
+          [...(image ? [mediaGallery([image])] : []), textDisplay(`## ${title}`), separator(true, 1), textDisplay(lines.filter(Boolean).join("\n"))],
+          color,
+        ),
+      ],
     },
     shopId,
   ).catch(() => null);
@@ -127,6 +132,22 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
       product.id,
     );
     await persistAsync();
+    const shopSlug = shop.slug;
+    const card = shopSlug
+      ? await import("@/lib/discord/rank-image")
+          .then((m) =>
+            m.cardImageUrl(shopSlug, {
+              theme: "green",
+              eyebrow: "RESALE APPROVED",
+              title: "대리판매 승인 완료",
+              ...(r.discordId ? { people: [{ id: r.discordId }] } : {}),
+              subtitle: r.showName ? r.ign : resaleProductName(r).replace("대리판매 ", ""),
+              chips: [`판매가 ${price.toLocaleString("ko-KR")}원`, `예상 정산 ${r.payout.toLocaleString("ko-KR")}원`],
+              note: "판매되면 다시 알려 드릴게요",
+            }),
+          )
+          .catch(() => null)
+      : null;
     await dm(
       r,
       `대리판매 요청이 승인되었습니다 ${appEmoji("does_check")}`,
@@ -138,6 +159,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
       ],
       0x22c55e,
       shop.id,
+      card,
     );
     return NextResponse.json({ ok: true, request: r, productId: product.id });
   } catch (e) {

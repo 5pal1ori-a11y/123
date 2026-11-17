@@ -654,3 +654,47 @@ export function profileTree(d) {
     ),
   );
 }
+
+/* ───────── 공용 발표 카드 ───────── */
+const CARD_THEME = {
+  party: { a: "#f472b6", glow: "rgba(236,72,153,0.30)", ring: "linear-gradient(135deg,#fde68a,#f472b6 50%,#8b5cf6)" },
+  gold: { a: "#facc15", glow: "rgba(250,204,21,0.28)", ring: "linear-gradient(135deg,#fef3c7,#fbbf24 50%,#b45309)" },
+  green: { a: "#4ade80", glow: "rgba(34,197,94,0.28)", ring: "linear-gradient(135deg,#bbf7d0,#22c55e 50%,#0e7490)" },
+  blue: { a: "#7dd3fc", glow: "rgba(56,189,248,0.28)", ring: "linear-gradient(135deg,#e0f2fe,#38bdf8 50%,#6366f1)" },
+  pink: { a: "#f9a8d4", glow: "rgba(236,72,153,0.26)", ring: "linear-gradient(135deg,#fce7f3,#ec4899 50%,#7c3aed)" },
+};
+export function cardTree(d) {
+  const t = CARD_THEME[d.theme] ?? CARD_THEME.party;
+  const people = (d.people ?? []).slice(0, 6);
+  const big = people.length <= 1;
+  const size = big ? 140 : people.length <= 3 ? 110 : 88;
+  const dots = [[80, 60, "#f472b6"], [1000, 70, "#facc15"], [60, 360, "#22d3ee"], [1020, 380, "#a78bfa"], [200, 410, "#4ade80"], [900, 30, "#fb923c"], [320, 40, "#38bdf8"], [780, 420, "#f472b6"]];
+  return h(
+    "div",
+    { display: "flex", flexDirection: "column", alignItems: "center", position: "relative", width: "100%", height: "100%", padding: "34px 60px 30px", background: `radial-gradient(ellipse 45% 60% at 50% 45%, ${t.glow} 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)`, fontFamily: "Pretendard", color: "#fff" },
+    ...(d.confetti === false ? [] : dots.map(([x, y, c]) => h("div", { display: "flex", position: "absolute", left: x, top: y, width: 12, height: 12, borderRadius: 3, background: c, transform: "rotate(25deg)", opacity: 0.75 }))),
+    h("div", { display: "flex", alignItems: "center" },
+      d.logo ? img(d.logo, { width: 32, height: 32, marginRight: 10 }) : null,
+      h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: t.a, letterSpacing: 6 }, d.eyebrow ?? ""),
+    ),
+    h("div", { display: "flex", marginTop: 8, fontSize: 42, fontWeight: 900, letterSpacing: -1.5 }, d.title ?? ""),
+    people.length
+      ? h("div", { display: "flex", marginTop: 20, gap: 26, alignItems: "flex-start" },
+          ...people.map((p, i) =>
+            h("div", { display: "flex", flexDirection: "column", alignItems: "center", width: size + 40 },
+              h("div", { display: "flex", alignItems: "center" },
+                avatar(p.avatar, size, t.ring, t.glow),
+              ),
+              h("div", { display: "flex", marginTop: 10, fontSize: big ? 26 : 19, fontWeight: 700, maxWidth: size + 40, overflow: "hidden", whiteSpace: "nowrap" }, p.name ?? "회원"),
+              p.label ? h("div", { display: "flex", fontSize: 14, fontWeight: 500, color: "#94a3b8", marginTop: 2 }, p.label) : null,
+            ),
+          ),
+        )
+      : null,
+    d.subtitle ? h("div", { display: "flex", marginTop: 16, fontSize: 30, fontWeight: 900, color: t.a, letterSpacing: -0.8, maxWidth: 960, overflow: "hidden", whiteSpace: "nowrap" }, d.subtitle) : null,
+    (d.chips ?? []).length
+      ? h("div", { display: "flex", marginTop: 14, gap: 10 }, ...(d.chips ?? []).slice(0, 4).map((c) => chip(c, "#e2e8f0", "rgba(255,255,255,0.06)", "rgba(255,255,255,0.14)")))
+      : null,
+    d.note ? h("div", { display: "flex", marginTop: "auto", paddingTop: 12, fontSize: 15, fontWeight: 500, color: "#64748b" }, d.note) : null,
+  );
+}

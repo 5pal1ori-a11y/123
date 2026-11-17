@@ -4,7 +4,7 @@ function clean(v: string | undefined | null) {
   return (v ?? "").replace(/^\uFEFF/, "").trim();
 }
 
-async function expectedSecret() {
+export async function expectedSecret() {
   let expected = clean(process.env.AOS_BRIDGE_SECRET) || clean(process.env.AUTH_SECRET);
   try {
     const { getCloudflareContext } = await import("@opennextjs/cloudflare");

@@ -215,6 +215,36 @@ async function postInviteLog(shopId: string, memberId: string, avatar: string | 
   const ch = getShopSettings(shopId).inviteLogChannelId;
   if (!ch) return;
   const now = Math.floor(Date.now() / 1000);
+  const slug = getShopById(shopId)?.slug;
+  const card =
+    inviter && slug
+      ? await import("@/lib/discord/rank-image")
+          .then((m) =>
+            m.cardImageUrl(slug, {
+              theme: "blue",
+              eyebrow: "NEW INVITE",
+              title: "새 멤버가 왔어요",
+              people: [
+                { id: inviter, label: "초대한 사람" },
+                { id: memberId, label: "새 멤버" },
+              ],
+              chips: [`초대 ${count}명째`],
+            }),
+          )
+          .catch(() => null)
+      : null;
+  if (card) {
+    await postChannelMessage(
+      ch,
+      {
+        flags: MessageFlags.IS_COMPONENTS_V2,
+        components: [container([mediaGallery([card]), textDisplay(`-# <@${inviter}> 님이 <@${memberId}> 님을 초대했어요 · <t:${now}:R>`)], 0x38bdf8)],
+        allowed_mentions: { parse: [] },
+      },
+      shopId,
+    ).catch(() => null);
+    return;
+  }
   await postChannelMessage(
     ch,
     {

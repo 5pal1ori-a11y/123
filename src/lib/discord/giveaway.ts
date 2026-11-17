@@ -182,10 +182,29 @@ export async function finishGiveaway(id: string) {
   const announce = g.winnerIds.length
     ? `## ${appEmoji("does_party")} 당첨을 축하합니다!\n**${g.prize}**\n${g.winnerIds.map((uid) => `<@${uid}>`).join(" ")}\n-# 주최자 <@${g.hostId}> 에게 연락해 경품을 받아 가세요.`
     : `## 이벤트 종료\n**${g.prize}** 이벤트에 참여자가 없어 당첨자가 없어요.`;
+  const card = g.winnerIds.length
+    ? await import("@/lib/discord/rank-image")
+        .then((m) =>
+          m.cardImageUrl(g.shopSlug, {
+            theme: "party",
+            eyebrow: "GIVEAWAY WINNER",
+            title: "당첨을 축하합니다!",
+            people: g.winnerIds.slice(0, 6).map((id) => ({ id })),
+            subtitle: g.prize,
+            chips: [`참여 ${g.entrants.length.toLocaleString("ko-KR")}명`, `당첨 ${g.winnerIds.length}명`],
+            note: "주최자에게 연락해 경품을 받아 가세요",
+          }),
+        )
+        .catch(() => null)
+    : null;
   await postChannelMessage(
     g.channelId,
     {
-      ...v2Message([textDisplay(announce)]),
+      ...v2Message(
+        card
+          ? [mediaGallery([card]), textDisplay(`${g.winnerIds.map((uid) => `<@${uid}>`).join(" ")}\n-# 주최자 <@${g.hostId}> 에게 연락해 경품을 받아 가세요.`)]
+          : [textDisplay(announce)],
+      ),
       allowed_mentions: { users: g.winnerIds },
       ...(g.messageId ? { message_reference: { message_id: g.messageId, fail_if_not_exists: false } } : {}),
     },

@@ -555,6 +555,73 @@ export async function renderProfileImage(shopId: string, discordId: string, hash
   return postRender(d);
 }
 
+/* ───────── 공용 발표 카드 (서명된 주소) ───────── */
+export type CardPayload = {
+  theme: "party" | "gold" | "green" | "blue" | "pink";
+  eyebrow: string;
+  title: string;
+  people?: { id: string; label?: string }[];
+  subtitle?: string;
+  chips?: string[];
+  note?: string;
+};
+
+function b64url(str: string) {
+  return Buffer.from(str, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function fromB64url(str: string) {
+  return Buffer.from(str.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+}
+async function cardSig(slug: string, body: string) {
+  const { expectedSecret } = await import("@/lib/internal-secret");
+  const secret = (await expectedSecret()) || "does-card";
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`card:${slug}:${body}`));
+  return [...new Uint8Array(mac)].slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** 발표 카드 이미지 주소 — 내용은 주소에 담고, 서명이 맞아야 그린다 (남이 문구를 바꿔 만들 수 없음) */
+export async function cardImageUrl(shopSlug: string, p: CardPayload) {
+  if (!(await rankBinding())) return null;
+  const clean: CardPayload = {
+    theme: p.theme,
+    eyebrow: p.eyebrow.slice(0, 40),
+    title: p.title.slice(0, 40),
+    ...(p.people?.length ? { people: p.people.slice(0, 6).map((x) => ({ id: x.id, ...(x.label ? { label: x.label.slice(0, 20) } : {}) })) } : {}),
+    ...(p.subtitle ? { subtitle: p.subtitle.slice(0, 60) } : {}),
+    ...(p.chips?.length ? { chips: p.chips.slice(0, 4).map((c) => c.slice(0, 30)) } : {}),
+    ...(p.note ? { note: p.note.slice(0, 80) } : {}),
+  };
+  const body = b64url(JSON.stringify(clean));
+  return `https://doesmc.xyz/api/discord/rank-image/${shopSlug}-card-${body}-${await cardSig(shopSlug, body)}.png`;
+}
+
+export async function renderCardImage(shopSlug: string, body: string, sig: string) {
+  if ((await cardSig(shopSlug, body)) !== sig) return null;
+  const { getShopBySlug } = await import("@/lib/store");
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return null;
+  let p: CardPayload;
+  try {
+    p = JSON.parse(fromB64url(body)) as CardPayload;
+  } catch {
+    return null;
+  }
+  const guildId = getShopSettings(shop.id).discordGuildId || MFA_DISCORD_GUILD_ID;
+  const ids = (p.people ?? []).map((x) => x.id).filter((x) => /^\d{15,25}$/.test(x));
+  const names = ids.length ? await resolveNames(guildId, ids) : {};
+  return postRender({
+    kind: "card",
+    theme: p.theme,
+    eyebrow: p.eyebrow,
+    title: p.title,
+    people: (p.people ?? []).map((x) => ({ name: names[x.id]?.name ?? "회원", avatar: names[x.id]?.avatar ?? null, label: x.label })),
+    subtitle: p.subtitle,
+    chips: p.chips,
+    note: p.note,
+  });
+}
+
 async function hashOf(d: RankImageData | QueueImageData | StockImageData | StatusImageData) {
   const { updated: _u, ...rest } = d;
   void _u;

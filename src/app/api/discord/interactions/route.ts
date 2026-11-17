@@ -166,6 +166,7 @@ const UPDATE_IN_PLACE = new Set([
   "emb_reset",
   "emb_ch",
   "stock_refresh",
+  "stock_pg",
   "tk_cat",
   "tk_roles",
   "tk_log",

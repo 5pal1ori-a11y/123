@@ -165,6 +165,8 @@ export async function queueImageData(
 export type StockImageData = {
   kind: "stock";
   title: string;
+  page: number;
+  pages: string[];
   inStock: number;
   soldOut: number;
   updated: string;
@@ -176,10 +178,10 @@ export type StockImageData = {
   }[];
 };
 
-const STOCK_PER_GROUP = 12;
+const STOCK_PER_GROUP = 24;
 
 /** 재고현황 이미지 데이터 — 구매 가능한 상품만 그림과 함께, 품절은 개수로 */
-export async function stockImageData(shopId: string): Promise<StockImageData> {
+export async function stockImageData(shopId: string, page = 0): Promise<StockImageData> {
   const shop = getShopById(shopId);
   const { listProducts } = await import("@/lib/store");
   const { CAPE_BY_TYPE } = await import("@/lib/capes-data");
@@ -194,14 +196,20 @@ export async function stockImageData(shopId: string): Promise<StockImageData> {
     if (list) list.push(p);
     else groups.set(key, [p]);
   }
-  const inStock = products.filter((p) => p.availableCount > 0).length;
+  const all = [...groups.entries()].slice(0, 15);
+  const idx = Math.min(Math.max(0, page), Math.max(0, all.length - 1));
+  const cur = all.slice(idx, idx + 1);
+  const curList = cur[0]?.[1] ?? [];
+  const inStock = curList.filter((p) => p.availableCount > 0).length;
   return {
     kind: "stock",
     title: `${shop?.name ?? "DOES"} 재고현황`,
+    page: idx,
+    pages: all.map(([n]) => n),
     inStock,
-    soldOut: products.length - inStock,
+    soldOut: curList.length - inStock,
     updated: stamp(),
-    groups: [...groups.entries()].slice(0, 8).map(([name, list]) => {
+    groups: cur.map(([name, list]) => {
       const avail = list.filter((p) => p.availableCount > 0);
       const shown = avail.slice(0, STOCK_PER_GROUP);
       return {
@@ -230,22 +238,69 @@ export async function stockImageData(shopId: string): Promise<StockImageData> {
   };
 }
 
-export async function stockImageUrl(shopId: string) {
+/** 카테고리 한 장의 이미지 주소 + 카테고리 목록 (이미지 워커가 없으면 null) */
+export async function stockImageUrl(shopId: string, page = 0) {
   if (!(await rankBinding())) return null;
   const shop = getShopById(shopId);
   if (!shop) return null;
-  return `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-stock-${await hashOf(await stockImageData(shopId))}.png`;
+  const d = await stockImageData(shopId, page);
+  const { updated: _u, ...rest } = d;
+  void _u;
+  return { url: `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-stock-${d.page}-${await hashOf(rest as StockImageData)}.png`, page: d.page, pages: d.pages };
 }
 
-export async function renderStockImage(shopId: string) {
+export async function renderStockImage(shopId: string, page = 0) {
   const bind = await rankBinding();
   if (!bind) return null;
-  const d = await stockImageData(shopId);
+  const d = await stockImageData(shopId, page);
   const res = await bind.fetch("https://rank-image/", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: d }) });
   return res.ok ? res : null;
 }
 
-async function hashOf(d: RankImageData | QueueImageData | StockImageData) {
+export type StatusImageData = { kind: "status"; title: string; status: string; name: string; avatar: string | null; since: string; updated: string };
+
+function kstTime(iso: string) {
+  const d = new Date(new Date(iso).getTime() + 9 * 3_600_000);
+  return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+export async function statusImageData(shopId: string): Promise<StatusImageData> {
+  const shop = getShopById(shopId);
+  const settings = getShopSettings(shopId);
+  const guildId = settings.discordGuildId || MFA_DISCORD_GUILD_ID;
+  const { statusUserId } = await import("@/lib/discord/server-status");
+  const userId = statusUserId(settings);
+  const names = await resolveNames(guildId, [userId]);
+  const last = settings.serverStatusLast ?? null;
+  const status = last?.status ?? "offline";
+  return {
+    kind: "status",
+    title: `${shop?.name ?? "DOES"} 관리자 상황`,
+    status,
+    name: names[userId]?.name ?? "관리자",
+    avatar: names[userId]?.avatar ?? null,
+    since: last ? (status === "offline" ? `마지막 접속 · ${kstTime(last.since)}` : `${kstTime(last.since)}부터 접속 중`) : "",
+    updated: stamp(),
+  };
+}
+
+export async function statusImageUrl(shopId: string) {
+  if (!(await rankBinding())) return null;
+  const shop = getShopById(shopId);
+  if (!shop) return null;
+  const d = await statusImageData(shopId);
+  return `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-status-${await hashOf(d)}.png`;
+}
+
+export async function renderStatusImage(shopId: string) {
+  const bind = await rankBinding();
+  if (!bind) return null;
+  const d = await statusImageData(shopId);
+  const res = await bind.fetch("https://rank-image/", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: d }) });
+  return res.ok ? res : null;
+}
+
+async function hashOf(d: RankImageData | QueueImageData | StockImageData | StatusImageData) {
   const { updated: _u, ...rest } = d;
   void _u;
   const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(`v3:${JSON.stringify(rest)}`));

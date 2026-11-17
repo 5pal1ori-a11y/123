@@ -106,17 +106,44 @@ export function buildStockPanel(shopId: string, mode: "board" | "view") {
   return { ...v2Message(kids), allowed_mentions: { parse: [] as string[] } };
 }
 
-/** 재고현황을 이미지 한 장으로 (이미지 워커가 없으면 null → 글자판) */
-async function buildStockImagePanel(shopId: string) {
-  const url = await import("@/lib/discord/rank-image").then((m) => m.stockImageUrl(shopId)).catch(() => null);
-  if (!url) return null;
+/**
+ * 재고현황을 카테고리별 이미지 한 장으로.
+ * board — 채널 고정판: 첫 카테고리 + 카테고리 버튼 (누르면 나만 보이는 창으로 그 카테고리)
+ * view — 나만 보이는 창: ◀ ▶ 로 카테고리를 넘긴다
+ * 이미지 워커가 없으면 null → 글자판
+ */
+export async function buildStockImagePanel(shopId: string, mode: "board" | "view" = "board", page = 0) {
+  const r = await import("@/lib/discord/rank-image").then((m) => m.stockImageUrl(shopId, page)).catch(() => null);
+  if (!r) return null;
   const slug = getShopById(shopId)?.slug ?? "shop";
   const now = Math.floor(Date.now() / 1000);
+  const n = r.pages.length;
+  const rows: unknown[] = [];
+  if (mode === "board") {
+    for (let i = 0; i < n && i < 15; i += 5) {
+      rows.push(
+        actionRow(
+          ...r.pages.slice(i, i + 5).map((name, k) =>
+            button({ label: name.slice(0, 40), customId: cid(slug, "stock_cat", String(i + k)), style: i + k === r.page ? ButtonStyle.PRIMARY : ButtonStyle.SECONDARY }),
+          ),
+        ),
+      );
+    }
+    rows.push(actionRow(button({ label: "사이트에서 보기", url: shopUrl(slug, "/dashboard"), style: ButtonStyle.LINK })));
+  } else {
+    rows.push(
+      actionRow(
+        button({ label: "◀ 이전", customId: cid(slug, "stock_pg", String((r.page - 1 + n) % n)), disabled: n < 2 }),
+        button({ label: `${r.page + 1} / ${n} · ${r.pages[r.page] ?? ""}`.slice(0, 80), customId: cid(slug, "stock_pg", String(r.page)), style: ButtonStyle.PRIMARY, disabled: true }),
+        button({ label: "다음 ▶", customId: cid(slug, "stock_pg", String((r.page + 1) % n)), disabled: n < 2 }),
+      ),
+    );
+  }
   return {
     ...v2Message([
-      mediaGallery([url]),
-      textDisplay(`-# 10분마다 갱신 · 마지막 갱신 <t:${now}:R>`),
-      actionRow(button({ label: "사이트에서 보기", url: shopUrl(slug, "/dashboard"), style: ButtonStyle.LINK })),
+      mediaGallery([r.url]),
+      textDisplay(mode === "board" ? `-# 아래 버튼으로 다른 카테고리를 볼 수 있어요 · 10분마다 갱신 · <t:${now}:R>` : `-# ${r.pages[r.page] ?? ""} · <t:${now}:R> 기준`),
+      ...rows,
     ]),
     allowed_mentions: { parse: [] as string[] },
   };
@@ -127,7 +154,7 @@ export async function refreshStockBoard(shopId: string) {
   if (!settings.discordBotEnabled || !settings.discordStockChannelId) return { ok: false as const };
   const channelId = settings.discordStockChannelId;
   await ensureAppEmojis(shopId);
-  const payload = (await buildStockImagePanel(shopId)) ?? buildStockPanel(shopId, "board");
+  const payload = (await buildStockImagePanel(shopId, "board", 0)) ?? buildStockPanel(shopId, "board");
   if (settings.discordStockMessageId) {
     const edited = await editChannelMessage(channelId, settings.discordStockMessageId, payload, shopId);
     if (edited.ok) return { ok: true as const, updated: true as const };

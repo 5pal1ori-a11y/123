@@ -67,12 +67,36 @@ export function buildServerStatusPanel(shopId: string) {
   };
 }
 
+/** 관리자 상황을 이미지 한 장으로 (이미지 워커가 없으면 글자판) */
+export async function buildServerStatusPanelAuto(shopId: string) {
+  const url = await import("@/lib/discord/rank-image").then((m) => m.statusImageUrl(shopId)).catch(() => null);
+  if (!url) return buildServerStatusPanel(shopId);
+  const last = getShopSettings(shopId).serverStatusLast ?? null;
+  const status: PresenceStatus = last?.status ?? "offline";
+  const since = last ? Math.floor(new Date(last.since).getTime() / 1000) : null;
+  const now = Math.floor(Date.now() / 1000);
+  const color = status === "idle" || status === "dnd" ? 0xf59e0b : status === "online" ? 0x22c55e : 0xef4444;
+  return {
+    flags: MessageFlags.IS_COMPONENTS_V2,
+    components: [
+      container(
+        [
+          mediaGallery([url]),
+          textDisplay(`-# ${since ? `${status === "offline" ? "마지막 접속" : "접속한 지"} <t:${since}:R> · ` : ""}3분마다 갱신 · 확인 <t:${now}:R>`),
+        ],
+        color,
+      ),
+    ],
+    allowed_mentions: { parse: [] as string[] },
+  };
+}
+
 /** 올라가 있는 모든 패널을 고쳐 쓴다. 지워진 패널은 목록에서 뺀다 */
 export async function refreshServerStatusPanels(shopId: string) {
   const settings = getShopSettings(shopId);
   const panels = settings.serverStatusPanels ?? [];
   if (!panels.length) return { ok: true as const, panels: 0 };
-  const payload = buildServerStatusPanel(shopId);
+  const payload = await buildServerStatusPanelAuto(shopId);
   const alive: typeof panels = [];
   for (const p of panels) {
     const r = await editChannelMessage(p.channelId, p.messageId, payload, shopId).catch(() => null);
@@ -89,7 +113,7 @@ export async function refreshServerStatusPanels(shopId: string) {
 /** 패널을 새로 올리고 목록에 넣는다 */
 export async function postServerStatusPanel(shopId: string, channelId: string, userId?: string | null) {
   if (userId) updateShopSettings(shopId, { serverStatusUserId: userId });
-  const posted = await postChannelMessage(channelId, buildServerStatusPanel(shopId), shopId);
+  const posted = await postChannelMessage(channelId, await buildServerStatusPanelAuto(shopId), shopId);
   const id = posted.ok ? (posted.json as { id?: string } | null)?.id : null;
   if (!id) return { ok: false as const, status: posted.status };
   const panels = [...(getShopSettings(shopId).serverStatusPanels ?? []), { channelId, messageId: String(id) }].slice(

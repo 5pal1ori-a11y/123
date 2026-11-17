@@ -7,6 +7,8 @@ import {
   parseCid,
   plainEphemeral,
   type DiscordInteraction,
+  v2Ephemeral,
+  v2Update,
 } from "@/lib/discord/components";
 import {
   findShopByGuildIdLoose,
@@ -567,6 +569,13 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
     if (action === "gw_join") {
       const { handleGiveawayJoin } = await import("@/lib/discord/giveaway");
       return handleGiveawayJoin(shop, payload, actor.id);
+    }
+    if (action === "stock_cat" || action === "stock_pg") {
+      // 카테고리 버튼(고정판) → 나만 보이는 창 / ◀ ▶ (그 창) → 그 자리에서 넘김
+      const { buildStockImagePanel } = await import("@/lib/discord/stock-board");
+      const panel = await buildStockImagePanel(shop.id, "view", Number(payload) || 0);
+      if (panel) return action === "stock_pg" ? v2Update(panel.components) : v2Ephemeral(panel.components);
+      return handleStockView(shop.slug, action === "stock_pg");
     }
     if (action === "stock_view") return handleStockView(shop.slug, false);
     if (action === "stock_refresh") return handleStockView(shop.slug, true);

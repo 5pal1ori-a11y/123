@@ -298,3 +298,49 @@ export function stockHeight(d) {
   for (const g of d.groups ?? []) hgt += 30 + 36 + (g.items.length ? Math.ceil(g.items.length / 2) * 77 + 6 : 34) + (g.more ? 28 : 0);
   return hgt;
 }
+
+/* ───────── 관리자 상황 ───────── */
+export function statusTree(d) {
+  const a = ADMIN[d.status] ?? ADMIN.offline;
+  const online = d.status !== "offline";
+  return h(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      width: "100%",
+      height: "100%",
+      padding: "44px 60px 34px",
+      background: `radial-gradient(ellipse 50% 60% at 50% 55%, ${a.color}40 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)`,
+      fontFamily: "Pretendard",
+      color: "#fff",
+    },
+    h("div", { display: "flex", alignItems: "center" },
+      d.logo ? img(d.logo, { width: 62, height: 62, marginRight: 16 }) : null,
+      h("div", { display: "flex", flexDirection: "column" },
+        h("div", { display: "flex", fontSize: 15, fontWeight: 700, color: a.color, letterSpacing: 5 }, "ADMIN STATUS"),
+        h("div", { display: "flex", fontSize: 38, fontWeight: 900, marginTop: 2, letterSpacing: -1.2 }, d.title ?? "관리자 상황"),
+      ),
+    ),
+    h("div", { display: "flex", alignItems: "center", justifyContent: "center", marginTop: 26 },
+      h("div", { display: "flex", position: "relative" },
+        h("div", { display: "flex", width: 196, height: 196, borderRadius: 196, padding: 6, background: `linear-gradient(135deg, ${a.color}, ${a.color}55)`, boxShadow: `0 0 60px ${a.color}88` },
+          d.avatar
+            ? img(d.avatar, { width: 184, height: 184, borderRadius: 184, objectFit: "cover", filter: online ? "none" : "grayscale(0.85) brightness(0.7)" })
+            : h("div", { display: "flex", width: 184, height: 184, borderRadius: 184, background: "#1f2937" }),
+        ),
+        h("div", { display: "flex", position: "absolute", right: 6, bottom: 6, width: 46, height: 46, borderRadius: 46, background: a.color, border: "7px solid #0b0f1a" }),
+      ),
+      h("div", { display: "flex", flexDirection: "column", marginLeft: 44 },
+        h("div", { display: "flex", fontSize: 26, fontWeight: 700, color: "#cbd5e1" }, d.name ?? "관리자"),
+        h("div", { display: "flex", fontSize: 64, fontWeight: 900, letterSpacing: -2.5, marginTop: 2, color: "#fff" }, a.label.replace("관리자 ", "")),
+        h("div", { display: "flex", alignItems: "center", marginTop: 10, padding: "8px 16px", borderRadius: 30, background: `${a.color}22`, border: `1.5px solid ${a.color}77`, fontSize: 19, fontWeight: 700, color: "#fff" }, a.sub),
+        d.since ? h("div", { display: "flex", marginTop: 12, fontSize: 18, fontWeight: 500, color: "#94a3b8" }, d.since) : null,
+      ),
+    ),
+    h("div", { display: "flex", justifyContent: "space-between", marginTop: "auto", paddingTop: 18, fontSize: 15, fontWeight: 500, color: "#475569" },
+      h("div", { display: "flex" }, "문의는 티켓으로 남겨 주세요 · 돌아오면 순서대로 답변해요"),
+      h("div", { display: "flex" }, d.updated ?? ""),
+    ),
+  );
+}

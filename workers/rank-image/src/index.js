@@ -1,6 +1,6 @@
 // DOES 랭킹 이미지 워커 — vendix 가 서비스 바인딩으로 POST {data} 를 보내면 PNG 를 돌려준다
 import { ImageResponse, CustomFont, cache } from "@cf-wasm/og/workerd";
-import { queueTree, rankTree, rankHeight, stockTree, stockHeight } from "./render.js";
+import { queueTree, rankTree, rankHeight, statusTree, stockTree, stockHeight } from "./render.js";
 
 const fonts = {};
 async function font(w) {
@@ -33,20 +33,24 @@ export default {
     if (request.method !== "POST") return new Response("POST only", { status: 405 });
     const body = await request.json().catch(() => null);
     const d = body?.data;
-    if (!d || (d.kind !== "queue" && d.kind !== "stock" && !Array.isArray(d.rows))) return new Response("bad", { status: 400 });
+    if (!d || (!["queue", "stock", "status"].includes(d.kind) && !Array.isArray(d.rows))) return new Response("bad", { status: 400 });
+    if (d.kind === "status") d.avatar = await toDataUrl(d.avatar);
     if (d.kind === "stock") {
       for (const g of d.groups ?? []) g.items = await Promise.all(g.items.map(async (it) => ({ ...it, img: await toDataUrl(it.img, it.imgKind === "thumb") })));
     }
-    else if (d.kind === "queue") d.queue = await Promise.all((d.queue ?? []).slice(0, 8).map(async (r) => ({ ...r, avatar: await toDataUrl(r.avatar) })));
+    else if (d.kind === "status") {
+      /* 위에서 처리 */
+    } else if (d.kind === "queue") d.queue = await Promise.all((d.queue ?? []).slice(0, 8).map(async (r) => ({ ...r, avatar: await toDataUrl(r.avatar) })));
     else d.rows = await Promise.all(d.rows.slice(0, 10).map(async (r) => ({ ...r, avatar: await toDataUrl(r.avatar) })));
     logoUrl ??= await toDataUrl("https://doesmc.xyz/emoji/does_logo.png");
     d.logo = logoUrl;
     const [medium, bold, black] = await Promise.all([font("Medium"), font("Bold"), font("Black")]);
     const queue = d.kind === "queue";
     const stock = d.kind === "stock";
-    return ImageResponse.async(stock ? stockTree(d) : queue ? queueTree(d) : rankTree(d), {
+    const status = d.kind === "status";
+    return ImageResponse.async(status ? statusTree(d) : stock ? stockTree(d) : queue ? queueTree(d) : rankTree(d), {
       width: 1100,
-      height: stock ? stockHeight(d) : queue ? (d.queue?.length ? 700 : 590) : rankHeight(d),
+      height: status ? 440 : stock ? stockHeight(d) : queue ? (d.queue?.length ? 700 : 590) : rankHeight(d),
       fonts: [
         new CustomFont("Pretendard", () => medium, { weight: 500 }),
         new CustomFont("Pretendard", () => bold, { weight: 700 }),

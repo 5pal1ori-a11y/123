@@ -174,7 +174,7 @@ export type StockImageData = {
     name: string;
     soldCount: number;
     more: number;
-    items: { name: string; price: number; stock: string; low: boolean; img: string | null; imgKind: "skin" | "cape" | "thumb" | null }[];
+    items: { name: string; price: number; stock: string; low: boolean; sold: boolean; img: string | null; imgKind: "skin" | "cape" | "thumb" | null }[];
   }[];
 };
 
@@ -210,20 +210,23 @@ export async function stockImageData(shopId: string, page = 0): Promise<StockIma
     soldOut: curList.length - inStock,
     updated: stamp(),
     groups: cur.map(([name, list]) => {
-      const avail = list.filter((p) => p.availableCount > 0);
-      const shown = avail.slice(0, STOCK_PER_GROUP);
+      // 구매 가능한 상품 먼저, 품절은 뒤에 흐리게
+      const sorted = [...list].sort((a, b) => Number(b.availableCount > 0) - Number(a.availableCount > 0));
+      const shown = sorted.slice(0, STOCK_PER_GROUP);
       return {
         name,
-        soldCount: list.length - avail.length,
-        more: avail.length - shown.length,
+        soldCount: list.length - list.filter((p) => p.availableCount > 0).length,
+        more: sorted.length - shown.length,
         items: shown.map((p) => {
           const manual = p.fulfillment === "manual";
+          const sold = p.availableCount <= 0;
           const capeHash = p.productKind === "mc_cape" && p.capeType ? CAPE_BY_TYPE[p.capeType]?.hash : null;
           return {
             name: p.name,
             price: p.price,
-            stock: manual ? "판매중" : `재고 ${p.availableCount.toLocaleString("ko-KR")}`,
-            low: !manual && p.availableCount <= 2,
+            stock: sold ? "품절" : manual ? "판매중" : `재고 ${p.availableCount.toLocaleString("ko-KR")}`,
+            low: !sold && !manual && p.availableCount <= 2,
+            sold,
             imgKind: p.productKind === "mc_account" ? "skin" : capeHash ? "cape" : p.thumbnail?.trim() ? "thumb" : null,
             img:
               p.productKind === "mc_account"

@@ -573,7 +573,9 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
     if (action === "stock_cat" || action === "stock_pg") {
       // 카테고리 버튼(고정판) → 나만 보이는 창 / ◀ ▶ (그 창) → 그 자리에서 넘김
       const { buildStockImagePanel } = await import("@/lib/discord/stock-board");
-      const panel = await buildStockImagePanel(shop.id, "view", Number(payload) || 0);
+      // 고정 재고판(나만 보기 아님)에서 누르면 재고판 자체가 넘어간다
+      const onBoard = Boolean(interaction.message?.id) && interaction.message?.id === getShopSettings(shop.id).discordStockMessageId;
+      const panel = await buildStockImagePanel(shop.id, onBoard ? "board" : "view", Number(payload) || 0);
       if (panel) return action === "stock_pg" ? v2Update(panel.components) : v2Ephemeral(panel.components);
       return handleStockView(shop.slug, action === "stock_pg");
     }

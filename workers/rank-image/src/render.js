@@ -230,13 +230,15 @@ function stockThumb(it) {
 function stockItem(it) {
   return h(
     "div",
-    { display: "flex", alignItems: "center", width: STOCK_COL, padding: "10px 4px", borderBottom: "1px solid rgba(255,255,255,0.06)" },
+    { display: "flex", alignItems: "center", width: STOCK_COL, padding: "10px 4px", borderBottom: "1px solid rgba(255,255,255,0.06)", opacity: it.sold ? 0.42 : 1 },
     stockThumb(it),
     h("div", { display: "flex", flexDirection: "column", marginLeft: 14, flexGrow: 1, minWidth: 0 },
       h("div", { display: "flex", fontSize: 19, fontWeight: 700, color: "#f1f5f9", maxWidth: 250, overflow: "hidden", whiteSpace: "nowrap" }, it.name),
       h("div", { display: "flex", marginTop: 4, fontSize: 19, fontWeight: 900, color: "#fff", letterSpacing: -0.3 }, `₩${num(it.price)}`),
     ),
-    h("div", { display: "flex", padding: "6px 12px", borderRadius: 30, fontSize: 15, fontWeight: 700, background: it.low ? "rgba(245,158,11,0.15)" : "rgba(34,197,94,0.14)", color: it.low ? "#fbbf24" : "#4ade80", border: `1px solid ${it.low ? "rgba(245,158,11,0.4)" : "rgba(34,197,94,0.35)"}` }, it.stock),
+    it.sold
+      ? h("div", { display: "flex", padding: "6px 12px", borderRadius: 30, fontSize: 15, fontWeight: 700, background: "rgba(148,163,184,0.12)", color: "#cbd5e1", border: "1px solid rgba(148,163,184,0.35)" }, "품절")
+      : h("div", { display: "flex", padding: "6px 12px", borderRadius: 30, fontSize: 15, fontWeight: 700, background: it.low ? "rgba(245,158,11,0.15)" : "rgba(34,197,94,0.14)", color: it.low ? "#fbbf24" : "#4ade80", border: `1px solid ${it.low ? "rgba(245,158,11,0.4)" : "rgba(34,197,94,0.35)"}` }, it.stock),
   );
 }
 
@@ -276,7 +278,7 @@ export function stockTree(d) {
       h("div", { display: "flex", flexDirection: "column", marginTop: 30 },
         h("div", { display: "flex", alignItems: "center" },
           h("div", { display: "flex", fontSize: 24, fontWeight: 900, letterSpacing: -0.5 }, g.name),
-          h("div", { display: "flex", marginLeft: 12, fontSize: 16, fontWeight: 700, color: "#4ade80" }, `${g.items.length}종 판매중`),
+          h("div", { display: "flex", marginLeft: 12, fontSize: 16, fontWeight: 700, color: "#4ade80" }, `${g.items.filter((x) => !x.sold).length}종 판매중`),
           g.soldCount ? h("div", { display: "flex", marginLeft: 10, fontSize: 16, fontWeight: 500, color: "#64748b" }, `· 품절 ${g.soldCount}`) : null,
           h("div", { display: "flex", flexGrow: 1, height: 1, marginLeft: 16, background: "linear-gradient(90deg, rgba(255,255,255,0.18), rgba(255,255,255,0))" }),
         ),

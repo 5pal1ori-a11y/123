@@ -115,6 +115,44 @@ function nextPremium(user: ShopUser, plan: PremiumPlanId, days: number): NonNull
   };
 }
 
+/** 프리미엄 안내 DM (카드 이미지 + 글자) */
+async function premiumDm(shopId: string, userId: string, kind: "start" | "soon" | "expired") {
+  const user = getUserById(userId);
+  const p = user?.premium;
+  if (!user?.discordId || !p) return;
+  const { getShopById } = await import("@/lib/store");
+  const slug = getShopById(shopId)?.slug;
+  if (!slug) return;
+  const plan = PREMIUM_PLANS[p.plan];
+  const end = new Date(new Date(p.expiresAt).getTime() + 9 * 3_600_000);
+  const endText = `${end.getUTCFullYear()}.${String(end.getUTCMonth() + 1).padStart(2, "0")}.${String(end.getUTCDate()).padStart(2, "0")}`;
+  const spec = {
+    start: { theme: "gold" as const, eyebrow: "PREMIUM", title: `${plan.name} 시작!`, chips: [`${endText}까지`, ...(plan.monthlyPoints ? [`매월 ${plan.monthlyPoints.toLocaleString("ko-KR")}P`] : []), `${plan.extraDiscountPercent}% 추가 할인`], note: "혜택이 바로 적용됐어요", text: `**${plan.name}** 구독이 시작됐어요! ${endText}까지 혜택이 적용돼요.` },
+    soon: { theme: "pink" as const, eyebrow: "PREMIUM", title: "구독이 곧 끝나요", chips: [`${endText} 만료`, "3일 남음"], note: "연장하면 남은 기간에 이어서 붙어요", text: `**${plan.name}** 구독이 **${endText}** 에 끝나요. 사이트 › 프리미엄 플랜에서 연장할 수 있어요.` },
+    expired: { theme: "blue" as const, eyebrow: "PREMIUM", title: "구독이 만료됐어요", chips: [`${endText} 만료`], note: "다시 구독하면 혜택이 바로 돌아와요", text: `**${plan.name}** 구독이 만료됐어요. 다시 구독하면 혜택이 바로 돌아와요.` },
+  }[kind];
+  const card = await import("@/lib/discord/rank-image")
+    .then((m) => m.cardImageUrl(slug, { theme: spec.theme, eyebrow: spec.eyebrow, title: spec.title, people: [{ id: user.discordId!, label: plan.name }], chips: spec.chips, note: spec.note }))
+    .catch(() => null);
+  const { sendDiscordDm } = await import("@/lib/discord/dm");
+  const { container, mediaGallery, MessageFlags, textDisplay, actionRow, button, ButtonStyle } = await import("@/lib/discord/components");
+  const { shopUrl } = await import("@/lib/domain");
+  await sendDiscordDm(
+    user.discordId,
+    {
+      flags: MessageFlags.IS_COMPONENTS_V2,
+      components: [
+        container([
+          ...(card ? [mediaGallery([card])] : []),
+          textDisplay(spec.text),
+          actionRow(button({ label: "프리미엄 플랜 보기", url: shopUrl(slug, "/dashboard?tab=premium"), style: ButtonStyle.LINK })),
+        ]),
+      ],
+    },
+    shopId,
+  ).catch(() => null);
+}
+
 async function applyPremium(shopId: string, userId: string, plan: PremiumPlanId, days: number) {
   const user = getUserById(userId);
   if (!user || user.shopId !== shopId) throw new Error("회원을 찾을 수 없어요.");
@@ -128,6 +166,7 @@ async function applyPremium(shopId: string, userId: string, plan: PremiumPlanId,
   }
   await persistAsync();
   await syncPremiumRole(shopId, userId).catch((err) => console.error("[premium] role sync failed", err));
+  await premiumDm(shopId, userId, "start").catch(() => null);
   return getUserById(userId)!.premium!;
 }
 
@@ -250,9 +289,18 @@ export async function premiumCron(shopId: string, users: ShopUser[]) {
       if (!(p as { roleRemoved?: boolean }).roleRemoved) {
         await syncPremiumRole(shopId, u.id).catch(() => null);
         setUserPremium(shopId, u.id, { ...p, ...{ roleRemoved: true } } as NonNullable<ShopUser["premium"]>);
+        await premiumDm(shopId, u.id, "expired").catch(() => null);
         expired++;
       }
       continue;
+    }
+    // 만료 3일 전 한 번 알림
+    const left = new Date(p.expiresAt).getTime() - now;
+    const remindKey = `soon:${p.expiresAt}`;
+    if (left < 3 * 86_400_000 && (p as { reminded?: string }).reminded !== remindKey) {
+      setUserPremium(shopId, u.id, { ...p, ...{ reminded: remindKey } } as NonNullable<ShopUser["premium"]>);
+      await premiumDm(shopId, u.id, "soon").catch(() => null);
+      await persistAsync();
     }
     const pts = PREMIUM_PLANS[p.plan].monthlyPoints;
     if (!pts) continue;

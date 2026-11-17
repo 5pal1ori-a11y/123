@@ -4,6 +4,7 @@ import {
   button,
   ButtonStyle,
   container,
+  mediaGallery,
   MessageFlags,
   separator,
   textDisplay,
@@ -140,11 +141,33 @@ export async function openTicketForUser(input: {
     ? input.guild.mentionRoleIds.map((id) => `<@&${id}>`).join(" ")
     : null;
 
+  // DOES 서버: 요청자 · 주제 · 대기 순서가 들어간 카드 이미지
+  let card: string | null = null;
+  try {
+    const { MFA_DISCORD_GUILD_ID, MFA_SHOP_SLUG } = await import("@/lib/store");
+    if (input.guild.guildId === MFA_DISCORD_GUILD_ID) {
+      const { listTickets } = await import("@/lib/ticket-bot/store");
+      const waiting = listTickets(input.guild.guildId, "open").length;
+      card = await (await import("@/lib/discord/rank-image")).cardImageUrl(MFA_SHOP_SLUG, {
+        theme: "blue",
+        eyebrow: "SUPPORT TICKET",
+        title: "문의가 접수됐어요",
+        people: [{ id: input.openerId, label: "요청자" }],
+        subtitle: input.topic.name,
+        chips: [`대기 ${waiting}번째`, `예상 약 ${Math.max(0, waiting - 1) * 10 || 5}분`],
+        note: "내용을 적어 두시면 관리자가 순서대로 답변드려요",
+      });
+    }
+  } catch {
+    card = null;
+  }
+
   await postTicketChannelMessage(channelId, {
     flags: MessageFlags.IS_COMPONENTS_V2,
     components: [
       container([
         ...(mentionLine ? [textDisplay(mentionLine), separator(true, 1)] : []),
+        ...(card ? [mediaGallery([card])] : []),
         textDisplay(`## ${input.guild.openEmbedTitle}`),
         separator(true, 1),
         textDisplay(input.guild.openEmbedBody),

@@ -19,6 +19,8 @@ import {
   textInput,
   v2Public,
   type DiscordInteraction,
+  mediaGallery,
+  MessageFlags,
 } from "@/lib/discord/components";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { postChannelMessage } from "@/lib/discord/rest";
@@ -105,12 +107,28 @@ function requestOptions(shopId: string) {
 async function deliver(shopId: string, userId: string, what: string, note?: string) {
   const channelId = getShopSettings(shopId).stockRequestChannelId;
   if (!channelId) return false;
+  const { getShopById } = await import("@/lib/store");
+  const slug = getShopById(shopId)?.slug;
+  const card = slug
+    ? await import("@/lib/discord/rank-image")
+        .then((m) =>
+          m.cardImageUrl(slug, {
+            theme: "pink",
+            eyebrow: "STOCK REQUEST",
+            title: "재고 요청이 들어왔어요",
+            people: [{ id: userId, label: "요청자" }],
+            subtitle: what.slice(0, 60),
+            ...(note ? { chips: [`메모 ${note.slice(0, 26)}`] } : {}),
+          }),
+        )
+        .catch(() => null)
+    : null;
+  const text = `${appEmoji("does_inbox")} **재고 요청** <@${userId}>\n상품: **${what.slice(0, 200)}**${note ? `\n메모: ${note.slice(0, 500)}` : ""}`;
   const r = await postChannelMessage(
     channelId,
-    {
-      content: `${appEmoji("does_inbox")} **재고 요청** <@${userId}>\n상품: **${what.slice(0, 200)}**${note ? `\n메모: ${note.slice(0, 500)}` : ""}`,
-      allowed_mentions: { parse: [] },
-    },
+    card
+      ? { flags: MessageFlags.IS_COMPONENTS_V2, components: [container([mediaGallery([card]), textDisplay(text)], 0xec4899)], allowed_mentions: { parse: [] } }
+      : { content: text, allowed_mentions: { parse: [] } },
     shopId,
   );
   return r.ok;

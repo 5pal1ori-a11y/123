@@ -1616,6 +1616,7 @@ export function createProduct(
     buyerInput?: Product["buyerInput"];
     discountPercent?: number | null;
     mcShowName?: boolean;
+    mcGroup?: boolean;
     mcStatus?: Product["mcStatus"];
     resale?: Product["resale"];
   },
@@ -1666,6 +1667,7 @@ export function createProduct(
     mcCapes: input.productKind === "mc_account" && Array.isArray(input.mcCapes) ? cleanCapeList(input.mcCapes) : null,
     mcNickname: input.productKind === "mc_account" ? input.mcNickname?.trim() || null : null,
     ...(input.productKind === "mc_account" && input.mcShowName ? { mcShowName: true } : {}),
+    ...(input.productKind === "mc_account" && input.mcGroup ? { mcGroup: true } : {}),
     ...(input.productKind === "mc_account" && input.mcStatus ? { mcStatus: cleanMcStatus(input.mcStatus) } : {}),
     ...(input.resale ? { resale: input.resale } : {}),
     createdAt: new Date().toISOString(),
@@ -1709,6 +1711,7 @@ export function updateProduct(
       | "buyerInput"
       | "discountPercent"
       | "mcShowName"
+      | "mcGroup"
       | "mcStatus"
     >
   >,
@@ -1789,6 +1792,10 @@ export function updateProduct(
     const st = patch.mcStatus ? cleanMcStatus(patch.mcStatus) : null;
     if (st) product.mcStatus = st;
     else delete product.mcStatus;
+  }
+  if (patch.mcGroup !== undefined) {
+    if (patch.mcGroup) product.mcGroup = true;
+    else delete product.mcGroup;
   }
   if (patch.mcShowName !== undefined) {
     if (patch.mcShowName) product.mcShowName = true;

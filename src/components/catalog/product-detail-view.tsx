@@ -20,6 +20,7 @@ import { productDiscountPercent } from "@/lib/pricing";
 import { McAccountDetails, McCapeChips, McHypixelPanel, McSkinHero, useMcAccountInfo } from "@/components/catalog/mc-account-extras";
 import { StockBadge } from "@/components/ui/stock-badge";
 import { CapeFaceImg } from "@/components/capes/cape-face";
+import { MfaGroupPicker } from "@/components/catalog/mfa-group-picker";
 import { CAPE_BY_TYPE } from "@/lib/capes-data";
 import { WishHeartButton } from "@/components/ui/wish-heart-button";
 import { shopHeaders } from "@/lib/shop-client";
@@ -224,6 +225,7 @@ export function ProductDetailView({
           ) : null}
           <p className="product-detail-price">{formatKRW(finalPrice)}</p>
         </div>
+        {isMc && product.mcGroup ? <MfaGroupPicker current={product} shopSlug={shopSlug} /> : null}
         {isMc ? <McCapeChips productId={product.id} version={product.mcVersion} info={mcInfo} /> : null}
         {isMc ? <McAccountDetails status={product.mcStatus} info={mcInfo} /> : null}
         {isMc ? <McHypixelPanel info={mcInfo} /> : null}

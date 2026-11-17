@@ -7,6 +7,7 @@ import { doesDiscordEnvAsync } from "@/lib/discord/does-env";
 import { MFA_DISCORD_GUILD_ID } from "@/lib/store";
 
 export const GUILD_EMOJIS: { name: string; file: string }[] = [
+  { name: "does_logo", file: "does_logo.png" },
   { name: "does_bell", file: "does_bell.png" },
   { name: "does_brick", file: "does_brick.png" },
   { name: "does_calendar", file: "does_calendar.png" },

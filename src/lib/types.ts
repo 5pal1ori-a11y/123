@@ -592,6 +592,8 @@ export type Product = {
   mcMaskedName?: string | null;
   /** 마크계정상품: true 면 공개 목록에 닉네임을 가리지 않고 그대로 보여 준다 (대리판매 신청자가 선택) */
   mcShowName?: boolean;
+  /** 마크계정상품: true 면 개별 카드 대신 「MFA 계정」 묶음 카드 안에 들어가고, 상세에서 계정을 골라 산다 */
+  mcGroup?: boolean;
   /** 마크계정상품: 관리자가 체크한 밴 여부 (null/없음 = 표시 안 함) */
   mcStatus?: { hypixelBanned?: boolean | null; hypixelReason?: string | null; donutBanned?: boolean | null } | null;
   /** 대리판매로 올라온 상품 — 신청 id · 판매자(디스코드/회원) · 정산 정보 */

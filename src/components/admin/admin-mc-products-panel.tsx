@@ -132,6 +132,8 @@ export function AdminMcProductsPanel({
   }
   /** MFA MARKET 연동 — 켜면 계정 정보를 MFA 재고로 보내고, 팔리면 구매자에게 16자리 코드가 간다 */
   const [useMfa, setUseMfa] = useState(true);
+  /** MFA 묶음 — 개별 카드 대신 「MFA 계정」 카드 하나에 모아 보여 주고, 상세에서 계정을 골라 산다 */
+  const [asGroup, setAsGroup] = useState(false);
   const [editing, setEditing] = useState<{
     id: string;
     nickname: string;
@@ -140,6 +142,7 @@ export function AdminMcProductsPanel({
     tag: string;
     category: string;
     showName: boolean;
+    group?: boolean;
     /** 판매된 계정 — 지급 정보를 고쳐 다시 판매중으로 올릴 수 있다 */
     sold?: boolean;
     relist?: boolean;
@@ -167,6 +170,7 @@ export function AdminMcProductsPanel({
     tag: string;
     category: string;
     showName: boolean;
+    group?: boolean;
     capes?: string[] | null;
     mfaProduct?: string | null;
     hyBan: string;
@@ -293,6 +297,7 @@ export function AdminMcProductsPanel({
         fulfillment: "auto",
         purchaseLimitPerUser: null,
         ...(useMfa ? { mfaProduct: mfaName } : {}),
+        ...(asGroup ? { mcGroup: true } : {}),
         mcStatus: statusPatch(form.hyBan, form.hyReason, form.donutBan),
       });
       const productId = created.product?.id;
@@ -348,6 +353,7 @@ export function AdminMcProductsPanel({
         mcCapes: editing.capes ?? null,
         category: editing.category,
         mcShowName: editing.showName,
+        mcGroup: Boolean(editing.group),
         mcStatus: statusPatch(editing.hyBan, editing.hyReason, editing.donutBan),
       });
       // 지급 정보(이메일·비밀번호·복구코드)가 바뀌었으면 재고도 고친다
@@ -538,6 +544,10 @@ export function AdminMcProductsPanel({
             <input type="checkbox" checked={useMfa} onChange={(e) => setUseMfa(e.target.checked)} />
             MFA MARKET 연동 — 계정 정보를 MFA 재고로 보내고, 구매자에게는 16자리 코드로 지급해요
           </label>
+          <label className="flex items-center gap-2 rounded-lg border border-indigo-400/30 bg-indigo-500/5 px-3 py-2 text-sm sm:col-span-2">
+            <input type="checkbox" checked={asGroup} onChange={(e) => setAsGroup(e.target.checked)} />
+            MFA 상품으로 올리기 — 개별 카드 대신 「MFA 계정」 카드 안에 들어가고, 구매자가 상세에서 계정(이름·망토)을 골라 사요
+          </label>
           <div className="flex justify-end sm:col-span-2">
             <button type="submit" disabled={busy} className="toss-admin-primary inline-flex items-center gap-2 px-6">
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
@@ -607,6 +617,7 @@ export function AdminMcProductsPanel({
                         tag: p.tags?.[0] ?? "",
                         category: mcAccountCategory(p.category, mcCats),
                         showName: Boolean(p.mcShowName),
+                        group: Boolean(p.mcGroup),
                         capes: p.mcCapes ?? null,
                         mfaProduct: p.mfaProduct ?? null,
                         hyBan: boolToTri(p.mcStatus?.hypixelBanned),
@@ -674,6 +685,13 @@ export function AdminMcProductsPanel({
                     <select className={field} value={editing.showName ? "show" : "mask"} onChange={(e) => setEditing({ ...editing, showName: e.target.value === "show" })}>
                       <option value="mask">가리기 ({maskMcNickname(editing.nickname)})</option>
                       <option value="show">공개 ({editing.nickname})</option>
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs text-neutral-400">진열 방식</span>
+                    <select className={field} value={editing.group ? "group" : "single"} onChange={(e) => setEditing({ ...editing, group: e.target.value === "group" })}>
+                      <option value="single">개별 카드</option>
+                      <option value="group">MFA 상품 (묶음에서 골라 구매)</option>
                     </select>
                   </label>
                 </div>

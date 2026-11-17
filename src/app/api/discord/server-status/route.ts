@@ -152,7 +152,7 @@ async function refreshRankingEvery10m(shopId: string) {
   // DOES 서버에 2D 이모지 50종 + 망토 이모지 올리기 (10분마다 몇 개씩, 다 올리면 멈춤)
   {
     const { kvGetJson, kvPutJson } = await import("@/lib/world/kv");
-    const doneKey = "guild-emojis-done:v3";
+    const doneKey = "guild-emojis-done:v4";
     // 봇 메시지가 쓰는 서버 이모지 ID 목록 — 없으면 한 번 만든다
     if (!(await kvGetJson<unknown>("does:guild-emoji-map:v1"))) {
       await import("@/lib/discord/guild-emojis").then(({ refreshGuildEmojiMap }) => refreshGuildEmojiMap()).catch(() => null);

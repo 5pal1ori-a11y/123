@@ -10,6 +10,7 @@ import { formatKRW } from "@/lib/utils";
 import { shopPath, useShopBase } from "@/lib/shop-nav";
 import { PanelPrimaryBtn, PanelStats } from "@/components/admin/admin-panel-ui";
 import { McAccountCard } from "./mc-account-card";
+import { MfaGroupCard } from "./mfa-group-card";
 import { CapeGallery, type CapeStock } from "@/components/capes/cape-gallery";
 
 export type ProductSort = "default" | "price_asc" | "price_desc" | "popular";
@@ -107,7 +108,9 @@ export function ShopProductsTab({
     }
   }
   const isSoldOut = (p: ProductWithStock) => (liveStock[p.id]?.status ?? p.stockStatus) === "sold_out";
-  const onSaleMc = filteredProducts.filter((p) => !isSoldOut(p));
+  // MFA 상품으로 묶인 계정은 개별 카드 대신 묶음 카드 하나로 보여 준다
+  const groupMc = productSection === "mc_account" ? filteredProducts.filter((p) => p.mcGroup && !isSoldOut(p)) : [];
+  const onSaleMc = filteredProducts.filter((p) => !isSoldOut(p) && !(productSection === "mc_account" && p.mcGroup));
   const soldMc = filteredProducts.filter(isSoldOut);
   const capeStock: CapeStock = {};
   for (const p of products) {
@@ -302,10 +305,10 @@ export function ShopProductsTab({
         ) : (
           <>
             {[
-              { key: "on", title: null as string | null, list: onSaleMc },
-              { key: "sold", title: "Sold", list: soldMc },
+              { key: "on", title: null as string | null, list: onSaleMc, show: onSaleMc.length + groupMc.length },
+              { key: "sold", title: "Sold", list: soldMc, show: soldMc.length },
             ].map((grp) =>
-              grp.list.length === 0 ? null : (
+              grp.show === 0 ? null : (
                 <div key={grp.key} className={grp.title ? "mt-10" : ""}>
                   {grp.title ? (
                     <div className="mf-dark mb-4 flex items-baseline gap-3 border-b border-white/10 pb-2">
@@ -318,6 +321,9 @@ export function ShopProductsTab({
                       grp.title ? "" : "mt-4"
                     }`}
                   >
+                    {grp.key === "on" && groupMc.length ? (
+                      <MfaGroupCard products={groupMc} priceOf={(p) => calcProductPrice(p, tier, eventByProduct.get(p.id) ?? null).finalPrice} />
+                    ) : null}
                     {grp.list.map((p, idx) => {
                       const ev = eventByProduct.get(p.id);
                       const live = liveStock[p.id];

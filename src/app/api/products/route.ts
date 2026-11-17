@@ -53,6 +53,7 @@ const createSchema = z.object({
     .optional(),
   mcCapes: z.array(z.string().regex(/^[a-z0-9_-]{2,32}$/)).max(60).nullable().optional(),
   mcShowName: z.boolean().optional(),
+  mcGroup: z.boolean().optional(),
   mcStatus: z
     .object({ hypixelBanned: z.boolean().nullable().optional(), hypixelReason: z.string().max(40).nullable().optional(), donutBanned: z.boolean().nullable().optional() })
     .nullable()

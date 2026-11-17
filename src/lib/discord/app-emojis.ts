@@ -25,6 +25,7 @@ const EXTRA_FALLBACK = {
   does_lightning: "⚡",
   does_link: "🔗",
   does_lock: "🔒",
+  does_logo: "◆",
   does_medal: "🏅",
   does_megaphone: "📢",
   does_new: "🆕",

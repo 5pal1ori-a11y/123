@@ -12,8 +12,9 @@ async function font() {
   return fontBuf;
 }
 
+let logoUrl = null;
 async function toDataUrl(url) {
-  if (!url || !/^https:\/\/(cdn|media)\.discordapp\.(com|net)\//.test(url)) return null;
+  if (!url || !/^https:\/\/((cdn|media)\.discordapp\.(com|net)|doesmc\.xyz)\//.test(url)) return null;
   try {
     const r = await fetch(url);
     if (!r.ok) return null;
@@ -34,6 +35,8 @@ export default {
     const d = body?.data;
     if (!d || !Array.isArray(d.rows)) return new Response("bad", { status: 400 });
     d.rows = await Promise.all(d.rows.slice(0, 10).map(async (r) => ({ ...r, avatar: await toDataUrl(r.avatar) })));
+    logoUrl ??= await toDataUrl("https://doesmc.xyz/emoji/does_logo.png");
+    d.logo = logoUrl;
     const data = await font();
     return ImageResponse.async(rankTree(d), {
       width: 1100,

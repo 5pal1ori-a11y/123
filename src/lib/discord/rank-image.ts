@@ -83,7 +83,7 @@ export async function rankImageData(shopId: string): Promise<RankImageData> {
 async function hashOf(d: RankImageData) {
   const { updated: _u, ...rest } = d;
   void _u;
-  const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(JSON.stringify(rest)));
+  const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(`v2:${JSON.stringify(rest)}`));
   return [...new Uint8Array(buf)].slice(0, 6).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 

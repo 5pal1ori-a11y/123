@@ -241,26 +241,26 @@ export function McAccountCard({
           )}
         </ViewWrap>
 
-        <div className="pointer-events-none absolute left-0 top-0 flex max-w-[calc(100%-72px)] items-center gap-2">
+        <div className="pointer-events-none absolute left-0 top-0 z-10 flex max-w-[calc(100%-72px)] items-center gap-1.5">
           <span
             className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2 py-1 text-[11px] font-bold leading-none ${
               soldOut
-                ? "border-[rgba(248,113,113,0.4)] bg-[rgba(239,68,68,0.15)] text-[#fecaca]"
-                : "border-[rgba(129,140,248,0.4)] bg-[rgba(99,102,241,0.15)] text-[#c7d2fe]"
+                ? "border-[rgba(248,113,113,0.45)] bg-[rgba(60,12,16,0.88)] text-[#fecaca] backdrop-blur"
+                : "border-[rgba(129,140,248,0.45)] bg-[rgba(20,22,58,0.88)] text-[#c7d2fe] backdrop-blur"
             }`}
           >
             <span className={`size-1 rounded-full ${soldOut ? "bg-[#fca5a5]" : "bg-[#a5b4fc]"}`} />
             {soldOut ? "SOLD" : "AVAILABLE"}
           </span>
           {rating !== null ? (
-            <span className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[11px] font-bold text-[#fcd34d]">
+            <span className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-md border border-[rgba(252,211,77,0.35)] bg-[rgba(40,30,6,0.88)] px-1.5 py-1 text-[11px] font-bold leading-none text-[#fcd34d] backdrop-blur">
               <Star className="size-3 fill-[#fcd34d] text-[#fcd34d]" />
               {rating.toFixed(1)}
             </span>
           ) : null}
         </div>
 
-        <div className="absolute right-0 top-0 flex gap-1.5">
+        <div className="absolute right-0 top-0 z-10 flex gap-1.5">
           <Link
             href={href}
             aria-label="상세 정보"

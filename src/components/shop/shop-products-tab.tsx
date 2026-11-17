@@ -222,6 +222,7 @@ export function ShopProductsTab({
         <>
         {productSection === "mc_account" ? (
           <div className="mb-4 flex flex-wrap items-center gap-2">
+            <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden">
             {productCategories.map((c) => {
               const Icon = MC_TAB_ICON[c] ?? Tag;
               const on = productCategory === c;
@@ -230,7 +231,7 @@ export function ShopProductsTab({
                   key={c}
                   type="button"
                   onClick={() => onCategoryChange(c)}
-                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-bold transition ${
+                  className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-[13px] font-bold transition sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm ${
                     on
                       ? "border-white bg-white text-black shadow-[0_0_0_3px_rgba(255,255,255,0.12)]"
                       : "border-white/10 bg-white/[0.04] text-neutral-200 hover:border-white/30 hover:bg-white/[0.08]"
@@ -242,11 +243,12 @@ export function ShopProductsTab({
                 </button>
               );
             })}
+            </div>
             {productCategory === MC_RESALE_CATEGORY ? (
               <button
                 type="button"
                 onClick={() => setResaleOpen(true)}
-                className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-indigo-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-400"
+                className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-indigo-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-400"
               >
                 <Plus className="size-4" /> 대리판매 등록
               </button>

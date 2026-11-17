@@ -209,7 +209,9 @@ export async function fetchImage(urls: string[]): Promise<Response | null> {
   for (const url of urls) {
     try {
       const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "image/*" } });
-      const type = res.headers.get("content-type") ?? "";
+      let type = res.headers.get("content-type") ?? "";
+      // textures.minecraft.net 은 PNG 를 application/octet-stream 으로 보낸다
+      if (res.ok && !type.startsWith("image/") && /textures\.minecraft\.net/.test(url)) type = "image/png";
       if (res.ok && type.startsWith("image/")) {
         return new Response(res.body, {
           headers: {

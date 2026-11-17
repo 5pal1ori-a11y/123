@@ -184,7 +184,7 @@ export function MypageBannerAds({
       ) : (
         <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-5 py-4 text-center">
           <Megaphone className="mx-auto size-5 text-neutral-500" />
-          <p className="mt-2 text-sm text-neutral-400">아직 노출 중인 배너가 없어요</p>
+          <p className="mt-2 text-sm text-neutral-400">이 자리에 내 배너를 올려 보세요</p>
         </div>
       )}
 

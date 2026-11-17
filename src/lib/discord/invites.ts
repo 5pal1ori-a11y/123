@@ -247,7 +247,29 @@ export async function handleInviteLogCommand(shop: Shop, actor: { roles: string[
   return plainEphemeral(`앞으로 누가 누구를 초대했는지 <#${channelId}> 에 올려요.`);
 }
 
-function rankPanel(shopName: string, db: InviteDb) {
+/** 초대 랭킹 이미지용 — 상위 10명 · 참여 인원 · 총 초대 수 */
+export async function inviteRankData(guildId: string) {
+  const all = rankList(await load(guildId));
+  return { top: all.slice(0, 10), participants: all.length, total: all.reduce((a, x) => a + x.n, 0) };
+}
+
+async function rankPanel(shop: Shop, db: InviteDb, guildId: string) {
+  // 순위 전체를 이미지 한 장으로 (이미지 워커가 없으면 아래 글자판)
+  const url = rankList(db).length
+    ? await import("@/lib/discord/rank-image").then((m) => m.inviteRankImageUrl(shop.id, guildId)).catch(() => null)
+    : null;
+  if (url) {
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      flags: MessageFlags.IS_COMPONENTS_V2,
+      components: [container([mediaGallery([url]), textDisplay(`-# 1시간마다 갱신 · 실제 남아 있는 인원 기준 · 마지막 갱신 <t:${now}:R>`)], 0xf59e0b)],
+      allowed_mentions: { parse: [] as string[] },
+    };
+  }
+  return rankPanelText(shop.name, db);
+}
+
+function rankPanelText(shopName: string, db: InviteDb) {
   const medals = [appEmoji("does_crown"), appEmoji("does_trophy"), appEmoji("does_medal")];
   const top = rankList(db).slice(0, 10);
   const max = top[0]?.n || 1;
@@ -280,7 +302,7 @@ export async function handleInviteRankCommand(shop: Shop, actor: { roles: string
   if (!adminOnly(shop, actor, perms)) return errorPanel("관리자만 올릴 수 있어요.", "권한 없음");
   if (!channelId || !guildId) return errorPanel("서버 채널에서 다시 써 주세요.");
   const db = await load(guildId);
-  const posted = await postChannelMessage(channelId, rankPanel(shop.name, db), shop.id);
+  const posted = await postChannelMessage(channelId, await rankPanel(shop, db, guildId), shop.id);
   const id = posted.ok ? (posted.json as { id?: string } | null)?.id : null;
   if (!id) return errorPanel("랭킹판을 올리지 못했어요. 봇이 이 채널에 글을 쓸 수 있는지 확인해 주세요.");
   const panels = [...(getShopSettings(shop.id).inviteRankPanels ?? []), { channelId, messageId: String(id), guildId }].slice(-5);
@@ -297,7 +319,7 @@ export async function refreshInviteRanks(shopId: string) {
   const alive: typeof panels = [];
   for (const p of panels) {
     const db = await load(p.guildId);
-    const r = await editChannelMessage(p.channelId, p.messageId, rankPanel(shop.name, db), shopId).catch(() => null);
+    const r = await editChannelMessage(p.channelId, p.messageId, await rankPanel(shop, db, p.guildId), shopId).catch(() => null);
     if (r?.ok || (r && r.status !== 404)) alive.push(p);
   }
   if (alive.length !== panels.length) {

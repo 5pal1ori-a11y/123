@@ -13,9 +13,11 @@ const NAME_KEY = "rank-image:names:v1";
 const NAME_TTL = 6 * 3_600_000;
 
 export type RankImageData = {
+  kind: "purchase" | "invite";
   title: string;
-  people: number;
-  total: number;
+  statLabel: string;
+  statValue: string;
+  note: string;
   updated: string;
   rows: { rank: number; name: string; avatar: string | null; amount: number; count: number; share: number }[];
 };
@@ -54,18 +56,47 @@ async function resolveNames(guildId: string, ids: string[]) {
   return cache;
 }
 
+function stamp() {
+  const now = new Date(Date.now() + 9 * 3_600_000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getUTCFullYear()}.${pad(now.getUTCMonth() + 1)}.${pad(now.getUTCDate())}  ${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())} 갱신`;
+}
+
+export async function inviteImageData(shopId: string, guildId: string): Promise<RankImageData> {
+  const shop = getShopById(shopId);
+  const { inviteRankData } = await import("@/lib/discord/invites");
+  const { top, participants, total } = await inviteRankData(guildId);
+  const names = await resolveNames(guildId, top.map((r) => r.id));
+  return {
+    kind: "invite",
+    title: `${shop?.name ?? "DOES"} 초대 랭킹`,
+    statLabel: `참여 ${participants.toLocaleString("ko-KR")}명`,
+    statValue: `총 초대 ${total.toLocaleString("ko-KR")}명`,
+    note: "실제 남아 있는 인원 기준 · 나간 사람은 빼고 셉니다",
+    updated: stamp(),
+    rows: top.map((r, i) => ({
+      rank: i + 1,
+      name: names[r.id]?.name ?? "회원",
+      avatar: names[r.id]?.avatar ?? null,
+      amount: r.n,
+      count: r.joins,
+      share: total > 0 ? r.n / total : 0,
+    })),
+  };
+}
+
 export async function rankImageData(shopId: string): Promise<RankImageData> {
   const shop = getShopById(shopId);
   const guildId = getShopSettings(shopId).discordGuildId || MFA_DISCORD_GUILD_ID;
   const { top, total, people } = purchaseRanking(shopId);
   const names = await resolveNames(guildId, top.flatMap((r) => (r.discordId ? [r.discordId] : [])));
-  const now = new Date(Date.now() + 9 * 3_600_000);
-  const pad = (n: number) => String(n).padStart(2, "0");
   return {
+    kind: "purchase",
     title: `${shop?.name ?? "DOES"} 구매 랭킹`,
-    people,
-    total,
-    updated: `${now.getUTCFullYear()}.${pad(now.getUTCMonth() + 1)}.${pad(now.getUTCDate())} ${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())} 갱신`,
+    statLabel: `구매자 ${people.toLocaleString("ko-KR")}명`,
+    statValue: `누적 ₩${total.toLocaleString("ko-KR")}`,
+    note: "비율은 전체 누적 구매 금액 기준",
+    updated: stamp(),
     rows: top.map((r, i) => {
       const who = r.discordId ? names[r.discordId] : undefined;
       return {
@@ -83,7 +114,7 @@ export async function rankImageData(shopId: string): Promise<RankImageData> {
 async function hashOf(d: RankImageData) {
   const { updated: _u, ...rest } = d;
   void _u;
-  const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(`v2:${JSON.stringify(rest)}`));
+  const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(`v3:${JSON.stringify(rest)}`));
   return [...new Uint8Array(buf)].slice(0, 6).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -97,7 +128,7 @@ async function rankBinding() {
   }
 }
 
-/** 랭킹판에 넣을 이미지 주소 (이미지 워커가 없으면 null) */
+/** 구매 랭킹판에 넣을 이미지 주소 (이미지 워커가 없으면 null) */
 export async function rankImageUrl(shopId: string) {
   if (!(await rankBinding())) return null;
   const shop = getShopById(shopId);
@@ -106,10 +137,19 @@ export async function rankImageUrl(shopId: string) {
   return `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-${await hashOf(d)}.png`;
 }
 
-export async function renderRankImage(shopId: string) {
+/** 초대 랭킹판에 넣을 이미지 주소 */
+export async function inviteRankImageUrl(shopId: string, guildId: string) {
+  if (!(await rankBinding())) return null;
+  const shop = getShopById(shopId);
+  if (!shop) return null;
+  const d = await inviteImageData(shopId, guildId);
+  return `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-inv-${guildId}-${await hashOf(d)}.png`;
+}
+
+export async function renderRankImage(shopId: string, inviteGuildId?: string | null) {
   const bind = await rankBinding();
   if (!bind) return null;
-  const d = await rankImageData(shopId);
+  const d = inviteGuildId ? await inviteImageData(shopId, inviteGuildId) : await rankImageData(shopId);
   const res = await bind.fetch("https://rank-image/", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: d }) });
   return res.ok ? res : null;
 }

@@ -2,14 +2,14 @@
 import { ImageResponse, CustomFont, cache } from "@cf-wasm/og/workerd";
 import { rankTree, rankHeight } from "./render.js";
 
-let fontBuf = null;
-async function font() {
-  if (!fontBuf) {
-    const r = await fetch("https://doesmc.xyz/fonts/Galmuri11.ttf");
-    if (!r.ok) throw new Error(`font ${r.status}`);
-    fontBuf = await r.arrayBuffer();
+const fonts = {};
+async function font(w) {
+  if (!fonts[w]) {
+    const r = await fetch(`https://doesmc.xyz/fonts/Pretendard-${w}.otf`);
+    if (!r.ok) throw new Error(`font ${w} ${r.status}`);
+    fonts[w] = await r.arrayBuffer();
   }
-  return fontBuf;
+  return fonts[w];
 }
 
 let logoUrl = null;
@@ -37,11 +37,15 @@ export default {
     d.rows = await Promise.all(d.rows.slice(0, 10).map(async (r) => ({ ...r, avatar: await toDataUrl(r.avatar) })));
     logoUrl ??= await toDataUrl("https://doesmc.xyz/emoji/does_logo.png");
     d.logo = logoUrl;
-    const data = await font();
+    const [medium, bold, black] = await Promise.all([font("Medium"), font("Bold"), font("Black")]);
     return ImageResponse.async(rankTree(d), {
       width: 1100,
       height: rankHeight(d),
-      fonts: [new CustomFont("Galmuri", () => data)],
+      fonts: [
+        new CustomFont("Pretendard", () => medium, { weight: 500 }),
+        new CustomFont("Pretendard", () => bold, { weight: 700 }),
+        new CustomFont("Pretendard", () => black, { weight: 900 }),
+      ],
       emoji: "twemoji",
       headers: { "cache-control": "public, max-age=86400" },
     });

@@ -271,6 +271,7 @@ if __name__ == "__main__":
     banner("invite-rank-3d", 960, 190, "trophy", "초대 랭킹", "1시간마다 갱신돼요 · 실제 남아 있는 인원 기준")
     square_icon("stock-request-icon-3d", "envelope")
     banner("admin-online-3d", 960, 300, "status", "관리자 온라인", "지금 문의하면 바로 답변받을 수 있어요", {"online": True}, line=G)
+    banner("admin-idle-3d", 960, 300, "status", "관리자 자리 비움", "잠시 자리를 비웠어요 · 곧 돌아와 답변드릴게요", {"online": True, "idle": True}, line=((245, 158, 11), (180, 83, 9)))
     banner("admin-offline-3d", 960, 300, "status", "관리자 오프라인", "답변이 조금 늦을 수 있어요", {"online": False}, line=((239, 68, 68), (185, 28, 28)))
     banner("referral-3d", 960, 300, "gift", "추천인 코드", "친구가 내 코드로 가입하면 결제할 때마다 보상!")
     banner("ticket-3d", 960, 300, "bubble", "문의 티켓", "궁금한 건 편하게 물어보세요", line=((56, 189, 248), (3, 105, 161)))

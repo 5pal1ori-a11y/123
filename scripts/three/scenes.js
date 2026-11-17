@@ -952,7 +952,7 @@ SCENES.trophy = (s) => {
 
 /* 관리자 상태 구슬 */
 SCENES.status = (s, o) => {
-  const col = o.online ? 0x22c55e : 0xef4444;
+  const col = o.idle ? 0xf59e0b : o.online ? 0x22c55e : 0xef4444;
   const orb = new THREE.Group();
   const ball = mesh(new THREE.SphereGeometry(0.85, 64, 48), new THREE.MeshPhysicalMaterial({ color: col, roughness: 0.12, clearcoat: 1, transmission: 0.35, thickness: 1, emissive: col, emissiveIntensity: 0.35 }));
   const inner = mesh(new THREE.SphereGeometry(0.45, 32, 24), glow(col, o.online ? 2.2 : 1.2), false, false);
@@ -970,7 +970,33 @@ SCENES.status = (s, o) => {
   const pl = new THREE.PointLight(col, 6, 5);
   pl.position.set(0, 1.2, 1.2);
   s.add(pl);
-  return bannerFrame(s, { glow: o.online ? 0x15803d : 0xb91c1c, ring: col, ring2: o.online ? 0x60a5fa : 0xf472b6, rim: col }, (t) => {
+  // 자리 비움: 초승달 + 떠오르는 Z
+  const zs = [];
+  if (o.idle) {
+    const moonMat = new THREE.MeshPhysicalMaterial({ color: 0xfff1b8, roughness: 0.3, clearcoat: 1, emissive: 0xffd36b, emissiveIntensity: 0.6 });
+    const moon = new THREE.Group();
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, 0.42, Math.PI * 0.35, Math.PI * 1.65, false);
+    shape.absarc(0.2, 0, 0.32, Math.PI * 1.55, Math.PI * 0.45, true);
+    moon.add(mesh(extrude(shape, 0.14, 0.05, 4), moonMat));
+    moon.position.set(-0.95, 1.95, 0.4);
+    moon.rotation.z = -0.4;
+    s.add(moon);
+    for (let i = 0; i < 3; i++) {
+      const z = text3d("Z", 0.26 - i * 0.04, 0.06, plastic(0xfff7d6, { e: 0xffc94d, ei: 0.5 }));
+      s.add(z);
+      zs.push(z);
+    }
+  }
+  return bannerFrame(s, { glow: o.idle ? 0xb45309 : o.online ? 0x15803d : 0xb91c1c, ring: col, ring2: o.idle ? 0xfde68a : o.online ? 0x60a5fa : 0xf472b6, rim: col }, (t) => {
+    zs.forEach((z, i) => {
+      const k = (t + i / 3) % 1;
+      z.position.set(0.75 + k * 0.55, 1.6 + k * 1.0, 0.5);
+      z.rotation.z = -0.25 + Math.sin(k * TAU) * 0.15;
+      z.scale.setScalar(0.6 + k * 0.6);
+      z.material.opacity = 1;
+      z.visible = k < 0.92;
+    });
     orb.position.y = 1.15 + Math.sin(t * TAU) * 0.08;
     orb.rotation.y = t * TAU;
     inner.material.emissiveIntensity = (o.online ? 2.2 : 1.0) + Math.sin(t * TAU * 2) * 0.6;

@@ -38,7 +38,8 @@ export function buildServerStatusPanel(shopId: string) {
   const since = last ? Math.floor(new Date(last.since).getTime() / 1000) : null;
   const now = Math.floor(Date.now() / 1000);
   // 디스코드가 같은 주소 이미지를 오래 캐시하므로 상태마다 다른 파일을 쓴다
-  const image = `${appOrigin()}/brand/${online ? "admin-online-3d" : "admin-offline-3d"}.gif`;
+  const away = status === "idle" || status === "dnd";
+  const image = `${appOrigin()}/brand/${away ? "admin-idle-3d" : online ? "admin-online-3d" : "admin-offline-3d"}.gif`;
 
   return {
     flags: MessageFlags.IS_COMPONENTS_V2,
@@ -49,7 +50,8 @@ export function buildServerStatusPanel(shopId: string) {
           mediaGallery([image]),
           textDisplay(
             [
-              `<@${userId}> 님은 지금 **${LABEL[status]}**${online ? "" : " 상태예요"}`,
+              `<@${userId}> 님은 지금 **${LABEL[status]}**${status === "online" ? "" : " 상태예요"}`,
+              away ? "-# 잠시 자리를 비웠어요. 문의를 남겨 주시면 돌아와서 바로 답변드릴게요." : "",
               since ? `-# ${online ? "접속한 지" : "마지막 접속"} <t:${since}:R>` : "",
             ]
               .filter(Boolean)
@@ -58,7 +60,7 @@ export function buildServerStatusPanel(shopId: string) {
           separator(true, 1),
           textDisplay(`-# 3분마다 갱신돼요 · 확인 <t:${now}:R>`),
         ],
-        online ? 0x22c55e : 0xef4444,
+        away ? 0xf59e0b : online ? 0x22c55e : 0xef4444,
       ),
     ],
     allowed_mentions: { parse: [] as string[] },

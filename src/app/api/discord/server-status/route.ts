@@ -21,6 +21,14 @@ const bodySchema = z.discriminatedUnion("op", [
   }),
   z.object({ op: z.literal("member_remove"), userId: snowflake, guildId: snowflake }),
   z.object({
+    op: z.literal("prefix"),
+    guildId: snowflake,
+    channelId: snowflake,
+    messageId: snowflake,
+    userId: snowflake,
+    content: z.string().min(1).max(2000),
+  }),
+  z.object({
     op: z.literal("member_add"),
     userId: snowflake,
     guildId: snowflake,
@@ -70,6 +78,13 @@ export async function POST(request: Request) {
     const { handleNumberGuessMessage } = await import("@/lib/discord/number-guess");
     const d = parsed.data;
     return NextResponse.json(await handleNumberGuessMessage(shop, d.channelId, d.messageId, d.userId, d.guess));
+  }
+  if (parsed.data.op === "prefix") {
+    // DOES Auto: 채팅 ! 명령어
+    const { handlePrefixCommand } = await import("@/lib/discord/prefix-commands");
+    const { op: _op, ...input } = parsed.data;
+    void _op;
+    return NextResponse.json(await handlePrefixCommand(input, { adminRoleId: settings.discordAdminRoleId }).catch((err) => ({ error: String(err) })));
   }
   if (parsed.data.op === "member_remove") {
     const { onMemberLeave } = await import("@/lib/discord/invites");

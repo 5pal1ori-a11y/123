@@ -138,6 +138,10 @@ async function refreshRankingEvery10m(shopId: string) {
   {
     const { kvGetJson, kvPutJson } = await import("@/lib/world/kv");
     const doneKey = "guild-emojis-done:v3";
+    // 봇 메시지가 쓰는 서버 이모지 ID 목록 — 없으면 한 번 만든다
+    if (!(await kvGetJson<unknown>("does:guild-emoji-map:v1"))) {
+      await import("@/lib/discord/guild-emojis").then(({ refreshGuildEmojiMap }) => refreshGuildEmojiMap()).catch(() => null);
+    }
     if (!(await kvGetJson<unknown>(doneKey))) {
       const repKey = "guild-emojis-replaced:v3";
       const replaced = new Set((await kvGetJson<string[]>(repKey)) ?? []);

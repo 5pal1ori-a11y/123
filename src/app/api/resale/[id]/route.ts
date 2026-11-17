@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { appEmoji, ensureAppEmojis } from "@/lib/discord/app-emojis";
 import { z } from "zod";
 import { badRequest, isShop, isShopAdmin, requireShop, serverError, unauthorized } from "@/lib/api";
 import { getUserSession } from "@/lib/session-server";
@@ -26,6 +27,7 @@ function capeLabels(r: ResaleRequest) {
 
 async function dm(r: ResaleRequest, title: string, lines: string[], color: number, shopId: string) {
   if (!r.discordId) return;
+  await ensureAppEmojis().catch(() => null);
   await sendDiscordDm(
     r.discordId,
     {
@@ -127,7 +129,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
     await persistAsync();
     await dm(
       r,
-      "대리판매 요청이 승인되었습니다 ✅",
+      `대리판매 요청이 승인되었습니다 ${appEmoji("does_check")}`,
       [
         `**계정** ${r.showName ? r.ign : resaleProductName(r).replace("대리판매 ", "")} · ${r.accountType}`,
         `**판매 가격** ${price.toLocaleString("ko-KR")}원`,

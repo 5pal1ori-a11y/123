@@ -19,6 +19,7 @@ import {
   v2Ephemeral,
   type DiscordInteraction,
 } from "@/lib/discord/components";
+import { appEmoji } from "@/lib/discord/app-emojis";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { discordRest, editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
 import { getShopById, getShopSettings, persistAsync, updateShopSettings } from "@/lib/store";
@@ -74,8 +75,8 @@ function eventPanel(shop: Shop) {
           separator(true, 1),
           textDisplay(`### 보상\n${DEFAULT_REWARDS.map((r) => `> ${r}`).join("\n")}`),
           actionRow(
-            button({ customId: cid(shop.slug, "inv_create"), label: "초대 링크 만들기", emoji: "🔗" }),
-            button({ customId: cid(shop.slug, "inv_mine"), label: "내 초대 확인하기", emoji: "📊" }),
+            button({ customId: cid(shop.slug, "inv_create"), label: "초대 링크 만들기", emoji: appEmoji("does_link") }),
+            button({ customId: cid(shop.slug, "inv_mine"), label: "내 초대 확인하기", emoji: appEmoji("does_chart") }),
           ),
           textDisplay("-# 내 링크로 들어온 사람만 세요 · 나간 사람은 빼고 셉니다 · 보상은 티켓으로 받아 가세요"),
         ],
@@ -223,8 +224,8 @@ async function postInviteLog(shopId: string, memberId: string, avatar: string | 
           [
             sectionText({
               text: inviter
-                ? `### 🎉 새 멤버가 왔어요\n<@${inviter}> 님이 <@${memberId}> 님을 초대했어요!\n-# <@${inviter}> 님의 초대 **${count}명** · <t:${now}:R>`
-                : `### 👋 새 멤버가 왔어요\n<@${memberId}> 님이 들어왔어요\n-# 초대한 사람을 찾지 못했어요 (개인 초대 링크가 아닌 경로) · <t:${now}:R>`,
+                ? `### ${appEmoji("does_party")} 새 멤버가 왔어요\n<@${inviter}> 님이 <@${memberId}> 님을 초대했어요!\n-# <@${inviter}> 님의 초대 **${count}명** · <t:${now}:R>`
+                : `### ${appEmoji("does_user")} 새 멤버가 왔어요\n<@${memberId}> 님이 들어왔어요\n-# 초대한 사람을 찾지 못했어요 (개인 초대 링크가 아닌 경로) · <t:${now}:R>`,
               accessory: thumbnail(avatarUrl(memberId, avatar)),
             }),
           ],
@@ -247,7 +248,7 @@ export async function handleInviteLogCommand(shop: Shop, actor: { roles: string[
 }
 
 function rankPanel(shopName: string, db: InviteDb) {
-  const medals = ["🥇", "🥈", "🥉"];
+  const medals = [appEmoji("does_crown"), appEmoji("does_trophy"), appEmoji("does_medal")];
   const top = rankList(db).slice(0, 10);
   const max = top[0]?.n || 1;
   const lines = top.map((x, i) => {

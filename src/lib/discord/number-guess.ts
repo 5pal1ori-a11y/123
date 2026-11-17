@@ -12,7 +12,7 @@ import {
   textDisplay,
   type DiscordInteraction,
 } from "@/lib/discord/components";
-import { appEmoji, ensureAppEmojis, reactionEmoji } from "@/lib/discord/app-emojis";
+import { appEmoji, ensureAppEmojis, plainEmoji, reactionEmoji } from "@/lib/discord/app-emojis";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { discordRest, editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
 import { getShopSettings } from "@/lib/store";
@@ -54,7 +54,7 @@ function startPanel(shopName: string, g: Game) {
         [
           mediaGallery([`${origin()}/brand/number-guess-3d.gif`]),
           textDisplay(`-# ${shopName}`),
-          textDisplay(ended ? "## 🔢 숫자 맞추기 종료" : "## 🔢 숫자 맞추기 시작!"),
+          textDisplay(ended ? `## ${appEmoji("does_question")} 숫자 맞추기 종료` : `## ${appEmoji("does_question")} 숫자 맞추기 시작!`),
           textDisplay(
             ended ? `정답 **${g.answer.toLocaleString("ko-KR")}** · 당첨 <@${g.winnerId}>` : rangeText(g),
           ),
@@ -179,7 +179,7 @@ export async function handleNumberGuess(shop: Shop, interaction: DiscordInteract
   );
   if (game.messageId) await editChannelMessage(channelId, game.messageId, startPanel(shop.name, game), shop.id).catch(() => null);
   await setGuessChannelLocked(channelId, true, shop.id);
-  return plainEphemeral(`🎉 정답이에요! **${guess}** — 축하합니다!`);
+  return plainEphemeral(`${plainEmoji("does_party")} 정답이에요! **${guess}** — 축하합니다!`);
 }
 
 const SEND_MESSAGES = BigInt(2048);

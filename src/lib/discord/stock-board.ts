@@ -20,7 +20,7 @@ import {
 } from "@/lib/store";
 import type { ProductWithStock } from "@/lib/types";
 import { formatKRW } from "@/lib/utils";
-import { appEmoji, ensureAppEmojis } from "@/lib/discord/app-emojis";
+import { appEmoji, capeEmoji, ensureAppEmojis } from "@/lib/discord/app-emojis";
 
 /** V2 메시지 하나의 글자 수 한도(4000) 안에 상품 목록을 담는다 */
 const TEXT_BUDGET = 3300;
@@ -32,7 +32,8 @@ function stockLabel(p: ProductWithStock) {
 }
 
 function productLine(p: ProductWithStock) {
-  return `${p.availableCount > 0 ? appEmoji("does_check") : appEmoji("does_sold")} **${escapeMd(p.name)}** · ${formatKRW(p.price)} · ${stockLabel(p)}`;
+  const cape = p.productKind === "mc_cape" && p.capeType ? capeEmoji(p.capeType) : "";
+  return `${p.availableCount > 0 ? appEmoji("does_check") : appEmoji("does_sold")} ${cape ? `${cape} ` : ""}**${escapeMd(p.name)}** · ${formatKRW(p.price)} · ${stockLabel(p)}`;
 }
 
 function groupByCategory(products: ProductWithStock[]) {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ensureAppEmojis, plainEmoji } from "@/lib/discord/app-emojis";
 import {
   DISCORD_API,
   InteractionResponseType,
@@ -237,13 +238,13 @@ function suspenseFor(interaction: DiscordInteraction): { title: string; gif: str
   const origin = "https://doesmc.xyz";
   if (interaction.type === 2) {
     const name = interaction.data?.name ?? "";
-    if (name === "출석") return { title: "🎁 출석 상자를 여는 중…", gif: `${origin}/brand/suspense-checkin-3d.gif` };
-    if (name === "도박") return { title: "🎰 슬롯을 돌리는 중…", gif: `${origin}/brand/suspense-gamble-3d.gif` };
+    if (name === "출석") return { title: `${plainEmoji("does_gift")} 출석 상자를 여는 중…`, gif: `${origin}/brand/suspense-checkin-3d.gif` };
+    if (name === "도박") return { title: `${plainEmoji("does_jackpot")} 슬롯을 돌리는 중…`, gif: `${origin}/brand/suspense-gamble-3d.gif` };
     return null;
   }
   const parsed = parseCid(interaction.data?.custom_id ?? "");
-  if (parsed?.action === "gacha_draw") return { title: "🎁 뽑는 중…", gif: `${origin}/brand/gacha3d2-idle.gif` };
-  if (parsed?.action === "rbox_open") return { title: "⛏️ 상자를 여는 중…", gif: `${origin}/api/discord/rbox/idle-3d2.gif` };
+  if (parsed?.action === "gacha_draw") return { title: `${plainEmoji("does_gift")} 뽑는 중…`, gif: `${origin}/brand/gacha3d2-idle.gif` };
+  if (parsed?.action === "rbox_open") return { title: `${plainEmoji("does_pickaxe")} 상자를 여는 중…`, gif: `${origin}/api/discord/rbox/idle-3d2.gif` };
   return null;
 }
 
@@ -252,6 +253,7 @@ const SUSPENSE_MS = 5000;
 async function processDeferred(interaction: DiscordInteraction) {
   try {
     await initStore({ force: true });
+    await ensureAppEmojis().catch(() => null);
     const suspense = suspenseFor(interaction);
     const started = Date.now();
     if (suspense) {

@@ -136,7 +136,7 @@ export async function uploadGuildEmojis(max = 12, replaced: Set<string> = new Se
     result.failed.push({ name: "-", reason: `서버 이모지 목록을 못 읽음 (${listRes.status})` });
     return result;
   }
-  const list = (await listRes.json()) as { id: string; name: string }[];
+  const list = (await listRes.json()) as { id: string; name: string; animated?: boolean }[];
   const have = new Set(list.map((e) => e.name));
   for (const e of list) {
     if (!e.name.startsWith("does_") || replaced.has(e.name) || !GUILD_EMOJIS.some((g) => g.name === e.name)) continue;
@@ -185,5 +185,25 @@ export async function uploadGuildEmojis(max = 12, replaced: Set<string> = new Se
       result.failed.push({ name: e.name, reason: String(err) });
     }
   }
+  await saveGuildEmojiMap(api, guildId).catch(() => null);
   return result;
+}
+
+/** 서버 이모지 목록(does_* · cape_*)을 이름 → <:이름:ID> 로 KV 에 저장 — 봇 메시지가 이걸 쓴다 */
+async function saveGuildEmojiMap(api: (m: string, p: string) => Promise<Response>, guildId: string) {
+  const res = await api("GET", `/guilds/${guildId}/emojis`);
+  if (!res.ok) return;
+  const list = (await res.json()) as { id: string; name: string; animated?: boolean }[];
+  const map: Record<string, string> = {};
+  for (const e of list) if (/^(does|cape)_/.test(e.name)) map[e.name] = `<${e.animated ? "a" : ""}:${e.name}:${e.id}>`;
+  const { kvPutJson } = await import("@/lib/world/kv");
+  const { GUILD_EMOJI_MAP_KEY } = await import("@/lib/discord/app-emojis");
+  await kvPutJson(GUILD_EMOJI_MAP_KEY, map);
+}
+
+/** 업로드 없이 이모지 목록만 다시 저장 */
+export async function refreshGuildEmojiMap(guildId = MFA_DISCORD_GUILD_ID) {
+  const token = (await doesDiscordEnvAsync()).botToken;
+  if (!token) return;
+  await saveGuildEmojiMap((method, path) => fetch(`https://discord.com/api/v10${path}`, { method, headers: { Authorization: `Bot ${token}` } }), guildId);
 }

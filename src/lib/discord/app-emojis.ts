@@ -6,9 +6,43 @@
 import { BOT_EMOJI_IMAGES } from "@/lib/discord/emoji-images";
 import { kvGetJson, kvPutJson } from "@/lib/world/kv";
 
-export type AppEmojiName = keyof typeof BOT_EMOJI_IMAGES;
+export type BotEmojiName = keyof typeof BOT_EMOJI_IMAGES;
+/** DOES 서버에만 올린 2D 이모지 (앱 이모지에는 없음) */
+const EXTRA_FALLBACK = {
+  does_bell: "🔔",
+  does_calendar: "📅",
+  does_card: "💳",
+  does_cart: "🛒",
+  does_chart: "📊",
+  does_clock: "⏰",
+  does_coin: "🪙",
+  does_crown: "👑",
+  does_discount: "🏷️",
+  does_fire: "🔥",
+  does_heart: "💖",
+  does_info: "ℹ️",
+  does_key: "🔑",
+  does_lightning: "⚡",
+  does_link: "🔗",
+  does_lock: "🔒",
+  does_medal: "🏅",
+  does_megaphone: "📢",
+  does_new: "🆕",
+  does_pickaxe: "⛏️",
+  does_question: "❓",
+  does_rocket: "🚀",
+  does_shield: "🛡️",
+  does_sparkles: "✨",
+  does_sword: "⚔️",
+  does_trophy: "🏆",
+  does_user: "👤",
+  does_verified: "☑️",
+  does_warning: "⚠️",
+} as const;
+export type AppEmojiName = BotEmojiName | keyof typeof EXTRA_FALLBACK;
 
 const FALLBACK: Record<AppEmojiName, string> = {
+  ...EXTRA_FALLBACK,
   does_check: "✅",
   does_cross: "❌",
   does_star: "⭐",
@@ -35,12 +69,15 @@ const FALLBACK: Record<AppEmojiName, string> = {
 /** v5: 2D 고퀄 그림으로 교체 — 예전 그림은 같은 이름이면 지우고 다시 올린다 */
 const KV_KEY = "does:app-emojis:v6";
 let cache: Partial<Record<AppEmojiName, string>> = {};
+/** DOES 서버(길드) 이모지 — 서버 안에서는 답장 글자에서도 그림으로 보인다 (외부 이모지 아님) */
+export const GUILD_EMOJI_MAP_KEY = "does:guild-emoji-map:v1";
+let guildCache: Record<string, string> = {};
 let ensured = false;
 let inflight: Promise<void> | null = null;
 
 /** 메시지 글자에 넣을 문자열 (<a:이름:ID>) */
 export function appEmoji(name: AppEmojiName) {
-  return cache[name] ?? FALLBACK[name];
+  return guildCache[name] ?? cache[name] ?? FALLBACK[name];
 }
 
 /**
@@ -49,7 +86,12 @@ export function appEmoji(name: AppEmojiName) {
  * (버튼 이모지 · 봇이 채널에 직접 올리는 메시지는 이 제한이 없어 appEmoji 를 쓴다)
  */
 export function plainEmoji(name: AppEmojiName) {
-  return FALLBACK[name];
+  return guildCache[name] ?? FALLBACK[name];
+}
+
+/** 망토 이모지 (cape_<종류>) — 서버에 올라가 있으면 그림, 아니면 빈 문자열 */
+export function capeEmoji(type: string) {
+  return guildCache[`cape_${type.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 26)}`] ?? "";
 }
 
 /** 버튼 emoji 칸에 넣을 값 (components.button 이 <a:이름:ID> 를 알아본다) */
@@ -86,12 +128,13 @@ async function doesApi(method: string, path: string, body?: unknown) {
 }
 
 async function load() {
-  const names = Object.keys(BOT_EMOJI_IMAGES) as AppEmojiName[];
+  guildCache = (await kvGetJson<Record<string, string>>(GUILD_EMOJI_MAP_KEY).catch(() => null)) ?? guildCache;
+  const names = Object.keys(BOT_EMOJI_IMAGES) as BotEmojiName[];
   try {
     const me = await doesApi("GET", "/applications/@me");
     const appId = me.ok ? (me.json as { id?: string })?.id : null;
     if (!appId) return;
-    const saved = await kvGetJson<{ appId: string; map: Partial<Record<AppEmojiName, string>> }>(KV_KEY);
+    const saved = await kvGetJson<{ appId: string; map: Partial<Record<BotEmojiName, string>> }>(KV_KEY);
     if (saved?.appId === appId && names.every((n) => saved.map[n])) {
       cache = saved.map;
       ensured = true;
@@ -100,7 +143,7 @@ async function load() {
     const list = await doesApi("GET", `/applications/${appId}/emojis`);
     if (!list.ok) return;
     const items = (list.json as { items?: { id: string; name: string; animated?: boolean }[] })?.items ?? [];
-    const next: Partial<Record<AppEmojiName, string>> = {};
+    const next: Partial<Record<BotEmojiName, string>> = {};
     for (const name of names) {
       const spec = BOT_EMOJI_IMAGES[name];
       let e = items.find((x) => x.name === name);

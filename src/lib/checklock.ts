@@ -128,7 +128,10 @@ export async function runChecklock(shopId: string, force = false) {
     if (!force && db.lastRun && Date.now() - new Date(db.lastRun).getTime() < RUN_EVERY_MS - 30_000) return { skipped: true as const };
     const store = getStoreForRead();
     const products = store.products.filter((p) => p.shopId === shopId && p.productKind === "mc_account" && p.mcNickname);
-    const live = products.filter((p) => p.active);
+    // 재고가 남아 있는(아직 안 팔린) 판매 중 상품만
+    const { listProducts } = await import("@/lib/store");
+    const avail = new Set(listProducts(shopId).filter((p) => p.availableCount > 0).map((p) => p.id));
+    const live = products.filter((p) => p.active && avail.has(p.id));
     const now = new Date().toISOString();
     const checked: string[] = [];
     const flagged: { name: string; issue: string }[] = [];

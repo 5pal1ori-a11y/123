@@ -12,7 +12,12 @@ export async function GET(request: Request) {
   if (!isShop(shop)) return shop;
   if (!isShopAdmin(request, shop)) return unauthorized();
   const db = await getChecklockDb(shop.id);
-  const products = getStoreForRead().products.filter((p) => p.shopId === shop.id && p.productKind === "mc_account");
+  const { listProducts } = await import("@/lib/store");
+  const avail = new Set(listProducts(shop.id).filter((p) => p.availableCount > 0).map((p) => p.id));
+  // 판매 중(재고 있음)이거나 체크락이 멈춘 상품만 보여 준다
+  const products = getStoreForRead().products.filter(
+    (p) => p.shopId === shop.id && p.productKind === "mc_account" && (avail.has(p.id) || db.entries[p.id]?.stopped),
+  );
   const rows = products.map((p) => {
     const e = db.entries[p.id];
     return {

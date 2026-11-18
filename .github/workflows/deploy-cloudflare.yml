@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - claude/minecraft-account-product-ui-nax6xg
+      - claude/adoring-franklin-9jdnb6
 
 concurrency:
   group: cloudflare-deploy

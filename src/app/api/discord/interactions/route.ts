@@ -127,6 +127,10 @@ function needsSyncModalResponse(interaction: DiscordInteraction) {
   return (
     // 재고 요청 '직접 적어서 요청' 은 입력 창(모달)을 바로 열어야 한다
     action === "sr_custom" ||
+    // 프록시 등록하기 · 승인 · 거절 → 입력 창(모달)
+    action === "px_reg" ||
+    action === "px_ok" ||
+    action === "px_no" ||
     action === "chg_custom" ||
     action === "menu_charge" ||
     action === "menu_coupon" ||
@@ -160,6 +164,9 @@ async function chargeNeedsDepositorModal(interaction: DiscordInteraction) {
 
 /** 누른 메시지를 그 자리에서 고쳐 쓰는 동작 — 나머지는 버튼자판기처럼 새 ephemeral 응답 */
 const UPDATE_IN_PLACE = new Set([
+  // 프록시 승인·거절 모달 → 관리자 채널의 신청 카드를 그 자리에서 결과로 바꾼다
+  "px_okm",
+  "px_nom",
   "emb_modal",
   "emb_send",
   "emb_back",
@@ -192,12 +199,12 @@ function deferredEphemeral(interaction: DiscordInteraction) {
   if (interaction.type === InteractionType.MODAL_SUBMIT) {
     const action = parseCid(interaction.data?.custom_id ?? "")?.action;
     // /버튼 모달 제출 → 공개 패널
-    if (action === "btn_modal" || action === "sr_modal") return false;
+    // (재고 요청 접수 안내는 요청한 사람에게만 보여야 해서 여기서 빼지 않는다)
+    if (action === "btn_modal") return false;
   }
   if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
     const action = parseCid(interaction.data?.custom_id ?? "")?.action;
-    // 재고 요청 접수 안내는 채널 모두에게 보인다
-    if (action === "refresh" || action === "sr_pick") return false;
+    if (action === "refresh") return false;
   }
   return true;
 }

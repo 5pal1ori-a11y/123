@@ -7,11 +7,12 @@ import {
   verifySessionToken,
 } from "@/lib/auth";
 import { readCookieFromHeader, sessionCookieBaseOptions } from "@/lib/session-cookie";
+import { sessionMaxAgeSec, sessionTtlMinutes } from "@/lib/session-config";
 import { getShopBySlug, getUserById } from "@/lib/store";
 import { isAuthSessionValid, rehydrateAuthSession, touchAuthSession } from "@/lib/store-ext";
 
-function sessionCookieOptions() {
-  return sessionCookieBaseOptions();
+function sessionCookieOptions(role: "user" | "admin" | "platform-admin" = "admin") {
+  return sessionCookieBaseOptions(sessionMaxAgeSec(role));
 }
 
 async function touchSessionCookie(
@@ -20,8 +21,8 @@ async function touchSessionCookie(
 ) {
   try {
     const jar = await cookies();
-    const token = createSessionToken(payload);
-    jar.set(cookieName, token, sessionCookieOptions());
+    const token = createSessionToken(payload, sessionTtlMinutes(payload.role));
+    jar.set(cookieName, token, sessionCookieOptions(payload.role));
   } catch {
     // cookie refresh may fail during static/edge renders
   }
@@ -34,8 +35,8 @@ export function applySessionCookie(
   role: "user" | "admin",
   payload: { sub: string; shopId: string; sid?: string },
 ) {
-  const token = createSessionToken({ ...payload, role });
-  response.cookies.set(sessionCookieName(shopSlug, role), token, sessionCookieOptions());
+  const token = createSessionToken({ ...payload, role }, sessionTtlMinutes(role));
+  response.cookies.set(sessionCookieName(shopSlug, role), token, sessionCookieOptions(role));
   return response;
 }
 
@@ -44,10 +45,10 @@ export async function setSessionCookie(
   role: "user" | "admin",
   payload: { sub: string; shopId: string; sid?: string },
 ) {
-  const token = createSessionToken({ ...payload, role });
+  const token = createSessionToken({ ...payload, role }, sessionTtlMinutes(role));
   try {
     const jar = await cookies();
-    jar.set(sessionCookieName(shopSlug, role), token, sessionCookieOptions());
+    jar.set(sessionCookieName(shopSlug, role), token, sessionCookieOptions(role));
   } catch {
     // OpenNext/Workers may reject cookies() mutation — caller should also use applySessionCookie
   }

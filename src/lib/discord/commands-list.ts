@@ -376,6 +376,25 @@ export const DOES_BOT_COMMANDS = [
     ],
   },
   {
+    name: "태그이벤트",
+    description: "서버 태그 착용자만 참여하는 추첨 이벤트를 엽니다 (관리자)",
+    type: 1,
+    default_member_permissions: "32",
+    options: [
+      { type: 3, name: "경품", description: "경품 이름", required: true, max_length: 100 },
+      { type: 4, name: "당첨자수", description: "뽑을 인원", required: true, min_value: 1, max_value: 50 },
+      { type: 4, name: "시간", description: "진행 시간 (1시간 단위, 최대 336시간)", required: true, min_value: 1, max_value: 336 },
+      { type: 3, name: "내용", description: "이벤트 설명 (선택)", required: false, max_length: 1000 },
+      { type: 7, name: "채널", description: "올릴 채널 (비우면 지금 채널)", channel_types: [0, 5], required: false },
+    ],
+  },
+  {
+    name: "태그현황",
+    description: "서버 태그 착용자 수를 확인하고 지금 다시 집계합니다 (관리자)",
+    type: 1,
+    default_member_permissions: "32",
+  },
+  {
     name: "이벤트생성",
     description: "참여하기 버튼으로 응모하는 추첨 이벤트를 엽니다 (관리자)",
     type: 1,

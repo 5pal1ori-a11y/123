@@ -13,7 +13,7 @@ export type SessionRole = SessionPayload["role"];
  * Host-only cookies (no Domain attribute) so shop A cannot receive shop B cookies.
  * Secure in production.
  */
-export function sessionCookieBaseOptions() {
+export function sessionCookieBaseOptions(maxAgeSec: number = SESSION_COOKIE_MAX_AGE_SEC) {
   const secure =
     process.env.NODE_ENV === "production" ||
     process.env.NEXT_PUBLIC_APP_URL?.startsWith("https://") === true;
@@ -21,7 +21,7 @@ export function sessionCookieBaseOptions() {
     httpOnly: true,
     sameSite: "lax" as const,
     path: "/",
-    maxAge: SESSION_COOKIE_MAX_AGE_SEC,
+    maxAge: maxAgeSec,
     secure,
   };
 }

@@ -14,4 +14,6 @@ export type Giveaway = {
   ended: boolean;
   winnerIds: string[];
   renderedAt: number;
+  /** 서버 태그 착용자만 참여 가능 */
+  requireTag?: boolean;
 };

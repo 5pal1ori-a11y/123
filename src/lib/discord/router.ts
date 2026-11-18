@@ -404,6 +404,33 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         permissions: perms,
       });
     }
+    if (name === "태그이벤트") {
+      const { handleGiveawayCreate } = await import("@/lib/discord/giveaway");
+      return handleGiveawayCreate(shop, interaction, actor, {
+        prize: String(optionValue(interaction, "경품") ?? ""),
+        winners: Number(optionValue(interaction, "당첨자수") ?? 1),
+        hours: Number(optionValue(interaction, "시간") ?? 1),
+        description: String(optionValue(interaction, "내용") ?? ""),
+        channelId: String(optionValue(interaction, "채널") ?? interaction.channel_id ?? ""),
+        requireTag: true,
+      });
+    }
+    if (name === "태그현황") {
+      const { isDiscordAdmin } = await import("@/lib/discord/handlers");
+      if (!isDiscordAdmin(getShopSettings(shop.id), actor.roles, perms)) return plainEphemeral("관리자만 쓸 수 있어요.");
+      const { scanServerTag, getServerTagDb } = await import("@/lib/discord/server-tag");
+      const before = await getServerTagDb(shop.id);
+      const r = await scanServerTag(shop.id, true).catch(() => null);
+      const db = await getServerTagDb(shop.id);
+      return plainEphemeral(
+        [
+          `## 서버 태그 현황`,
+          `태그 착용자 **${db.total.toLocaleString("ko-KR")}명**${db.tag ? ` · 태그 **${db.tag}**` : ""}`,
+          `-# 전체 ${db.scanned.toLocaleString("ko-KR")}명 검사 · 1시간마다 자동 집계${r && "skipped" in r && r.skipped ? "" : ` · 방금 ${(db.total - before.total >= 0 ? "+" : "")}${db.total - before.total}명`}`,
+          db.total === 0 ? "-# 0명이면 디스코드 개발자 포털에서 봇의 **Server Members Intent** 가 켜져 있는지 확인해 주세요." : "",
+        ].filter(Boolean).join("\n"),
+      );
+    }
     if (name === "이벤트생성") {
       const { handleGiveawayCreate } = await import("@/lib/discord/giveaway");
       return handleGiveawayCreate(shop, interaction, actor, {

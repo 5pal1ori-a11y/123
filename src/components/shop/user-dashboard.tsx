@@ -357,6 +357,8 @@ export function UserDashboard({
   const [loginOpen, setLoginOpen] = useState(false);
   const isGuest = !user;
   const viewer = user ?? GUEST_VIEWER;
+  // 로그인하면 디스코드 닉네임을 우선 보여 준다 (연동 전에는 기존 이름)
+  const displayName = (user?.discordUsername?.trim() || viewer.name || viewer.email) as string;
   const requireLogin = useCallback(() => {
     setMenuOpen(false);
     setSheetOpen(false);
@@ -618,7 +620,7 @@ export function UserDashboard({
 
   const meta = META[tab];
   const TabIcon = NAV.find((n) => n.id === tab)?.icon ?? Home;
-  const initial = (viewer.name || viewer.email).slice(0, 1).toUpperCase();
+  const initial = (displayName || viewer.email).slice(0, 1).toUpperCase();
   const msgIsError = msg ? /실패|오류|없|못/.test(msg) : false;
   const dockSide: { id: UserTab; label: string; icon: typeof Home }[][] = [
     [
@@ -706,8 +708,8 @@ export function UserDashboard({
           <button type="button" className="udx-side-me" onClick={() => switchTab("account")}>
             <span className="udx-avatar">{initial}</span>
             <span className="min-w-0">
-              <b>{viewer.name}</b>
-              <small>{viewer.email}</small>
+              <b>{displayName}</b>
+              <small>{user?.discordUsername ? "Discord 연동됨" : viewer.email}</small>
             </span>
             <Settings className="ml-auto size-4 shrink-0 opacity-50" />
           </button>
@@ -793,8 +795,8 @@ export function UserDashboard({
                       <div className="udx-menu-me">
                         <span className="udx-avatar is-lg">{initial}</span>
                         <span className="min-w-0">
-                          <b>{viewer.name}</b>
-                          <small>{viewer.email}</small>
+                          <b>{displayName}</b>
+                          <small>{user?.discordUsername ? "Discord 연동됨" : viewer.email}</small>
                         </span>
                       </div>
                       <button type="button" onClick={() => switchTab("account")}>
@@ -1232,8 +1234,8 @@ export function UserDashboard({
               <div className="udx-sheet-me">
                 <span className="udx-avatar is-lg">{initial}</span>
                 <span className="min-w-0 flex-1">
-                  <b>{viewer.name}</b>
-                  <small>{viewer.email}</small>
+                  <b>{displayName}</b>
+                  <small>{user?.discordUsername ? "Discord 연동됨" : viewer.email}</small>
                 </span>
                 <button type="button" className="udx-round" onClick={() => setSheetOpen(false)} aria-label="닫기">
                   <X className="size-4" />

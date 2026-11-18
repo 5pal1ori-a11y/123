@@ -50,7 +50,7 @@ async function giveawayMessage(g: Giveaway) {
         title: g.ended ? "이벤트가 끝났어요" : "이벤트 진행 중!",
         ...(g.ended && g.winnerIds.length ? { people: g.winnerIds.slice(0, 6).map((id) => ({ id, label: "당첨" })) } : {}),
         subtitle: g.prize,
-        chips: [`당첨 ${g.winners}명`, `참여 ${g.entrants.length.toLocaleString("ko-KR")}명`, g.ended ? "추첨 완료" : `마감 ${endText}`],
+        chips: [...(g.requireTag ? ["서버 태그 전용"] : []), `당첨 ${g.winners}명`, `참여 ${g.entrants.length.toLocaleString("ko-KR")}명`, g.ended ? "추첨 완료" : `마감 ${endText}`],
         note: g.ended ? "당첨자는 이 채널에서 멘션으로 발표돼요" : "아래 버튼으로 참여하세요 · 마감 시각에 자동으로 추첨해요",
       }),
     )
@@ -109,7 +109,7 @@ export async function handleGiveawayCreate(
   shop: Shop,
   interaction: DiscordInteraction,
   actor: { id: string; roles: string[] },
-  opts: { prize: string; winners: number; hours: number; description: string; channelId: string },
+  opts: { prize: string; winners: number; hours: number; description: string; channelId: string; requireTag?: boolean },
 ) {
   if (!interaction.guild_id) return plainEphemeral("서버에서만 사용할 수 있어요.");
   if (!isDiscordAdmin(getShopSettings(shop.id), actor.roles, interaction.member?.permissions)) {
@@ -138,6 +138,7 @@ export async function handleGiveawayCreate(
     ended: false,
     winnerIds: [],
     renderedAt: now,
+    requireTag: Boolean(opts.requireTag),
   };
 
   const posted = await postChannelMessage(g.channelId, await giveawayMessage(g), shop.id);
@@ -156,6 +157,20 @@ export async function handleGiveawayCreate(
 }
 
 export async function handleGiveawayJoin(shop: Shop, giveawayId: string, userId: string) {
+  // 태그 전용 이벤트는 서버 태그 착용자만 참여할 수 있다
+  const peek = await hub("get", { id: giveawayId }).catch(() => null);
+  const target = peek?.ok ? (peek.data as unknown as Giveaway) : undefined;
+  if (target?.requireTag) {
+    const { getServerTagDb, isTagWearer, liveTagCheck } = await import("@/lib/discord/server-tag");
+    const db = await getServerTagDb(shop.id);
+    let allowed = isTagWearer(db, userId);
+    if (!allowed) allowed = (await liveTagCheck(shop.id, userId).catch(() => null)) === true;
+    if (!allowed) {
+      return plainEphemeral(
+        `이 이벤트는 **서버 태그 착용자**만 참여할 수 있어요.${db.tag ? `\n-# 디스코드 프로필에서 서버 태그 **${db.tag}** 를 착용한 뒤 다시 눌러 주세요.` : "\n-# 디스코드 프로필에서 이 서버의 태그를 착용한 뒤 다시 눌러 주세요."}`,
+      );
+    }
+  }
   const res = await hub("join", { id: giveawayId, userId });
   if (!res.ok) return plainEphemeral("이벤트를 찾지 못했어요.");
   const g = res.data.giveaway as Giveaway;

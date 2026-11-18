@@ -102,7 +102,8 @@ export function ShopUserProvider({
 
   return (
     <UserContext.Provider value={{ user, loading, refresh, setUser, logout }}>
-      <SessionIdleGuard enabled={Boolean(user)} onIdle={() => void logout()} onPing={sessionPing} />
+      {/* 로그인 유지: 미활동으로 로그아웃하지 않고, 활동 시 세션만 자동 연장한다 */}
+      <SessionIdleGuard enabled={Boolean(user)} onIdle={() => {}} onPing={sessionPing} />
       {children}
     </UserContext.Provider>
   );

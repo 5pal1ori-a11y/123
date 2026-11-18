@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { BarChart3, ExternalLink, Heart, Package, ShoppingCart, Star, User } from "lucide-react";
+import { BarChart3, ExternalLink, Heart, Package, ShoppingCart, User } from "lucide-react";
 import type { ProductWithStock, StockStatus } from "@/lib/types";
 import type { McAccountInfo, McCapeInfo } from "@/lib/mc-account";
 import { useCapeFace } from "@/components/capes/cape-face";
@@ -190,7 +190,7 @@ export function McAccountCard({
       style={
         selected
           ? { borderColor: "#ffffff", boxShadow: "0 0 0 2px #ffffff, 0 0 26px rgba(255,255,255,0.45)" }
-          : { borderColor: "#1c2436" }
+          : { borderColor: "#2a3450", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.04), 0 1px 0 rgba(255,255,255,0.03)" }
       }
     >
       {/* 스킨 영역 */}
@@ -252,12 +252,6 @@ export function McAccountCard({
             <span className={`size-1 rounded-full ${soldOut ? "bg-[#fca5a5]" : "bg-[#a5b4fc]"}`} />
             {soldOut ? "SOLD" : "AVAILABLE"}
           </span>
-          {rating !== null ? (
-            <span className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-md border border-[rgba(252,211,77,0.35)] bg-[rgba(40,30,6,0.88)] px-1.5 py-1 text-[11px] font-bold leading-none text-[#fcd34d] backdrop-blur">
-              <Star className="size-3 fill-[#fcd34d] text-[#fcd34d]" />
-              {rating.toFixed(1)}
-            </span>
-          ) : null}
         </div>
 
         <div className="absolute right-0 top-0 z-10 flex gap-1.5">

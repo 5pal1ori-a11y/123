@@ -50,6 +50,8 @@ jobs:
 
       - name: Build APK
         if: steps.apk.outputs.build == 'true'
+        # APK 빌드가 실패해도 사이트·서버 배포는 계속한다 (실패는 이 단계에 표시됨)
+        continue-on-error: true
         run: |
           cd android
           echo "sdk.dir=$ANDROID_HOME" > local.properties

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Do_Hyeon, Geist, Inter, JetBrains_Mono, Noto_Sans_KR, Space_Grotesk } from "next/font/google";
 import { PwaRegister } from "@/components/pwa-register";
-import { componentEmbedJson } from "@/lib/discord/component-embed";
+import { COMPONENT_EMBED_URL } from "@/lib/discord/component-embed";
 import "./globals.css";
 import "./does-features.css";
 import "./does-world.css";
@@ -86,7 +86,7 @@ export default function RootLayout({
     <html lang="ko" suppressHydrationWarning>
       <head>
         {/* 디스코드 링크 미리보기를 버튼 달린 V2 카드로 (Component Embed) */}
-        <script id="discord:component-embed" type="application/json" dangerouslySetInnerHTML={{ __html: componentEmbedJson() }} />
+        <link rel="discord:component-embed" type="application/json" href={COMPONENT_EMBED_URL} />
       </head>
       <body
         className={`${inter.variable} ${noto.variable} ${geistSans.variable} ${jetbrains.variable} ${spaceGrotesk.variable} ${doHyeon.variable} antialiased`}

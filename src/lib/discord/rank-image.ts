@@ -358,7 +358,16 @@ export async function purchaseLogImageUrl(shopId: string, orderUuid: string) {
   if (!(await rankBinding())) return null;
   const shop = getShopById(shopId);
   if (!shop || !/^[A-Za-z0-9_-]{6,64}$/.test(orderUuid)) return null;
-  return `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-order-${orderUuid}.png`;
+  const signed = await signedDataImageUrl(shop.slug, await purchaseLogData(shopId, orderUuid).catch(() => null));
+  return signed ?? `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-order-${orderUuid}.png`;
+}
+
+/** 구매 영수증(DM) 이미지 주소 */
+export async function receiptImageUrl(shopId: string, orderUuid: string) {
+  const shop = getShopById(shopId);
+  if (!shop || !/^[A-Za-z0-9_-]{6,64}$/.test(orderUuid)) return null;
+  const signed = (await rankBinding()) ? await signedDataImageUrl(shop.slug, await receiptData(shopId, orderUuid).catch(() => null)) : null;
+  return signed ?? `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-receipt-${orderUuid}.png`;
 }
 
 export async function renderPurchaseLogImage(shopId: string, orderUuid: string) {
@@ -399,7 +408,8 @@ export async function chargeLogImageUrl(shopId: string, chargeId: string, balanc
   if (!(await rankBinding())) return null;
   const shop = getShopById(shopId);
   if (!shop || !/^[A-Za-z0-9_-]{4,64}$/.test(chargeId)) return null;
-  return `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-charge-${chargeId}.png?b=${Math.max(0, Math.round(balance))}`;
+  const signed = await signedDataImageUrl(shop.slug, await chargeLogData(shopId, chargeId, balance).catch(() => null));
+  return signed ?? `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-charge-${chargeId}.png?b=${Math.max(0, Math.round(balance))}`;
 }
 
 export async function renderChargeLogImage(shopId: string, chargeId: string, balance: number) {
@@ -478,6 +488,14 @@ export async function renderReviewImage(shopId: string, reviewId: string) {
   return res.ok ? res : null;
 }
 
+/** 후기 로그 이미지 주소 */
+export async function reviewImageUrl(shopId: string, reviewId: string) {
+  const shop = getShopById(shopId);
+  if (!shop) return null;
+  const signed = await signedDataImageUrl(shop.slug, await reviewData(shopId, reviewId).catch(() => null));
+  return signed ?? `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-review-${reviewId}.png`;
+}
+
 async function productImg(productId: string | null | undefined) {
   const { getProductById } = await import("@/lib/store");
   const { CAPE_BY_TYPE } = await import("@/lib/capes-data");
@@ -511,9 +529,14 @@ export async function renderRestockImage(productId: string, added: number, total
 
 /** 구매 영수증 (DM) 이미지 */
 export async function renderReceiptImage(shopId: string, orderUuid: string) {
+  const d = await receiptData(shopId, orderUuid);
+  return d ? postRender(d) : null;
+}
+
+async function receiptData(shopId: string, orderUuid: string) {
   const d = await purchaseLogData(shopId, orderUuid);
   if (!d) return null;
-  return postRender({
+  return {
     kind: "receipt",
     product: d.product,
     img: d.img,
@@ -524,7 +547,7 @@ export async function renderReceiptImage(shopId: string, orderUuid: string) {
     amount: d.amount,
     time: d.time,
     note: "상품 정보(16자리 코드)는 아래 메시지에서 확인하세요 · doesmc.xyz/check",
-  });
+  };
 }
 
 /** /내정보 카드 데이터 (해시가 맞을 때만 그린다 → 남의 정보를 주소로 볼 수 없음) */
@@ -593,6 +616,34 @@ async function cardSig(slug: string, body: string) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`card:${slug}:${body}`));
   return [...new Uint8Array(mac)].slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * 데이터를 주소에 담은 이미지 (구매·충전·후기 로그, 영수증).
+ * 로그를 보내는 순간 디스코드가 이미지를 가져가는데, 다른 지역 서버에서는 KV에 방금 저장한 주문·충전이
+ * 최대 1분 가까이 안 보여 502 → 디스코드가 깨진 이미지로 캐시한다. 그래서 그릴 데이터를 보낼 때 미리 만들어
+ * 서명과 함께 주소에 넣고, 그리는 쪽은 저장소를 다시 읽지 않는다.
+ */
+const SIGNED_KINDS = new Set(["purchase_log", "charge_log", "review", "receipt"]);
+const SIGNED_MAX_BODY = 1900;
+
+async function signedDataImageUrl(shopSlug: string, data: { kind: string } | null) {
+  if (!data || !SIGNED_KINDS.has(data.kind)) return null;
+  const body = b64url(JSON.stringify(data));
+  if (body.length > SIGNED_MAX_BODY) return null;
+  return `https://doesmc.xyz/api/discord/rank-image/${shopSlug}-sd-${body}-${await cardSig(shopSlug, `sd:${body}`)}.png`;
+}
+
+export async function renderSignedDataImage(shopSlug: string, body: string, sig: string) {
+  if (body.length > SIGNED_MAX_BODY || (await cardSig(shopSlug, `sd:${body}`)) !== sig) return null;
+  let d: { kind?: string };
+  try {
+    d = JSON.parse(fromB64url(body)) as { kind?: string };
+  } catch {
+    return null;
+  }
+  if (!d || typeof d.kind !== "string" || !SIGNED_KINDS.has(d.kind)) return null;
+  return postRender(d);
 }
 
 /** 발표 카드 이미지 주소 — 내용은 주소에 담고, 서명이 맞아야 그린다 (남이 문구를 바꿔 만들 수 없음) */

@@ -4653,7 +4653,10 @@ export function purchaseWithPoints(
             amountLabel: quantity > 1 ? `${amountLabel} (${quantity}개)` : amountLabel,
             orderUuid: first.orderUuid,
             codePreview: codes || null,
-            receiptUrl: shopSlug ? `https://doesmc.xyz/api/discord/rank-image/${shopSlug}-receipt-${first.orderUuid}.png` : null,
+            receiptUrl: shopSlug
+              ? ((await import("@/lib/discord/rank-image").then((m) => m.receiptImageUrl(shopId, first.orderUuid)).catch(() => null)) ??
+                `https://doesmc.xyz/api/discord/rank-image/${shopSlug}-receipt-${first.orderUuid}.png`)
+              : null,
           },
           [
             ...(external?.links ?? []).slice(0, 4).map((l) =>

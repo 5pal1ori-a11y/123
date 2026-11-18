@@ -9,6 +9,11 @@ export async function GET(request: Request, ctx: { params: Promise<{ file: strin
   await initStore();
   const img = (res: Response | null, maxAge = 86400) =>
     res ? new Response(res.body, { headers: { "content-type": "image/png", "cache-control": `public, max-age=${maxAge}, s-maxage=${maxAge}` } }) : new Response("unavailable", { status: 502 });
+  const sd = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-sd-([A-Za-z0-9_-]{8,1900})-([0-9a-f]{16})\.png$/.exec(file);
+  if (sd) {
+    const { renderSignedDataImage } = await import("@/lib/discord/rank-image");
+    return img(await renderSignedDataImage(sd[1], sd[2], sd[3]).catch(() => null));
+  }
   const cd = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-card-([A-Za-z0-9_-]{8,1800})-([0-9a-f]{16})\.png$/.exec(file);
   if (cd) {
     const { renderCardImage } = await import("@/lib/discord/rank-image");

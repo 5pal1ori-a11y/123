@@ -122,8 +122,12 @@ export function extractAosBankPush(
         amount = isDigitAmount(parts[5] ?? "");
       }
     } else if (pkg === "com.kakaobank.channel") {
-      const parts = body.split(" ");
-      name = parts[0] ?? "";
+      // 제목 "입금 1,000원" 만 입금 (출금·결제 알림은 금액이 있어도 제외)
+      if (!/^\s*입금/.test(title)) return { amount: 0, name: "" };
+      // 본문 "홍길동 → 입출금통장(0645)" 이 기본, "입출금통장(0645) → 홍길동" 처럼 계좌가 앞이면 화살표 뒤가 입금자
+      const sides = body.split(/\s*(?:→|->)\s*/).map((x) => x.trim()).filter(Boolean);
+      const isAccount = (x: string) => /\(\d{2,}\)\s*$/.test(x) || /통장|계좌/.test(x);
+      name = (sides.find((x) => !isAccount(x)) ?? body.split(" ")[0] ?? "").split(/\s+/)[0] ?? "";
       const t1 = (title.split(" ")[1] ?? "").replace(/,/g, "").replace(/원/g, "");
       amount = /^\d+$/.test(t1) ? Number(t1) : 0;
     } else if (pkg === "com.kebhana.hanapush") {
@@ -365,7 +369,14 @@ export function parseDepositorNameFromText(text: string): string | null {
   return null;
 }
 
+/** 출금·결제 알림 (입금이라는 말 없이 출금으로 시작) — 금액이 있어도 충전으로 보면 안 된다 */
+export function isWithdrawalText(text: string) {
+  const t = String(text ?? "").trim();
+  return /^(?:\[[^\]]*\]\s*)*출금/.test(t) || (/출금/.test(t) && !/입금/.test(t));
+}
+
 export function parseBankPush(input: BankPushInput): ParsedBankPush | null {
+  if (isWithdrawalText(`${input.title ?? ""}\n${input.body ?? ""}`)) return null;
   const structured = parseFromBodyTitle(input);
   if (structured) return structured;
 

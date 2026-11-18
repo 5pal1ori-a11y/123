@@ -3,6 +3,7 @@ import {
   parseAutoChargeAmount,
 } from "@/lib/auto-charge-sources";
 import {
+  isWithdrawalText,
   normDepositorName,
   parseBankPush,
   parseDepositorNameFromText,
@@ -56,6 +57,7 @@ export function resolveAutoChargePayload(input: {
 
   const depositorText = (input.depositorText ?? "").trim();
   if (!depositorText && input.amount === undefined) return null;
+  if (depositorText && isWithdrawalText(depositorText)) return null;
 
   const explicitAmount =
     input.amount !== undefined && input.amount > 0 ? Math.floor(input.amount) : null;

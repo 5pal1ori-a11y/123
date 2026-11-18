@@ -1012,3 +1012,67 @@ export function pickaxeCardTree(d) {
     footer(next ? `다음 단계 ${d.nextName} · ${fmtN(d.nextCost)}P` : "모든 단계를 강화했어요", "doesmc.xyz"),
   );
 }
+
+/* ───────── 출석 상점 (DOES 커뮤니티 봇 뽑기) ───────── */
+function prizeIcon(kind, size) {
+  const svgs = {
+    points: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="c" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fef3c7"/><stop offset="0.5" stop-color="#fbbf24"/><stop offset="1" stop-color="#b45309"/></linearGradient></defs><circle cx="32" cy="32" r="27" fill="url(#c)" stroke="#fff" stroke-opacity="0.5" stroke-width="2"/><circle cx="32" cy="32" r="20" fill="none" stroke="#92400e" stroke-opacity="0.35" stroke-width="2"/><text x="32" y="42" font-size="26" font-weight="900" text-anchor="middle" fill="#78350f" font-family="Arial">P</text></svg>`,
+    mc: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><polygon points="32,6 58,19 32,32 6,19" fill="#4ade80"/><polygon points="6,19 32,32 32,60 6,46" fill="#a16207"/><polygon points="58,19 32,32 32,60 58,46" fill="#854d0e"/><polygon points="6,19 32,32 32,38 6,25" fill="#22c55e"/><polygon points="58,19 32,32 32,38 58,25" fill="#16a34a"/></svg>`,
+    nitro: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="8" y="26" width="48" height="32" rx="5" fill="#a78bfa"/><rect x="5" y="17" width="54" height="12" rx="4" fill="#c4b5fd"/><rect x="28" y="17" width="8" height="41" fill="#f472b6"/><path d="M32 17 C24 4, 12 10, 20 17 Z M32 17 C40 4, 52 10, 44 17 Z" fill="#f472b6"/></svg>`,
+    charge: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M6 18 h52 v9 a5 5 0 0 0 0 10 v9 h-52 v-9 a5 5 0 0 0 0 -10 z" fill="#f9a8d4" stroke="#fff" stroke-opacity="0.5" stroke-width="2"/><line x1="40" y1="20" x2="40" y2="44" stroke="#be185d" stroke-width="2" stroke-dasharray="3 3"/><text x="23" y="38" font-size="16" font-weight="900" text-anchor="middle" fill="#831843" font-family="Arial">W</text></svg>`,
+    none: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="#334155" stroke="#64748b" stroke-width="2"/><path d="M22 22 L42 42 M42 22 L22 42" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/></svg>`,
+  };
+  return img(svgUri(svgs[kind] ?? svgs.none), { width: size, height: size });
+}
+const PRIZE_TINT = { points: "#fbbf24", mc: "#4ade80", nitro: "#a78bfa", charge: "#f472b6", none: "#64748b" };
+
+/**
+ * 출석 상점 패널 — d: { cost, prizes: [{ name, kind, pct }] }
+ */
+export function attShopHeight(d) {
+  return 40 + 82 + 28 + 2 + 14 + Math.max(1, (d.prizes ?? []).length) * 72 + 70;
+}
+export function attShopTree(d) {
+  const prizes = (d.prizes ?? []).slice(0, 9);
+  const max = Math.max(1, ...prizes.map((p) => p.pct || 0));
+  const f = (v) => `${v < 1 ? v.toFixed(2) : v.toFixed(1)}%`;
+  return h("div", PAGE("#2a1b4b"),
+    brandHeader(d, "ATTENDANCE SHOP", "출석 상점", "뽑기권 1장", `${fmtN(d.cost)}P`),
+    h("div", { display: "flex", marginTop: 28 }, glowLine()),
+    h("div", { display: "flex", flexDirection: "column", marginTop: 14 },
+      ...prizes.map((p, k) =>
+        h("div", { display: "flex", alignItems: "center", width: "100%", padding: "11px 8px", borderBottom: k === prizes.length - 1 ? "none" : "1px solid rgba(255,255,255,0.07)" },
+          h("div", { display: "flex", width: 58, height: 50, alignItems: "center" }, prizeIcon(p.kind, 44)),
+          h("div", { display: "flex", flexDirection: "column", flexGrow: 1, marginLeft: 8 },
+            h("div", { display: "flex", fontSize: 23, fontWeight: 700, color: "#f1f5f9" }, p.name),
+            h("div", { display: "flex", marginTop: 8 }, premiumBar(460, (p.pct || 0) / max, [PRIZE_TINT[p.kind] ?? ACC, "#a78bfa", "#22d3ee"], 8)),
+          ),
+          h("div", { display: "flex", fontSize: 26, fontWeight: 900, color: PRIZE_TINT[p.kind] ?? "#fff" }, f(p.pct || 0)),
+        ),
+      ),
+    ),
+    footer(`꽝 ${f(Math.max(0, 100 - prizes.reduce((s, p) => s + (p.pct || 0), 0)))} · 포인트 상품은 바로 지급 · 실물 상품은 관리자가 전달`, "매일 /출석 으로 포인트 모으기"),
+  );
+}
+
+/**
+ * 출석 상점 뽑기 결과 — d: { name, avatar, prize, pkind, cost, balance, log }
+ */
+export function attResultTree(d) {
+  const kind = d.pkind ?? "none";
+  const tint = PRIZE_TINT[kind] ?? "#64748b";
+  const miss = kind === "none";
+  return h("div", PAGE(miss ? "#1e293b" : `${tint}33`),
+    brandHeader(d, d.log ? "DRAW LOG" : "ATTENDANCE DRAW", `${d.name ?? "회원"} 님의 뽑기`, "남은 포인트", `${fmtN(d.balance)}P`, { avatar: d.avatar ?? null, titleSize: 38 }),
+    h("div", { display: "flex", alignItems: "center", marginTop: 26, padding: "24px 34px", borderRadius: 28, background: `radial-gradient(ellipse 45% 90% at 16% 50%, ${tint}33 0%, rgba(255,255,255,0.02) 100%)`, border: "1.5px solid rgba(255,255,255,0.08)" },
+      h("div", { display: "flex", width: 170, height: 170, alignItems: "center", justifyContent: "center", borderRadius: 170, background: `radial-gradient(circle, ${tint}55 0%, rgba(0,0,0,0) 70%)` }, prizeIcon(kind, 128)),
+      h("div", { display: "flex", flexDirection: "column", marginLeft: 34, flex: 1 },
+        h("div", { display: "flex", fontSize: 20, fontWeight: 700, color: "#94a3b8" }, miss ? "아쉽게도…" : "당첨!"),
+        h("div", { display: "flex", fontSize: 58, fontWeight: 900, letterSpacing: -2, color: miss ? "#cbd5e1" : "#fff", marginTop: 2 }, miss ? "꽝" : d.prize ?? ""),
+        h("div", { display: "flex", fontSize: 22, fontWeight: 700, color: miss ? "#64748b" : tint, marginTop: 8 },
+          miss ? "다음 기회에!" : kind === "points" ? "출석 포인트로 바로 지급됐어요" : "관리자에게 문의하면 전달해 드려요"),
+      ),
+    ),
+    footer(`뽑기권 ${fmtN(d.cost)}P 사용`, d.time ? `${d.time}` : "doesmc.xyz"),
+  );
+}

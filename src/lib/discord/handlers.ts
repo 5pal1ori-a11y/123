@@ -724,6 +724,12 @@ export async function handlePaidMine(
     amount: result.amount,
     jackpot: result.jackpot,
     already: false,
+    discordId,
+    ore: result.ore,
+    base: result.base,
+    mult: result.mult,
+    paid: true,
+    pickaxeLevel: result.pickaxeLevel,
   });
   return mineResultResponse(shop, { ...linked.user, points: result.balance }, discordId, result, channelId, panelMessageId, who);
 }

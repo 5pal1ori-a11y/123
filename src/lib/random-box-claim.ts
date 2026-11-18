@@ -55,6 +55,11 @@ export function openRandomBoxOnce(shopId: string, user: ShopUser): Promise<Rando
         amount: result.amount,
         jackpot: result.jackpot,
         already: false,
+        discordId: user.discordId ?? null,
+        ore: result.ore,
+        base: result.base,
+        mult: result.mult,
+        pickaxeLevel: result.pickaxeLevel,
       });
     }
     return result;

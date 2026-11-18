@@ -352,10 +352,15 @@ var JACKPOT_CHANCE = 1e-3;
 var JACKPOT_AMOUNT = 1e3;
 var SHOP_TICKET_COST = 50;
 var USD_KRW = 1400;
+// 출석 상점 상품 — kind: 이미지 아이콘 · points: 출석 포인트로 바로 지급 · gif: 예전 결과 GIF (이미지가 안 될 때)
 var SHOP_PRIZES = [
-  { name: "\uB2C8\uD2B8\uB85C", chance: 1e-3 },
-  { name: "\uB9C8\uD06C \uACC4\uC815", chance: 5e-4 },
-  { name: "\uCDA9\uC804\uAD8C", chance: 3e-3 }
+  { name: "마크 계정", chance: 5e-4, kind: "mc", gif: "mc" },
+  { name: "니트로", chance: 1e-3, kind: "nitro", gif: "nitro" },
+  { name: "충전권", chance: 3e-3, kind: "charge", gif: "charge" },
+  { name: "500P", chance: 5e-3, kind: "points", points: 500, gif: "charge" },
+  { name: "100P", chance: 0.04, kind: "points", points: 100, gif: "charge" },
+  { name: "50P", chance: 0.12, kind: "points", points: 50, gif: "charge" },
+  { name: "20P", chance: 0.2, kind: "points", points: 20, gif: "charge" }
 ];
 
 // worker/src/util.js
@@ -399,6 +404,35 @@ async function resultGifUrl(state, payload) {
   }
 }
 __name(resultGifUrl, "resultGifUrl");
+// 출석 상점 이미지 — vendix /api/discord/botimg 가 DOES_FORWARD_KEY 서명을 확인하고 그린다
+async function botImageUrl(state, data) {
+  const key = state.env?.DOES_FORWARD_KEY;
+  if (!key) return null;
+  try {
+    const enc = new TextEncoder();
+    let bin = "";
+    for (const b of enc.encode(JSON.stringify(data))) bin += String.fromCharCode(b);
+    const body = btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    if (body.length > 1900) return null;
+    const k = await crypto.subtle.importKey("raw", enc.encode(key), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const mac = new Uint8Array(await crypto.subtle.sign("HMAC", k, enc.encode("img1:" + body)));
+    const sig = [...mac.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    return `https://doesmc.xyz/api/discord/botimg/${body}-${sig}.png`;
+  } catch {
+    return null;
+  }
+}
+__name(botImageUrl, "botImageUrl");
+function kstStamp() {
+  const t = new Date(Date.now() + 9 * 36e5);
+  const p2 = (n) => String(n).padStart(2, "0");
+  return `${p2(t.getUTCMonth() + 1)}.${p2(t.getUTCDate())} ${p2(t.getUTCHours())}:${p2(t.getUTCMinutes())}`;
+}
+__name(kstStamp, "kstStamp");
+function shopPrizeTable() {
+  return SHOP_PRIZES.map((p) => ({ name: p.name, kind: p.kind, pct: Math.round(p.chance * 1e5) / 1e3 }));
+}
+__name(shopPrizeTable, "shopPrizeTable");
 function addGif(container, url) {
   if (url) container.components.push({ type: 12, items: [{ media: { url } }] });
   return container;
@@ -1481,23 +1515,21 @@ async function handleCommand(interaction, state) {
     return v2Reply(c);
   }
   if (name === "\uCD9C\uC11D\uC0C1\uC810") {
+    // 패널은 관리자만 올린다 — 올라간 패널의 [뽑기권 구매] 버튼은 누구나 쓸 수 있다
+    if (!isAdmin(interaction)) {
+      return v2Reply(addText(panel(), "## 관리자 전용\n출석 상점 패널은 관리자만 올릴 수 있어요.\n채널에 올라가 있는 출석 상점의 **뽑기권 구매** 버튼을 눌러 주세요."), true);
+    }
     const c = panel();
-    addText(c, "## \uCD9C\uC11D \uC0C1\uC810");
-    addText(c, "-# \uCD9C\uC11D \uD3EC\uC778\uD2B8\uB85C \uBF51\uAE30\uAD8C\uC744 \uAD6C\uB9E4\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4");
-    addDivider(c, true);
-    addText(
-      c,
-      `**\uAC00\uACA9:** ${pts(SHOP_TICKET_COST)}
-**\uAD6C\uB9E4 \uC2DC \uC790\uB3D9 \uBF51\uAE30**
-
-` + SHOP_PRIZES.map((p) => `**${p.name}** \u2014 ${(p.chance * 100).toFixed(2)}%`).join("\n")
-    );
+    addGif(c, await botImageUrl(state, { kind: "att_shop", cost: SHOP_TICKET_COST, prizes: shopPrizeTable() }));
+    addText(c, "## 출석 상점");
+    addText(c, `출석 포인트 **${pts(SHOP_TICKET_COST)}** 로 뽑기권을 사면 바로 뽑아요.\n> 포인트 상품은 즉시 지급 · 마크 계정·니트로·충전권은 관리자가 전달`);
     addDivider(c);
     addButtonRow(c, button({
       customId: "shop_buy_raffle",
-      label: `\uBF51\uAE30\uAD8C \uAD6C\uB9E4 (${SHOP_TICKET_COST}P)`,
+      label: `뽑기권 구매 (${SHOP_TICKET_COST}P)`,
       style: ButtonStyle.Primary
     }));
+    addText(c, "-# 매일 /출석 으로 포인트를 모을 수 있어요 · 결과는 나에게만 보이고, 채널에는 뽑기 로그가 남아요");
     return v2Reply(c);
   }
   if (name === "\uB3C4\uBC15") {
@@ -1762,21 +1794,44 @@ async function handleComponent(interaction, state) {
     }
     user.balance -= SHOP_TICKET_COST;
     const prize = drawShopPrize();
+    if (prize?.points) user.balance += prize.points;
     state.markDirty();
+    const result = {
+      kind: "att_result",
+      name: displayName(me).slice(0, 20),
+      avatar: avatarUrl(me),
+      prize: prize ? prize.name : null,
+      pkind: prize ? prize.kind : "none",
+      cost: SHOP_TICKET_COST,
+      balance: user.balance,
+      time: kstStamp()
+    };
+    const image = await botImageUrl(state, result);
     const c = panel();
-    addGif(c, await resultGifUrl(state, `raffle-${["nitro", "mc", "charge"][SHOP_PRIZES.indexOf(prize)] ?? "none"}`));
+    if (image) addGif(c, image);
+    else addGif(c, await resultGifUrl(state, `raffle-${prize?.gif ?? "none"}`));
     if (prize) {
-      addText(c, "## \uCD95\uD558\uD569\uB2C8\uB2E4!");
-      addDivider(c, true);
-      addText(c, `${mention(me.id)}\uB2D8\uC774 **${prize.name}** \uC5D0 \uB2F9\uCCA8\uB418\uC5C8\uC2B5\uB2C8\uB2E4!`);
+      addText(c, `## ${prize.name} 당첨!`);
+      addText(c, prize.points ? `출석 포인트 **${pts(prize.points)}** 가 바로 지급됐어요.` : "관리자에게 티켓으로 문의하면 전달해 드려요.");
     } else {
-      addText(c, "## \uAF5D...");
-      addDivider(c, true);
-      addText(c, `${mention(me.id)}\uB2D8, \uC544\uC27D\uAC8C\uB3C4 \uB2F9\uCCA8\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.`);
+      addText(c, "## 꽝...");
+      addText(c, "아쉽게도 당첨되지 않았어요. 다음 기회에!");
     }
     addDivider(c);
-    addText(c, `-# \uC0AC\uC6A9 \uD3EC\uC778\uD2B8 ${pts(SHOP_TICKET_COST)}  \xB7  \uB0A8\uC740 \uD3EC\uC778\uD2B8 ${pts(user.balance)}`);
-    return v2Reply(c);
+    addText(c, `-# 사용 ${pts(SHOP_TICKET_COST)}  \xB7  남은 포인트 ${pts(user.balance)}`);
+    addButtonRow(c, button({ customId: "shop_buy_raffle", label: `한 장 더 (${SHOP_TICKET_COST}P)`, style: ButtonStyle.Primary }));
+    // 채널에는 뽑기 로그 (이미지) — 실패해도 결과는 그대로
+    if (interaction.channelId && state.api) {
+      try {
+        const log = panel();
+        const logImage = await botImageUrl(state, { ...result, log: true });
+        if (logImage) addGif(log, logImage);
+        addText(log, `-# ${mention(me.id)} 님 출석 상점 뽑기 \xB7 ${prize ? `**${prize.name}** 당첨` : "꽝"}`);
+        await state.api.sendMessage(interaction.channelId, { flags: V2, components: [log], allowed_mentions: { parse: [] } });
+      } catch {
+      }
+    }
+    return v2Reply(c, true);
   }
   if (customId.startsWith("event_join_")) {
     const event = state.data.events[customId.slice("event_join_".length)];

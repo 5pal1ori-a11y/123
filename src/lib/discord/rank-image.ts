@@ -513,6 +513,11 @@ async function productImg(productId: string | null | undefined) {
   };
 }
 
+/** 커뮤니티 봇 이미지 (서명은 /api/discord/botimg 에서 확인) */
+export function renderBotImage(d: unknown) {
+  return postRender(d);
+}
+
 async function postRender(d: unknown) {
   const bind = await rankBinding();
   if (!bind) return null;

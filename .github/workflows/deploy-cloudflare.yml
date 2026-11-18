@@ -37,6 +37,11 @@ jobs:
         run: |
           if git diff --quiet HEAD~1 HEAD -- android/; then echo "build=false" >> "$GITHUB_OUTPUT"; else echo "build=true" >> "$GITHUB_OUTPUT"; fi
 
+      - name: Check shop bot changes
+        id: shopbot
+        run: |
+          if git diff --quiet HEAD~1 HEAD -- workers/shop-bot/index.js; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+
       - uses: actions/setup-java@v4
         if: steps.apk.outputs.build == 'true'
         with:
@@ -104,3 +109,14 @@ jobs:
         env:
           OPEN_NEXT_DEPLOY: "true"
         run: npx wrangler deploy
+
+      # DOES 커뮤니티 봇(discord-shop-bot) — 사이트 배포 뒤에 코드만 교체한다 (바인딩·비밀값·Durable Object 는 그대로)
+      - name: Update shop bot code (discord-shop-bot)
+        if: steps.shopbot.outputs.changed == 'true'
+        run: |
+          node --check workers/shop-bot/index.js
+          curl -fsS -X PUT "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/discord-shop-bot/content" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -F 'metadata={"main_module":"index.js"};type=application/json' \
+            -F "index.js=@workers/shop-bot/index.js;type=application/javascript+module;filename=index.js" \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print('success', d.get('success'), d.get('errors')); sys.exit(0 if d.get('success') else 1)"

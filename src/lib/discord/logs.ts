@@ -135,22 +135,73 @@ export function postRandomBoxLog(
     amount: number;
     jackpot: boolean;
     already: boolean;
+    /** 다이아 캐기 이미지용 (없으면 예전 GIF) */
+    discordId?: string | null;
+    ore?: string;
+    base?: number;
+    mult?: number;
+    paid?: boolean;
+    pickaxeLevel?: number;
   },
 ) {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
   const amount = `${input.amount.toLocaleString("ko-KR")}원`;
-  return scheduleLog(shopId, "random_box", [
-    mediaGallery([randomBoxGifUrl(input.amount)]),
-    textDisplay(input.jackpot ? "## 랜덤박스 잭팟" : "## 랜덤박스"),
-    separator(true, 1),
-    textDisplay(`**당첨자**\n${input.mention} (${input.name})`),
-    textDisplay(`**금액**\n${input.jackpot ? `${appEmoji("does_jackpot")} ${amount}` : amount}`),
-    ...(input.already ? [textDisplay("-# 오늘은 이미 열어 본 상자예요.")] : []),
-    separator(true, 1),
-    textDisplay(`-# ${ts}`),
-  ]);
+  const task = (async () => {
+    // 다이아 캐기 결과 카드 이미지 (채굴 로그 채널) — 만들지 못하면 예전 GIF
+    let image: string | null = null;
+    if (input.ore) {
+      const [{ getShopById }, { signedDataImageUrl }, mining] = await Promise.all([
+        import("@/lib/store"),
+        import("@/lib/discord/rank-image"),
+        import("@/lib/mining-shared"),
+      ]);
+      const slug = getShopById(shopId)?.slug;
+      const pick = mining.pickaxe(input.pickaxeLevel ?? 0);
+      const avatar = input.discordId ? await discordAvatarUrl(shopId, input.discordId).catch(() => null) : null;
+      image = slug
+        ? await signedDataImageUrl(slug, {
+            kind: "mine_result",
+            name: input.name.slice(0, 20),
+            avatar,
+            ore: input.ore,
+            amount: input.amount,
+            base: input.base ?? input.amount,
+            mult: input.mult ?? 1,
+            pickaxeName: pick.name,
+            pickaxeColor: pick.color,
+            paid: Boolean(input.paid),
+            already: false,
+          }).catch(() => null)
+        : null;
+    }
+    const oreName = input.ore ? (await import("@/lib/mining-shared")).oreInfo(input.ore).name : null;
+    return postV2Log(shopId, "random_box", [
+      mediaGallery([image ?? randomBoxGifUrl(input.amount)]),
+      textDisplay(
+        oreName
+          ? `${input.mention} 님 ${input.paid ? "500P 채굴" : "무료 채굴"} · **${oreName}** ${input.amount > 0 ? `**+${amount}**` : "꽝"}`
+          : input.jackpot
+            ? "## 랜덤박스 잭팟"
+            : "## 랜덤박스",
+      ),
+      ...(oreName
+        ? []
+        : [
+            separator(true, 1),
+            textDisplay(`**당첨자**\n${input.mention} (${input.name})`),
+            textDisplay(`**금액**\n${input.jackpot ? `${appEmoji("does_jackpot")} ${amount}` : amount}`),
+          ]),
+      ...(input.already ? [textDisplay("-# 오늘은 이미 열어 본 상자예요.")] : []),
+      textDisplay(`-# ${ts}`),
+    ]);
+  })().catch((err) => {
+    console.error("[discord-log] failed", "random_box", err);
+    return { ok: false as const, status: 0, json: null };
+  });
+  scheduleDiscordBackground(task);
+  return task;
 }
 
 async function discordAvatarUrl(shopId: string, discordId: string) {

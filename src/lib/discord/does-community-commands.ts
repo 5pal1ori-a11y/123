@@ -384,8 +384,9 @@ export const DOES_COMMUNITY_COMMANDS = [
   {
     "options": [],
     "name": "출석상점",
-    "description": "출석 포인트로 뽑기권을 구매할 수 있는 상점을 엽니다",
-    "type": 1
+    "description": "출석 상점 패널을 이 채널에 올립니다 (관리자) · 버튼은 누구나 사용",
+    "type": 1,
+    "default_member_permissions": "8"
   },
   {
     "options": [

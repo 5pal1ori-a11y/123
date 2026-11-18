@@ -3,7 +3,7 @@ import { claimRandomBox, getTodayRandomBoxClaim, kstDayKey, persistAsync } from 
 import type { ShopUser } from "@/lib/types";
 import { kvGetJson, kvPutJson, withLock } from "@/lib/world/kv";
 
-export type RandomBoxMarker = { amount: number; jackpot: boolean; dayKey: string };
+export type RandomBoxMarker = { amount: number; jackpot: boolean; dayKey: string; ore?: string; base?: number; mult?: number };
 
 /** 전체 상점 JSON과 별개로 남기는 하루 1회 기록 — 다른 인스턴스가 옛 데이터를 저장해도 지워지지 않음 */
 export function randomBoxMarkerKey(shopId: string, user: Pick<ShopUser, "id" | "discordId">) {
@@ -18,7 +18,20 @@ export async function getRandomBoxResultToday(shopId: string, user: ShopUser) {
 }
 
 export type RandomBoxOpenResult =
-  | { ok: true; already: boolean; amount: number; jackpot: boolean; balance: number; dayKey: string }
+  | {
+      ok: true;
+      already: boolean;
+      amount: number;
+      jackpot: boolean;
+      balance: number;
+      dayKey: string;
+      ore?: string;
+      base?: number;
+      mult?: number;
+      pickaxeLevel?: number;
+      festivalStarted?: boolean;
+      festivalActive?: boolean;
+    }
   | { ok: false; error: string };
 
 /** 웹 · 디스코드 공통 — 하루 한 번만 열린다 */
@@ -35,7 +48,7 @@ export function openRandomBoxOnce(shopId: string, user: ShopUser): Promise<Rando
     await persistAsync();
 
     if (!result.already) {
-      await kvPutJson(key, { amount: result.amount, jackpot: result.jackpot, dayKey: result.dayKey }, 2 * 86_400);
+      await kvPutJson(key, { amount: result.amount, jackpot: result.jackpot, dayKey: result.dayKey, ore: result.ore, base: result.base, mult: result.mult }, 2 * 86_400);
       postRandomBoxLog(shopId, {
         mention: user.discordId ? `<@${user.discordId}>` : user.name,
         name: user.discordUsername || user.name,

@@ -158,6 +158,10 @@ export type ShopSettings = {
   gachaLogChannelId?: string | null;
   /** /랜덤박스 패널들 — 10분마다 TOP 3 를 고쳐 쓴다 */
   randomBoxPanels?: { channelId: string; messageId: string }[];
+  /** 다이아 캐기 서버 공동 목표 (이번 주 채굴 횟수) */
+  mineGoal?: { target: number } | null;
+  /** 목표를 달성한 주에 열리는 채굴 축제 (보상 2배) */
+  mineFestival?: { weekKey: string; until: string } | null;
   /** /문의대기 — 3분마다 고쳐 쓰는 문의 대기 현황 패널들 */
   ticketQueuePanels?: { channelId: string; messageId: string; guildId: string }[];
   serverStatusPanels?: { channelId: string; messageId: string }[];
@@ -319,6 +323,10 @@ export type RandomBoxClaim = {
   amount: number;
   jackpot: boolean;
   createdAt: string;
+  /** 다이아 캐기: 캔 광석 · 배율 적용 전 금액 · 배율 (프리미엄 × 채굴 축제) */
+  ore?: string;
+  base?: number;
+  mult?: number;
 };
 
 export type ShopCategory = {
@@ -443,6 +451,8 @@ export const ALL_STAFF_PERMISSIONS: StaffPermission[] = [
 export type ShopUser = {
   id: string;
   shopId: string;
+  /** 다이아 캐기 곡괭이 등급 (0 나무 ~ 4 네더라이트) */
+  pickaxeLevel?: number;
   email: string;
   passwordHash: string | null;
   googleId: string | null;

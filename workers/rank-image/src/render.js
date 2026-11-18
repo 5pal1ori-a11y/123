@@ -870,3 +870,145 @@ export function proxyStatusTree(d) {
     footer("판매되면 관리자가 확인 후 등록한 계좌로 정산해 드려요", "doesmc.xyz"),
   );
 }
+
+/* ───────── 다이아 캐기 (광석 · 곡괭이 · 서버 공동 목표) ───────── */
+const ORE_STYLE = {
+  stone: { name: "돌멩이", light: "#cbd5e1", dark: "#475569", rock: true },
+  coal: { name: "석탄", light: "#64748b", dark: "#0f172a", rock: true },
+  iron: { name: "철", light: "#fff7ed", dark: "#fb923c" },
+  gold: { name: "금", light: "#fef9c3", dark: "#f59e0b" },
+  diamond: { name: "다이아", light: "#ecfeff", dark: "#06b6d4" },
+  emerald: { name: "에메랄드", light: "#d1fae5", dark: "#059669" },
+  netherite: { name: "네더라이트", light: "#ede9fe", dark: "#6d28d9" },
+};
+const svgUri = (svg) => `data:image/svg+xml;base64,${btoa(svg)}`;
+
+/** 직접 그린 광석 아이콘 — 돌·석탄은 바위, 나머지는 깎은 보석 */
+function oreIcon(key, size) {
+  const o = ORE_STYLE[key] ?? ORE_STYLE.stone;
+  const svg = o.rock
+    ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${o.light}"/><stop offset="1" stop-color="${o.dark}"/></linearGradient></defs><path d="M10 40 L16 18 L34 8 L52 16 L58 38 L46 56 L22 57 Z" fill="url(#g)" stroke="#ffffff" stroke-opacity="0.25" stroke-width="2"/><path d="M16 18 L34 8 L30 30 Z" fill="#ffffff" fill-opacity="0.18"/><circle cx="26" cy="38" r="4" fill="#000" fill-opacity="0.25"/><circle cx="41" cy="30" r="3" fill="#000" fill-opacity="0.22"/><circle cx="38" cy="46" r="2.5" fill="#000" fill-opacity="0.2"/></svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${o.light}"/><stop offset="1" stop-color="${o.dark}"/></linearGradient></defs><polygon points="32,4 58,24 46,58 18,58 6,24" fill="url(#g)" stroke="#ffffff" stroke-opacity="0.45" stroke-width="2"/><polygon points="6,24 58,24 32,58" fill="#000" fill-opacity="0.12"/><polygon points="20,24 32,4 44,24 32,58" fill="#ffffff" fill-opacity="0.22"/><polygon points="20,24 32,4 26,24" fill="#ffffff" fill-opacity="0.45"/></svg>`;
+  return img(svgUri(svg), { width: size, height: size });
+}
+
+/** 직접 그린 곡괭이 아이콘 */
+function pickaxeIcon(color, size) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="h" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/><stop offset="0.35" stop-color="${color}"/><stop offset="1" stop-color="${color}" stop-opacity="0.75"/></linearGradient></defs><rect x="29" y="18" width="7" height="42" rx="3" transform="rotate(38 32 39)" fill="#92400e"/><rect x="31" y="18" width="2.5" height="42" rx="1" transform="rotate(38 32 39)" fill="#fbbf24" fill-opacity="0.35"/><path d="M8 22 C20 6, 44 4, 58 14 L54 20 C42 13, 24 15, 14 28 Z" fill="url(#h)" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1.5"/></svg>`;
+  return img(svgUri(svg), { width: size, height: size });
+}
+
+const ORE_ORDER = ["stone", "coal", "iron", "gold", "diamond", "emerald", "netherite"];
+const GOLD_BAR = ["#f59e0b", "#fbbf24", "#fde68a"];
+
+/** 서버 공동 목표 막대 + 축제 표시 */
+function goalBlock(d, width) {
+  const share = (d.attempts || 0) / Math.max(1, d.target || 1);
+  return h("div", { display: "flex", flexDirection: "column" },
+    h("div", { display: "flex", alignItems: "flex-end", justifyContent: "space-between" },
+      h("div", { display: "flex", flexDirection: "column" },
+        h("div", { display: "flex", fontSize: 17, fontWeight: 700, color: "#94a3b8" }, "서버 공동 목표 · 이번 주 채굴"),
+        h("div", { display: "flex", alignItems: "flex-end", marginTop: 4 },
+          h("div", { display: "flex", fontSize: 46, fontWeight: 900, letterSpacing: -1.5, lineHeight: 1, color: d.festivalActive ? "#fde68a" : "#fff" }, fmtN(d.attempts)),
+          h("div", { display: "flex", fontSize: 24, fontWeight: 700, color: "#64748b", marginLeft: 8, marginBottom: 3 }, `/ ${fmtN(d.target)}회`),
+        ),
+      ),
+      d.festivalActive
+        ? h("div", { display: "flex", padding: "8px 18px", borderRadius: 999, background: "linear-gradient(90deg, rgba(245,158,11,0.25), rgba(253,230,138,0.18))", border: "1.5px solid rgba(253,230,138,0.6)", color: "#fde68a", fontSize: 19, fontWeight: 900 }, `채굴 축제 · 보상 2배 ${d.festivalUntil ? `~${d.festivalUntil}` : ""}`)
+        : h("div", { display: "flex", fontSize: 18, fontWeight: 700, color: "#a5b4fc" }, share >= 1 ? "목표 달성!" : `${fmtN(Math.max(0, (d.target || 0) - (d.attempts || 0)))}회 더 캐면 24시간 보상 2배`),
+    ),
+    h("div", { display: "flex", marginTop: 14 }, premiumBar(width, share, d.festivalActive || share >= 1 ? GOLD_BAR : BAR_DEFAULT, 14)),
+  );
+}
+
+/**
+ * 다이아 캐기 패널 — d: { attempts, target, participants, totalPoints, festivalActive, festivalUntil, odds: [{key,pct}], time }
+ */
+export function minePanelTree(d) {
+  const odds = d.odds ?? [];
+  return h("div", PAGE(d.festivalActive ? "#3b2a0a" : "#1e1b4b"),
+    brandHeader(d, "DOES MINING", "다이아 캐기", "이번 주 참여", `${fmtN(d.participants)}명 · ${fmtN(d.totalPoints)}P`),
+    h("div", { display: "flex", marginTop: 30 }, goalBlock(d, 988)),
+    h("div", { display: "flex", marginTop: 26 }, glowLine()),
+    h("div", { display: "flex", justifyContent: "space-between", marginTop: 22 },
+      ...ORE_ORDER.map((k) => {
+        const o = ORE_STYLE[k];
+        const pct = odds.find((x) => x.key === k)?.pct ?? 0;
+        return h("div", { display: "flex", flexDirection: "column", alignItems: "center", width: 130 },
+          h("div", { display: "flex", width: 74, height: 74, borderRadius: 22, alignItems: "center", justifyContent: "center", background: `radial-gradient(circle at 50% 40%, ${o.dark}55 0%, rgba(255,255,255,0.03) 70%)`, border: "1.5px solid rgba(255,255,255,0.08)" }, oreIcon(k, 52)),
+          h("div", { display: "flex", marginTop: 10, fontSize: 18, fontWeight: 700, color: "#e2e8f0" }, o.name),
+          h("div", { display: "flex", marginTop: 2, fontSize: 16, fontWeight: 700, color: k === "netherite" ? "#c4b5fd" : "#64748b" }, `${pct < 1 ? pct.toFixed(2) : pct.toFixed(1)}%`),
+        );
+      }),
+    ),
+    footer("하루 한 번 · 곡괭이를 강화하면 좋은 광석이 더 잘 나와요 (확률은 기본 곡괭이 기준)", d.time ? `${d.time} 갱신` : "doesmc.xyz"),
+  );
+}
+
+/**
+ * 채굴 결과 — d: { name, avatar, ore, amount, base, mult, pickaxeName, pickaxeColor, festivalActive, attempts, target, already }
+ */
+export function mineResultTree(d) {
+  const o = ORE_STYLE[d.ore] ?? ORE_STYLE.stone;
+  const miss = d.ore === "stone" || !d.amount;
+  return h("div", PAGE(miss ? "#1e293b" : `${o.dark}55`),
+    brandHeader(d, d.already ? "TODAY'S MINING" : "MINING RESULT", `${d.name ?? "회원"} 님의 채굴`, d.already ? "오늘 이미 캤어요" : "오늘 획득", miss ? "꽝" : `+${fmtN(d.amount)}P`, { avatar: d.avatar ?? null, titleSize: 38 }),
+    h("div", { display: "flex", alignItems: "center", marginTop: 26, padding: "26px 34px", borderRadius: 28, background: `radial-gradient(ellipse 45% 90% at 18% 50%, ${o.dark}44 0%, rgba(255,255,255,0.02) 100%)`, border: "1.5px solid rgba(255,255,255,0.08)" },
+      h("div", { display: "flex", width: 190, height: 190, alignItems: "center", justifyContent: "center", borderRadius: 190, background: `radial-gradient(circle, ${o.dark}66 0%, rgba(0,0,0,0) 70%)` }, oreIcon(d.ore, 150)),
+      h("div", { display: "flex", flexDirection: "column", marginLeft: 34, flex: 1 },
+        h("div", { display: "flex", fontSize: 20, fontWeight: 700, color: "#94a3b8" }, miss ? "아쉽게도…" : "채굴 성공!"),
+        h("div", { display: "flex", fontSize: 64, fontWeight: 900, letterSpacing: -2, color: miss ? "#cbd5e1" : o.light, marginTop: 2 }, o.name),
+        h("div", { display: "flex", fontSize: 40, fontWeight: 900, marginTop: 4, color: miss ? "#64748b" : "#fff" }, miss ? "꽝 · 내일 다시 도전해요" : `+${fmtN(d.amount)}P`),
+        h("div", { display: "flex", gap: 10, marginTop: 14 },
+          h("div", { display: "flex", alignItems: "center", padding: "6px 14px 6px 8px", borderRadius: 999, background: "rgba(255,255,255,0.06)", border: "1.5px solid rgba(255,255,255,0.12)", fontSize: 17, fontWeight: 700, color: "#e2e8f0" }, pickaxeIcon(d.pickaxeColor ?? "#b45309", 26), h("div", { display: "flex", marginLeft: 6 }, d.pickaxeName ?? "나무 곡괭이")),
+          (d.mult ?? 1) > 1 ? h("div", { display: "flex", padding: "6px 14px", borderRadius: 999, background: "rgba(245,158,11,0.18)", border: "1.5px solid rgba(253,230,138,0.5)", fontSize: 17, fontWeight: 900, color: "#fde68a" }, `× ${d.mult} 배율 (기본 ${fmtN(d.base)}P)`) : null,
+        ),
+      ),
+    ),
+    h("div", { display: "flex", marginTop: 24 }, goalBlock(d, 988)),
+    footer("내일 0시(한국 시간)에 다시 캘 수 있어요", "doesmc.xyz"),
+  );
+}
+
+/**
+ * 곡괭이 강화 카드 — d: { level, balance, ladder: [{name,color,cost}], now: [{key,pct}], next: [{key,pct}] | null }
+ */
+export function pickaxeCardTree(d) {
+  const ladder = d.ladder ?? [];
+  const next = d.next;
+  return h("div", PAGE("#1e1b4b"),
+    brandHeader(d, "PICKAXE", "곡괭이 강화", "보유 포인트", `${fmtN(d.balance)}P`),
+    h("div", { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 30 },
+      ...ladder.map((p, i) => {
+        const cur = i === d.level;
+        const done = i < d.level;
+        return h("div", { display: "flex", flexDirection: "column", alignItems: "center", width: 180, opacity: i > d.level + 1 ? 0.45 : 1 },
+          h("div", { display: "flex", width: 104, height: 104, borderRadius: 30, alignItems: "center", justifyContent: "center",
+            background: cur ? `radial-gradient(circle at 50% 40%, ${p.color}55 0%, rgba(255,255,255,0.04) 75%)` : "rgba(255,255,255,0.035)",
+            border: cur ? `2.5px solid ${p.color}` : "1.5px solid rgba(255,255,255,0.08)",
+            boxShadow: cur ? `0 0 30px ${p.color}66` : "none" }, pickaxeIcon(p.color, 72)),
+          h("div", { display: "flex", marginTop: 10, fontSize: 18, fontWeight: 900, color: cur ? "#fff" : done ? "#94a3b8" : "#cbd5e1" }, p.name),
+          h("div", { display: "flex", marginTop: 2, fontSize: 15, fontWeight: 700, color: cur ? p.color : "#64748b" }, cur ? "사용 중" : done ? "완료" : `${fmtN(p.cost)}P`),
+        );
+      }),
+    ),
+    h("div", { display: "flex", marginTop: 26 }, glowLine()),
+    h("div", { display: "flex", marginTop: 18, fontSize: 18, fontWeight: 700, color: "#94a3b8" }, next ? "강화하면 이렇게 바뀌어요" : "최고 등급 곡괭이예요 · 현재 확률"),
+    h("div", { display: "flex", justifyContent: "space-between", marginTop: 14 },
+      ...ORE_ORDER.map((k) => {
+        const a = (d.now ?? []).find((x) => x.key === k)?.pct ?? 0;
+        const b = next ? (next.find((x) => x.key === k)?.pct ?? 0) : null;
+        const up = b !== null && b > a + 0.001;
+        const down = b !== null && b < a - 0.001;
+        const f = (v) => `${v < 1 ? v.toFixed(2) : v.toFixed(1)}%`;
+        return h("div", { display: "flex", flexDirection: "column", alignItems: "center", width: 130 },
+          oreIcon(k, 44),
+          h("div", { display: "flex", marginTop: 6, fontSize: 16, fontWeight: 700, color: "#e2e8f0" }, ORE_STYLE[k].name),
+          h("div", { display: "flex", marginTop: 2, fontSize: 15, fontWeight: 700, color: "#64748b" }, f(a)),
+          b !== null ? h("div", { display: "flex", marginTop: 1, fontSize: 16, fontWeight: 900, color: up ? "#86efac" : down ? "#fca5a5" : "#94a3b8" }, `${up ? "▲" : down ? "▼" : ""} ${f(b)}`) : null,
+        );
+      }),
+    ),
+    footer(next ? `다음 단계 ${d.nextName} · ${fmtN(d.nextCost)}P` : "모든 단계를 강화했어요", "doesmc.xyz"),
+  );
+}

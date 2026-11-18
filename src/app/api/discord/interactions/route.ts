@@ -252,7 +252,7 @@ function suspenseFor(interaction: DiscordInteraction): { title: string; gif: str
   }
   const parsed = parseCid(interaction.data?.custom_id ?? "");
   if (parsed?.action === "gacha_draw") return { title: `${plainEmoji("does_gift")} 뽑는 중…`, gif: `${origin}/brand/gacha3d2-idle.gif` };
-  if (parsed?.action === "rbox_open") return { title: `${plainEmoji("does_pickaxe")} 상자를 여는 중…`, gif: `${origin}/api/discord/rbox/idle-3d2.gif` };
+  if (parsed?.action === "rbox_open") return { title: `${plainEmoji("does_pickaxe")} 곡괭이질 하는 중…`, gif: `${origin}/api/discord/rbox/idle-3d2.gif` };
   return null;
 }
 

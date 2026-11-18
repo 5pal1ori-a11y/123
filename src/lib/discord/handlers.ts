@@ -1,6 +1,7 @@
+import { expectedMine, MAX_PICKAXE_LEVEL, oreForBase, oreInfo, oreOdds, pickaxe, PICKAXES } from "@/lib/mining-shared";
 import { formatKRW } from "@/lib/utils";
 import { escapeMd } from "@/lib/discord/components";
-import { plainEmoji } from "@/lib/discord/app-emojis";
+import { appEmoji, plainEmoji } from "@/lib/discord/app-emojis";
 import { getShopBank } from "@/lib/bank";
 import { shopUrl } from "@/lib/domain";
 import { editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
@@ -53,6 +54,9 @@ import {
   setUserBankDepositorName,
   updateProduct,
   updateShopSettings,
+  getShopById,
+  mineWeekStats,
+  upgradePickaxe,
 } from "@/lib/store";
 import { refreshMfaStockIfStale } from "@/lib/mfa";
 import { openRandomBoxOnce } from "@/lib/random-box-claim";
@@ -399,14 +403,14 @@ export async function handleRandomBoxCommand(
   // 채널에 일반 메시지로 올리고 위치를 기억한다 (10분마다 TOP 3 갱신)
   const posted = await postChannelMessage(
     channelId,
-    { flags: MessageFlags.IS_COMPONENTS_V2, components: randomBoxPanelComponents(shop.id, shop.slug), allowed_mentions: { parse: [] } },
+    { flags: MessageFlags.IS_COMPONENTS_V2, components: await randomBoxPanelComponents(shop.id, shop.slug), allowed_mentions: { parse: [] } },
     shop.id,
   );
   const id = posted.ok ? (posted.json as { id?: string } | null)?.id : null;
   if (!id) return errorPanel("패널을 올리지 못했어요. 봇이 이 채널에 글을 쓸 수 있는지 확인해 주세요.");
   rememberRandomBoxPanel(shop.id, channelId, String(id));
   await persistAsync();
-  return plainEphemeral("다이아 캐기 패널을 올렸어요. TOP 3 는 10분마다 갱신돼요.");
+  return plainEphemeral("다이아 캐기 패널을 올렸어요. 서버 목표와 TOP 3 는 10분마다 갱신돼요.");
 }
 
 function rememberRandomBoxPanel(shopId: string, channelId: string, messageId: string) {
@@ -423,7 +427,7 @@ export async function refreshRandomBoxPanels(shopId: string) {
   if (!shop || !panels.length) return { panels: 0 };
   const payload = {
     flags: MessageFlags.IS_COMPONENTS_V2,
-    components: randomBoxPanelComponents(shop.id, shop.slug),
+    components: await randomBoxPanelComponents(shop.id, shop.slug),
     allowed_mentions: { parse: [] as string[] },
   };
   const alive: typeof panels = [];
@@ -438,8 +442,33 @@ export async function refreshRandomBoxPanels(shopId: string) {
   return { panels: alive.length };
 }
 
-/** 랜덤박스 패널 본문 — 처음 올릴 때와, 누가 열 때마다 TOP 3 를 고쳐 쓸 때 같이 쓴다 */
-function randomBoxPanelComponents(shopId: string, shopSlug: string) {
+function kstStamp(iso?: string | Date) {
+  const t = new Date(new Date(iso ?? Date.now()).getTime() + 9 * 3_600_000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(t.getUTCMonth() + 1)}.${p(t.getUTCDate())} ${p(t.getUTCHours())}:${p(t.getUTCMinutes())}`;
+}
+
+async function mineImage(shopId: string, data: { kind: string } & Record<string, unknown>) {
+  const slug = getShopById(shopId)?.slug;
+  if (!slug) return null;
+  return import("@/lib/discord/rank-image").then((m) => m.signedDataImageUrl(slug, data)).catch(() => null);
+}
+
+/** 서버 공동 목표 이미지에 넣을 값 */
+function mineGoalData(shopId: string) {
+  const w = mineWeekStats(shopId);
+  return {
+    attempts: w.attempts,
+    target: w.target,
+    participants: w.participants,
+    totalPoints: w.totalPoints,
+    festivalActive: w.festivalActive,
+    festivalUntil: w.festivalUntil ? kstStamp(w.festivalUntil) : null,
+  };
+}
+
+/** 다이아 캐기 패널 본문 — 처음 올릴 때 · 누가 캘 때 · 10분 크론에서 같이 쓴다 */
+async function randomBoxPanelComponents(shopId: string, shopSlug: string) {
   const top = listTopRandomBoxDraws(shopId, 7, 3);
   const topLines = top.length
     ? top
@@ -450,17 +479,34 @@ function randomBoxPanelComponents(shopId: string, shopSlug: string) {
         })
         .join("\n")
     : "아직 기록이 없어요";
+  const goal = mineGoalData(shopId);
+  const image = await mineImage(shopId, {
+    kind: "mine_panel",
+    ...goal,
+    odds: oreOdds(0).map((o) => ({ key: o.key, pct: Math.round(o.pct * 1000) / 1000 })),
+    time: kstStamp(),
+  });
 
   return [
-      container([
-        mediaGallery([`${appOrigin()}${RANDOM_BOX_IDLE_GIF_PATH}`]),
-        textDisplay(`## 다이아 캐기\n하루 한 번 · 최대 **${RANDOM_BOX_MAX.toLocaleString("ko-KR")}P**`),
+    container(
+      [
+        mediaGallery([image ?? `${appOrigin()}${RANDOM_BOX_IDLE_GIF_PATH}`]),
+        textDisplay(
+          goal.festivalActive
+            ? `## ${plainEmoji("does_party")} 채굴 축제 진행 중!\n${goal.festivalUntil} 까지 모든 채굴 보상 **2배**`
+            : `## 다이아 캐기\n하루 한 번 · 이번 주 서버 목표 **${goal.attempts}/${goal.target}회** · 달성하면 24시간 보상 **2배**`,
+        ),
         separator(true, 1),
         textDisplay(`### 이번 주 TOP 3\n${topLines}`),
-        actionRow(button({ customId: cid(shopSlug, "rbox_open"), label: "다이아 캐기" })),
-        textDisplay(`-# 확률 ${randomBoxOddsLine()} · 계정 연동 필요 · 10분마다 갱신`),
-      ]),
-    ];
+        actionRow(
+          button({ customId: cid(shopSlug, "rbox_open"), label: "다이아 캐기", emoji: appEmoji("does_pickaxe") }),
+          button({ customId: cid(shopSlug, "pick_view"), label: "곡괭이 강화", emoji: appEmoji("does_sparkles") }),
+        ),
+        textDisplay(`-# 계정 연동 필요 · 곡괭이를 강화하면 좋은 광석이 더 잘 나와요 · 10분마다 갱신`),
+      ],
+      goal.festivalActive ? 0xf59e0b : 0x6366f1,
+    ),
+  ];
 }
 
 /** 박스를 연 뒤 그 패널 메시지의 TOP 3 를 최신으로 고친다 (실패해도 무시) */
@@ -469,16 +515,16 @@ function refreshRandomBoxPanel(shopId: string, shopSlug: string, channelId?: str
   // 예전에 올린 패널도 누가 한 번 누르면 10분 갱신 목록에 들어간다
   if (rememberRandomBoxPanel(shopId, channelId, messageId)) scheduleDiscordBackground(persistAsync());
   scheduleDiscordBackground(
-    editChannelMessage(
+    randomBoxPanelComponents(shopId, shopSlug).then((components) => editChannelMessage(
       channelId,
       messageId,
       {
         flags: MessageFlags.IS_COMPONENTS_V2,
-        components: randomBoxPanelComponents(shopId, shopSlug),
+        components,
         allowed_mentions: { parse: [] },
       },
       shopId,
-    ).catch((err) => console.error("[rbox] panel refresh failed", err)),
+    ).catch((err) => console.error("[rbox] panel refresh failed", err))),
   );
 }
 
@@ -611,11 +657,14 @@ function randomBoxResultKids(discordId: string, amount: number) {
   ];
 }
 
+const RARE_ORES = new Set(["emerald", "netherite"]);
+
 export async function handleRandomBoxOpen(
   shopSlug: string,
   discordId: string,
   channelId?: string,
   panelMessageId?: string,
+  who?: { name: string; avatar: string | null },
 ) {
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점을 찾을 수 없어요.");
@@ -625,19 +674,152 @@ export async function handleRandomBoxOpen(
   const result = await openRandomBoxOnce(shop.id, linked.user);
   if (!result.ok) return errorPanel(result.error);
 
+  const ore = result.ore ?? oreForBase(result.base ?? result.amount);
+  const level = result.pickaxeLevel ?? Math.max(0, Math.floor(linked.user.pickaxeLevel ?? 0));
+  const pick = pickaxe(level);
+  const goal = mineGoalData(shop.id);
+  const image = await mineImage(shop.id, {
+    kind: "mine_result",
+    name: (who?.name || linked.user.discordUsername || linked.user.name || "회원").slice(0, 20),
+    avatar: who?.avatar ?? null,
+    ore,
+    amount: result.amount,
+    base: result.base ?? result.amount,
+    mult: result.mult ?? 1,
+    pickaxeName: pick.name,
+    pickaxeColor: pick.color,
+    already: result.already,
+    ...goal,
+  });
+  const info = oreInfo(ore);
+  const line = result.amount > 0 ? `**${info.name}** 을(를) 캤어요! **+${formatKRW(result.amount)}**` : "아쉽게도 꽝(돌멩이)이에요";
+
   if (result.already) {
     return v2Ephemeral([
       container([
-        textDisplay(`## 오늘은 이미 캤어요\n오늘 결과: **${result.amount > 0 ? formatKRW(result.amount) : "꽝"}**`),
+        ...(image ? [mediaGallery([image])] : []),
+        textDisplay(`## 오늘은 이미 캤어요\n오늘 결과: ${line}`),
         textDisplay("-# 내일 0시(한국 시간)에 다시 캘 수 있어요"),
       ]),
     ]);
   }
 
   refreshRandomBoxPanel(shop.id, shop.slug, channelId, panelMessageId);
-  const balanceLine = `-# 현재 잔액 ${formatKRW(result.balance)}`;
-  // 결과는 연 사람에게만 보인다 (채널에 공개로 올리지 않음). 기록은 랜덤박스 로그 채널에 따로 남는다
-  return v2Ephemeral([container([...randomBoxResultKids(discordId, result.amount), textDisplay(balanceLine)])]);
+
+  // 희귀 광석(에메랄드 · 네더라이트)은 채널에 공개 축하
+  if (RARE_ORES.has(ore) && channelId) {
+    scheduleDiscordBackground(
+      postChannelMessage(
+        channelId,
+        {
+          flags: MessageFlags.IS_COMPONENTS_V2,
+          components: [
+            container(
+              [
+                ...(image ? [mediaGallery([image])] : []),
+                textDisplay(`## ${plainEmoji("does_party")} <@${discordId}> 님이 ${info.name}을(를) 캤어요!\n**+${formatKRW(result.amount)}** · ${pick.name}`),
+              ],
+              ore === "netherite" ? 0x8b5cf6 : 0x10b981,
+            ),
+          ],
+          allowed_mentions: { parse: [] },
+        },
+        shop.id,
+      ).catch(() => null),
+    );
+  }
+
+  // 이 채굴로 서버 목표를 달성 → 채굴 축제 시작 안내 (올라가 있는 모든 패널 채널)
+  if (result.festivalStarted) {
+    const panels = getShopSettings(shop.id).randomBoxPanels ?? [];
+    for (const p of panels) {
+      scheduleDiscordBackground(
+        postChannelMessage(
+          p.channelId,
+          {
+            flags: MessageFlags.IS_COMPONENTS_V2,
+            components: [
+              container(
+                [
+                  textDisplay(`## ${plainEmoji("does_party")} 서버 공동 목표 달성! 채굴 축제 시작`),
+                  textDisplay(`이번 주 **${goal.target}회** 채굴을 모두 함께 달성했어요.\n지금부터 **24시간 동안 모든 채굴 보상이 2배**예요! (${goal.festivalUntil ?? ""} 까지)`),
+                  textDisplay(`-# 마지막으로 목표를 채운 사람: <@${discordId}>`),
+                ],
+                0xf59e0b,
+              ),
+            ],
+            allowed_mentions: { parse: [] },
+          },
+          shop.id,
+        ).catch(() => null),
+      );
+    }
+    scheduleDiscordBackground(refreshRandomBoxPanels(shop.id).catch(() => null));
+  }
+
+  // 결과는 연 사람에게만 보인다 (희귀 광석·축제 안내만 채널에 공개)
+  return v2Ephemeral([
+    container(
+      [
+        ...(image ? [mediaGallery([image])] : [mediaGallery([`${appOrigin()}${randomBoxGifPath(result.amount)}`])]),
+        textDisplay(`## ${line}`),
+        textDisplay(`-# ${pick.name} 사용 중${(result.mult ?? 1) > 1 ? ` · ×${result.mult} 배율` : ""} · 현재 잔액 ${formatKRW(result.balance)} · 내일 0시에 다시 캘 수 있어요`),
+      ],
+      RARE_ORES.has(ore) ? 0x10b981 : 0x6366f1,
+    ),
+  ]);
+}
+
+/** [곡괭이 강화] → 내 곡괭이 · 다음 단계 확률 비교 (나만 보임) */
+export async function handlePickaxeView(shopSlug: string, discordId: string, notice?: string) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return errorPanel("상점을 찾을 수 없어요.");
+  const linked = requireLinkedUser(shop, discordId);
+  if ("error" in linked) return linked.error;
+  const level = Math.max(0, Math.min(MAX_PICKAXE_LEVEL, Math.floor(linked.user.pickaxeLevel ?? 0)));
+  const next = level < MAX_PICKAXE_LEVEL ? pickaxe(level + 1) : null;
+  const round = (l: number) => oreOdds(l).map((o) => ({ key: o.key, pct: Math.round(o.pct * 1000) / 1000 }));
+  const image = await mineImage(shop.id, {
+    kind: "pickaxe_card",
+    level,
+    balance: linked.user.points,
+    ladder: PICKAXES.map((p) => ({ name: p.name, color: p.color, cost: p.cost })),
+    now: round(level),
+    next: next ? round(next.level) : null,
+    nextName: next?.name ?? null,
+    nextCost: next?.cost ?? null,
+  });
+  const cur = pickaxe(level);
+  return v2Ephemeral([
+    container(
+      [
+        ...(image ? [mediaGallery([image])] : []),
+        ...(notice ? [textDisplay(`## ${notice}`)] : []),
+        textDisplay(
+          next
+            ? `지금 **${cur.name}** · 다음 **${next.name}** — **${formatKRW(next.cost)}**\n-# 강화하면 꽝 확률이 줄고 철 이상 광석이 더 잘 나와요 · 하루 기대값 약 ${Math.round(expectedMine(level))}P → ${Math.round(expectedMine(next.level))}P`
+            : `**${cur.name}** · 최고 등급이에요!`,
+        ),
+        ...(next
+          ? [actionRow(button({ customId: cid(shop.slug, "pick_buy"), label: `${next.name} 강화 · ${next.cost.toLocaleString("ko-KR")}P`, emoji: appEmoji("does_sparkles") }))]
+          : []),
+        textDisplay(`-# 보유 ${formatKRW(linked.user.points)} · 이 메시지는 나에게만 보여요`),
+      ],
+      0x6366f1,
+    ),
+  ]);
+}
+
+/** [강화] → 포인트 차감 후 한 단계 올림 */
+export async function handlePickaxeBuy(shopSlug: string, discordId: string) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return errorPanel("상점을 찾을 수 없어요.");
+  const linked = requireLinkedUser(shop, discordId);
+  if ("error" in linked) return linked.error;
+  const r = upgradePickaxe(shop.id, linked.user.id);
+  if (!r.ok) return plainEphemeral(r.error);
+  await persistAsync();
+  return handlePickaxeView(shopSlug, discordId, `${plainEmoji("does_party")} ${pickaxe(r.level).name} 강화 완료!`);
 }
 
 export function handleNotices(shopSlug: string) {

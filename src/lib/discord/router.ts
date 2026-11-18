@@ -688,7 +688,16 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
     if (action === "ref_mine") return handleReferralMine(shop.slug, actor.id);
     if (action === "acct_tab") return handleAccountTab(shop.slug, payload, interaction.data?.values?.[0]);
     if (action === "rbox_open") {
-      return handleRandomBoxOpen(shop.slug, actor.id, interaction.channel_id, interaction.message?.id);
+      const u = interaction.member?.user ?? interaction.user;
+      const avatar = u?.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128` : null;
+      return handleRandomBoxOpen(shop.slug, actor.id, interaction.channel_id, interaction.message?.id, {
+        name: u?.global_name || actor.username,
+        avatar,
+      });
+    }
+    if (action === "pick_view" || action === "pick_buy") {
+      const { handlePickaxeView, handlePickaxeBuy } = await import("@/lib/discord/handlers");
+      return action === "pick_view" ? handlePickaxeView(shop.slug, actor.id) : handlePickaxeBuy(shop.slug, actor.id);
     }
     if (action === "menu_notices") return handleNotices(shop.slug);
     if (action === "menu_products") return handleProductsList(shop.slug, "browse");

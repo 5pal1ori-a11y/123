@@ -1,3 +1,4 @@
+import { DEFAULT_MINE_GOAL, FESTIVAL_HOURS, FESTIVAL_MULTIPLIER, kstWeekStart, MAX_PICKAXE_LEVEL, oreForBase, pickaxe, rollMine } from "@/lib/mining-shared";
 import { PREMIUM_PLANS } from "@/lib/premium-plans";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
@@ -4090,18 +4091,48 @@ function secureUnit() {
   return buf[0]! / 0x1_0000_0000;
 }
 
-function rollRandomBoxAmount() {
-  const total = RANDOM_BOX_TABLE.reduce((s, b) => s + b.weight, 0);
-  let pick = secureUnit() * total;
-  let band = RANDOM_BOX_TABLE[RANDOM_BOX_TABLE.length - 1]!;
-  for (const b of RANDOM_BOX_TABLE) {
-    if (pick < b.weight) {
-      band = b;
-      break;
-    }
-    pick -= b.weight;
+/** 다이아 캐기 한 번 — 곡괭이 등급에 맞는 확률표로 광석과 금액(배율 전)을 고른다 */
+function rollRandomBoxAmount(pickaxeLevel = 0) {
+  return rollMine(pickaxeLevel, secureUnit);
+}
+
+/** 이번 주(한국 시간 월요일 0시부터) 다이아 캐기 현황 — 서버 공동 목표 */
+export function mineWeekStats(shopId: string, now = new Date()) {
+  const store = getStore();
+  const weekKey = kstWeekStart(now);
+  const claims = (store.randomBoxClaims ?? []).filter((c) => c.shopId === shopId && c.dayKey >= weekKey);
+  const settings = getShopSettings(shopId);
+  const target = Math.max(1, Math.floor(settings.mineGoal?.target ?? DEFAULT_MINE_GOAL));
+  const fest = settings.mineFestival;
+  const festivalUntil = fest && fest.weekKey === weekKey ? fest.until : null;
+  return {
+    weekKey,
+    attempts: claims.length,
+    participants: new Set(claims.map((c) => c.userId)).size,
+    totalPoints: claims.reduce((n, c) => n + (c.amount || 0), 0),
+    target,
+    reached: claims.length >= target,
+    festivalUntil,
+    festivalActive: Boolean(festivalUntil && new Date(festivalUntil).getTime() > now.getTime()),
+  };
+}
+
+/** 곡괭이 강화 — 포인트를 내고 한 단계 올린다 */
+export function upgradePickaxe(shopId: string, userId: string) {
+  const store = getStore();
+  const user = store.users.find((u) => u.id === userId && u.shopId === shopId);
+  if (!user) return { ok: false as const, error: "회원을 찾을 수 없어요." };
+  const level = Math.max(0, Math.floor(user.pickaxeLevel ?? 0));
+  if (level >= MAX_PICKAXE_LEVEL) return { ok: false as const, error: "이미 최고 등급(네더라이트) 곡괭이예요." };
+  const next = pickaxe(level + 1);
+  if (user.points < next.cost) {
+    return { ok: false as const, error: `포인트가 부족해요. ${next.name}은(는) ${next.cost.toLocaleString("ko-KR")}P 예요 (현재 ${user.points.toLocaleString("ko-KR")}P).` };
   }
-  return band.min + Math.floor(secureUnit() * (band.max - band.min + 1));
+  user.points -= next.cost;
+  user.pickaxeLevel = next.level;
+  pushLog(user.email, "pickaxe.upgrade", { level: next.level, cost: next.cost }, shopId);
+  persist(store);
+  return { ok: true as const, level: next.level, cost: next.cost, balance: user.points };
 }
 
 export function getTodayRandomBoxClaim(shopId: string, userId: string): RandomBoxClaim | null {
@@ -4131,6 +4162,12 @@ export function claimRandomBox(
       jackpot: boolean;
       balance: number;
       dayKey: string;
+      ore?: string;
+      base?: number;
+      mult?: number;
+      pickaxeLevel?: number;
+      festivalStarted?: boolean;
+      festivalActive?: boolean;
     }
   | { ok: false; error: string } {
   const store = getStore();
@@ -4147,12 +4184,20 @@ export function claimRandomBox(
       jackpot: existing.jackpot,
       balance: user.points,
       dayKey: existing.dayKey,
+      ore: existing.ore ?? oreForBase(existing.base ?? existing.amount),
+      base: existing.base ?? existing.amount,
+      mult: existing.mult ?? 1,
+      pickaxeLevel: Math.max(0, Math.floor(user.pickaxeLevel ?? 0)),
     };
   }
 
-  // 프리미엄 플랜: BASIC 은 랜덤 2~4배, DOES PASS+ 는 항상 2배
-  const amount = rollRandomBoxAmount() * premiumMineMultiplier(userPremiumPlan(user));
+  // 곡괭이 등급에 맞는 확률로 광석을 캐고, 프리미엄 플랜(BASIC 랜덤 2~4배 · PASS+ 2배) × 채굴 축제(2배)
   const now = new Date();
+  const level = Math.max(0, Math.floor(user.pickaxeLevel ?? 0));
+  const rolled = rollRandomBoxAmount(level);
+  const week = mineWeekStats(shopId, now);
+  const mult = premiumMineMultiplier(userPremiumPlan(user)) * (week.festivalActive ? FESTIVAL_MULTIPLIER : 1);
+  const amount = rolled.base * mult;
   const claim: RandomBoxClaim = {
     id: randomUUID(),
     shopId,
@@ -4161,8 +4206,20 @@ export function claimRandomBox(
     amount,
     jackpot: amount >= RANDOM_BOX_JACKPOT,
     createdAt: now.toISOString(),
+    ore: rolled.ore,
+    base: rolled.base,
+    mult,
   };
   store.randomBoxClaims.unshift(claim);
+  // 이번 주 서버 목표를 이 채굴로 처음 넘기면 24시간 채굴 축제 시작
+  let festivalStarted = false;
+  if (!week.festivalUntil && week.attempts + 1 >= week.target) {
+    updateShopSettings(shopId, {
+      mineFestival: { weekKey: week.weekKey, until: new Date(now.getTime() + FESTIVAL_HOURS * 3_600_000).toISOString() },
+    });
+    festivalStarted = true;
+  }
+  const mineInfo = { ore: rolled.ore, base: rolled.base, mult, pickaxeLevel: level, festivalStarted, festivalActive: week.festivalActive };
   const cutoff = shiftDayKey(claim.dayKey, -RANDOM_BOX_HISTORY_DAYS);
   if (store.randomBoxClaims.length > 500) {
     store.randomBoxClaims = store.randomBoxClaims.filter((c) => c.dayKey >= cutoff);
@@ -4170,7 +4227,7 @@ export function claimRandomBox(
 
   if (amount <= 0) {
     persist(store);
-    return { ok: true, already: false, amount: 0, jackpot: false, balance: user.points, dayKey: claim.dayKey };
+    return { ok: true, already: false, amount: 0, jackpot: false, balance: user.points, dayKey: claim.dayKey, ...mineInfo };
   }
 
   const credited = creditUserPoints(shopId, userId, amount, "출석체크");
@@ -4187,6 +4244,7 @@ export function claimRandomBox(
     jackpot: claim.jackpot,
     balance: credited.balance,
     dayKey: claim.dayKey,
+    ...mineInfo,
   };
 }
 

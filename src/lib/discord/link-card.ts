@@ -12,6 +12,7 @@ import { kvGetJson, kvPutJson } from "@/lib/world/kv";
 
 const COUNTED = new Set(["dispensed", "paid", "awaiting_fulfillment"]);
 const COOLDOWN_MS = 60_000;
+const DEFAULT_INVITE_URL = "https://discord.gg/doesmc";
 
 function stats(shopId: string) {
   const store = getStoreForRead();
@@ -32,7 +33,7 @@ export async function postLinkCard(shopId: string, channelId: string, inviteUrl?
   if (!shop) return { skipped: true as const };
   const settings = getShopSettings(shopId);
   const s = stats(shopId);
-  const banner = "https://doesmc.xyz/brand/does-link-v2.gif";
+  const banner = "https://doesmc.xyz/brand/does-banner.png";
   const kids: unknown[] = [
     mediaGallery([banner]),
     textDisplay(`## ${appEmoji("does_gem")} ${shop.name} Store`),
@@ -51,8 +52,8 @@ export async function postLinkCard(shopId: string, channelId: string, inviteUrl?
     ),
   ];
   const buttons = [
-    button({ label: "웹사이트에서 구매하기", url: shopUrl(shop.slug, "/dashboard"), style: ButtonStyle.LINK }),
-    ...(inviteUrl ? [button({ label: "디스코드 들어가기", url: inviteUrl, style: ButtonStyle.LINK })] : []),
+    button({ label: "웹사이트 바로가기", url: shopUrl(shop.slug, "/dashboard"), style: ButtonStyle.LINK }),
+    button({ label: "디스코드 입당하기", url: inviteUrl || DEFAULT_INVITE_URL, style: ButtonStyle.LINK }),
   ];
   kids.push(separator(true, 1), actionRow(...buttons));
   void settings;

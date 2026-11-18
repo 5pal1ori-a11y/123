@@ -47,8 +47,14 @@ export async function liveTagCheck(shopId: string, discordId: string): Promise<b
 /** 1시간마다 전체 인원 스캔 (force 면 주기 무시) */
 export async function scanServerTag(shopId: string, force = false) {
   const token = (await doesDiscordEnvAsync()).botToken;
-  if (!token) return { skipped: true as const, reason: "no token" };
   const guildId = getShopSettings(shopId).discordGuildId || MFA_DISCORD_GUILD_ID;
+  const log = async (entry: Record<string, unknown>) => {
+    await kvPutJson(`server-tag-log:${shopId}`, { at: new Date().toISOString(), ...entry }, 7 * 86_400).catch(() => null);
+  };
+  if (!token) {
+    await log({ error: "no token" });
+    return { skipped: true as const, reason: "no token" };
+  }
   return withLock(key(shopId), async () => {
     const db = await getServerTagDb(shopId);
     if (!force && db.updatedAt && Date.now() - new Date(db.updatedAt).getTime() < RUN_EVERY_MS - 60_000) return { skipped: true as const };
@@ -57,9 +63,15 @@ export async function scanServerTag(shopId: string, force = false) {
     let tag: string | null = null;
     let scanned = 0;
     let after = "0";
+    let firstStatus = 0;
+    let firstBody = "";
     // 멤버 목록 페이지네이션 (Server Members Intent 필요)
     for (let page = 0; page < 40; page++) {
       const r = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000&after=${after}`, { headers: { Authorization: `Bot ${token}` } }).catch(() => null);
+      if (page === 0) {
+        firstStatus = r?.status ?? 0;
+        if (!r?.ok) firstBody = (await r?.text().catch(() => "")) ?? "";
+      }
       if (!r?.ok) break;
       const list = (await r.json().catch(() => [])) as GwMember[];
       if (!list.length) break;
@@ -78,6 +90,7 @@ export async function scanServerTag(shopId: string, force = false) {
     }
     const next: ServerTagDb = { guildId, tag: tag ?? db.tag, updatedAt: now, wearers, total: Object.keys(wearers).length, scanned };
     await kvPutJson(key(shopId), next);
-    return { skipped: false as const, total: next.total, scanned, tag: next.tag };
+    await log({ total: next.total, scanned, tag: next.tag, firstStatus, firstBody: firstBody.slice(0, 200) });
+    return { skipped: false as const, total: next.total, scanned, tag: next.tag, firstStatus };
   });
 }

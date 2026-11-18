@@ -72,6 +72,8 @@ export async function POST(request: Request) {
     const queue = await refreshTicketQueuePanels(shop.id).catch((err) => ({ error: String(err) }));
     // 구매 랭킹(리더보드) · 재고현황은 10분에 한 번
     const rank = await refreshRankingEvery10m(shop.id).catch((err) => ({ error: String(err) }));
+    // 서버 태그 착용자 집계 (1시간마다 · 자체 게이트)
+    await import("@/lib/discord/server-tag").then(({ scanServerTag }) => scanServerTag(shop.id)).catch((err) => console.error("[server-tag]", err));
     return NextResponse.json({ ...r, queue, rank });
   }
   if (parsed.data.op === "guess") {
@@ -170,8 +172,6 @@ async function refreshRankingEvery10m(shopId: string) {
       if (!r.failed.length && r.added.length < 12) await kvPutJson(doneKey, { at: new Date().toISOString(), slotsFull: r.slotsFull });
     }
   }
-  // 서버 태그 착용자 집계 (1시간마다)
-  await import("@/lib/discord/server-tag").then(({ scanServerTag }) => scanServerTag(shopId)).catch((err) => console.error("[server-tag]", err));
   // 체크락: 판매 중인 마크 계정 공개 정보 점검 (30분마다 몇 개씩)
   await import("@/lib/checklock").then(({ runChecklock }) => runChecklock(shopId)).catch((err) => console.error("[checklock]", err));
   // 프리미엄 플랜: 월 포인트 지급 · 만료 역할 회수

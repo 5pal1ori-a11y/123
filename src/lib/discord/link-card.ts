@@ -32,7 +32,7 @@ export async function postLinkCard(shopId: string, channelId: string, inviteUrl?
   if (!shop) return { skipped: true as const };
   const settings = getShopSettings(shopId);
   const s = stats(shopId);
-  const banner = "https://doesmc.xyz/brand/does-link-3d.gif";
+  const banner = "https://doesmc.xyz/brand/does-link-v2.gif";
   const kids: unknown[] = [
     mediaGallery([banner]),
     textDisplay(`## ${appEmoji("does_gem")} ${shop.name} Store`),

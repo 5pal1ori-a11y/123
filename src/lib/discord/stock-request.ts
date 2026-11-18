@@ -17,6 +17,7 @@ import {
   stringSelect,
   textDisplay,
   textInput,
+  v2Ephemeral,
   v2Public,
   type DiscordInteraction,
   mediaGallery,
@@ -33,13 +34,13 @@ function appOrigin() {
 
 /** 같은 사람이 같은 상품을 연달아 보내지 못하게 (인스턴스 단위, 10분) */
 const recent = new Map<string, number>();
-/** 모두가 볼 수 있는 접수 안내 (멘션 알림은 보내지 않는다) */
-function publicNotice(userId: string, name: string, note?: string) {
-  const panel = v2Public([
+/** 요청한 본인에게만 보이는 접수 안내 (채널의 다른 사람에게는 안 보인다 · 관리자 채널에는 카드로 따로 올라감) */
+function requesterNotice(name: string, note?: string) {
+  const panel = v2Ephemeral([
     container([
-      textDisplay(`${plainEmoji("does_inbox")} <@${userId}> 님이 **${name.slice(0, 100)}** 재고를 요청했어요`),
+      textDisplay(`${plainEmoji("does_inbox")} **${name.slice(0, 100)}** 재고 요청이 접수됐어요`),
       ...(note ? [textDisplay(`> ${note.slice(0, 300)}`)] : []),
-      textDisplay("-# 재고 요청순이 많은 제품부터 처리합니다."),
+      textDisplay("-# 이 메시지는 나에게만 보여요 · 요청이 많은 제품부터 처리합니다."),
     ]),
   ]);
   return { ...panel, data: { ...panel.data, allowed_mentions: { parse: [] } } };
@@ -146,7 +147,7 @@ export async function handleStockRequestPick(shopSlug: string, userId: string, v
   if (!name) return plainEphemeral("상품을 찾지 못했어요.");
   if (tooSoon(`${userId}:${value}`)) return plainEphemeral(`**${name}** 요청은 이미 접수됐어요. 조금만 기다려 주세요!`);
   const ok = await deliver(shop.id, userId, name);
-  return ok ? publicNotice(userId, name) : plainEphemeral("요청을 전달하지 못했어요. 잠시 후 다시 시도해 주세요.");
+  return ok ? requesterNotice(name) : plainEphemeral("요청을 전달하지 못했어요. 잠시 후 다시 시도해 주세요.");
 }
 
 export function handleStockRequestCustomModal(shopSlug: string) {
@@ -168,5 +169,5 @@ export async function handleStockRequestModal(shopSlug: string, userId: string, 
   if (!name) return plainEphemeral("찾는 상품을 적어 주세요.");
   if (tooSoon(`${userId}:t:${name.toLowerCase()}`)) return plainEphemeral("같은 요청이 이미 접수됐어요.");
   const ok = await deliver(shop.id, userId, name, note);
-  return ok ? publicNotice(userId, name, note) : plainEphemeral("요청을 전달하지 못했어요. 잠시 후 다시 시도해 주세요.");
+  return ok ? requesterNotice(name, note) : plainEphemeral("요청을 전달하지 못했어요. 잠시 후 다시 시도해 주세요.");
 }

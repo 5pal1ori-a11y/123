@@ -239,7 +239,7 @@ export const VENDIX_DISCORD_COMMANDS = [
   },
   {
     name: "템플릿",
-    description: "이용약관 · 업체소개 같은 안내 패널을 채널에 올립니다 (관리자)",
+    description: "이용약관 · 업체소개 · 등급혜택 같은 안내 패널을 채널에 올립니다 (관리자)",
     type: 1,
     options: [
       {
@@ -250,6 +250,7 @@ export const VENDIX_DISCORD_COMMANDS = [
         choices: [
           { name: "이용약관", value: "terms" },
           { name: "업체소개", value: "intro" },
+          { name: "등급혜택", value: "tiers" },
         ],
       },
       { name: "링크1", description: "이용약관 주소 (업체소개는 사이트 주소) — 비우면 기본값", type: 3, required: false },

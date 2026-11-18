@@ -525,19 +525,6 @@ export const DOES_COMMUNITY_COMMANDS = [
   {
     "options": [
       {
-        "name": "유저",
-        "description": "확인할 유저 (관리자 전용)",
-        "required": false,
-        "type": 6
-      }
-    ],
-    "name": "내정보",
-    "description": "잔액 / 총 구매내역 / 후기 수 / 출석 정보를 확인합니다",
-    "type": 1
-  },
-  {
-    "options": [
-      {
         "type": 1,
         "name": "후기채널",
         "description": "후기가 자동 저장될 채널을 지정합니다",
@@ -670,7 +657,7 @@ export const DOES_COMMUNITY_COMMANDS = [
   }
 ] as const;
 
-export const DOES_COMMUNITY_NAMES = new Set(["roles","say","deal","list","offer","bin","edit","바우처","말하기","출석","출석상점","도박","이벤트","잔액","잔액관리","구매기록","내정보","채널설정","백업","후기복구"]);
+export const DOES_COMMUNITY_NAMES = new Set(["roles","say","deal","list","offer","bin","edit","바우처","말하기","출석","출석상점","도박","이벤트","잔액","잔액관리","구매기록","채널설정","백업","후기복구"]);
 
 const RENAME_TO_DOES: Record<string, string> = { 채널설정: "설정", 후기복구: "복구" };
 

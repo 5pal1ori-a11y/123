@@ -65,7 +65,16 @@ export function ShopInquiryChatWidget({ shopSlug, shopName }: { shopSlug: string
         headers: { ...shopHeaders(shopSlug), "Content-Type": "application/json" },
         body: JSON.stringify({ body: text }),
       });
-      const json = (await res.json()) as { error?: string; inquiry?: ShopInquiry };
+      if (res.status === 401) {
+        setError("로그인 후 문의할 수 있어요.");
+        window.dispatchEvent(new CustomEvent("does-require-login"));
+        return;
+      }
+      if (res.status === 403) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error || "지금은 문의할 수 없어요.");
+      }
+      const json = (await res.json().catch(() => ({}))) as { error?: string; inquiry?: ShopInquiry };
       if (!res.ok) throw new Error(json.error ?? "전송 실패");
       setBody("");
       if (json.inquiry) setInquiry(json.inquiry);

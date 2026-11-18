@@ -365,6 +365,13 @@ export function UserDashboard({
     setLoginOpen(true);
   }, []);
 
+  // 다른 컴포넌트(문의 위젯 등)에서 로그인 요청 시 로그인 창을 연다
+  useEffect(() => {
+    const onReq = () => requireLogin();
+    window.addEventListener("does-require-login", onReq);
+    return () => window.removeEventListener("does-require-login", onReq);
+  }, [requireLogin]);
+
   useEffect(() => {
     if (!needDiscord) return;
     try {

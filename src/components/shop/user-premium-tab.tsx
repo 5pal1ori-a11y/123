@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Crown, Gem, KeyRound, Loader2, Sparkles } from "lucide-react";
+import { Check, Crown, Gem, Loader2, Sparkles } from "lucide-react";
 import { shopHeaders } from "@/lib/shop-client";
 import { PREMIUM_DAYS, PREMIUM_PLANS, type PremiumPlan, type PremiumPlanId } from "@/lib/premium-plans";
 
@@ -18,7 +18,7 @@ function fmtDate(iso: string) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** 쇼핑 › 프리미엄 플랜 — BASIC PASS · DOES PASS+ (포인트 구독 또는 라이선스 키) */
+/** 쇼핑 › 프리미엄 플랜 — BASIC PASS · DOES PASS+ (포인트로 바로 구독) */
 export function UserPremiumTab({
   shopSlug,
   loggedIn,
@@ -33,7 +33,6 @@ export function UserPremiumTab({
   const [me, setMe] = useState<Me>(null);
   const [confirm, setConfirm] = useState<PremiumPlan | null>(null);
   const [busy, setBusy] = useState(false);
-  const [key, setKey] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -54,7 +53,6 @@ export function UserPremiumTab({
       if (!res.ok) throw new Error(data.error || "처리하지 못했어요");
       setMsg({ ok: true, text: `${data.plan} 이(가) 적용됐어요 · ${data.premium ? fmtDate(data.premium.expiresAt) : ""} 까지` });
       setConfirm(null);
-      setKey("");
       await load();
       onPointsChanged?.();
     } catch (err) {
@@ -130,42 +128,14 @@ export function UserPremiumTab({
         })}
       </div>
 
-      <section className="rounded-2xl border border-current/10 p-5" style={{ borderColor: "rgba(127,127,127,0.25)" }}>
-        <div className="flex items-center gap-2">
-          <KeyRound className="size-5" />
-          <h3 className="font-bold">라이선스 키 등록</h3>
-        </div>
-        <p className="mt-1 text-sm opacity-70">
-          계좌이체로 구매하셨다면 받은 라이선스 키를 넣어 주세요. 키 한 개당 {PREMIUM_DAYS}일이 적용되고, 같은 플랜은 남은 기간에 이어서 늘어나요.
-        </p>
-        <form
-          className="mt-3 flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (key.trim()) void post({ action: "redeem", key: key.trim() });
-          }}
-        >
-          <input
-            value={key}
-            onChange={(e) => setKey(e.target.value.toUpperCase())}
-            placeholder="XXXX-XXXX-XXXX-XXXX"
-            disabled={!loggedIn}
-            className="toss-admin-field min-w-0 flex-1 font-mono tracking-widest"
-            maxLength={24}
-          />
-          <button type="submit" disabled={!loggedIn || busy || !key.trim()} className="toss-admin-primary shrink-0 px-5 disabled:opacity-40">
-            {busy ? <Loader2 className="size-4 animate-spin" /> : "등록"}
-          </button>
-        </form>
-        {msg ? <p className={`mt-2 text-sm ${msg.ok ? "text-emerald-500" : "text-red-500"}`}>{msg.text}</p> : null}
-      </section>
+      {msg ? <p className={`text-sm ${msg.ok ? "text-emerald-500" : "text-red-500"}`}>{msg.text}</p> : null}
 
       {confirm ? (
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 p-4" onClick={() => setConfirm(null)}>
           <div className="admin-bento w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-extrabold">{confirm.name} 구독</h3>
             <p className="mt-2 text-sm text-neutral-400">
-              보유 포인트로 바로 결제하고 {PREMIUM_DAYS}일 동안 혜택을 받아요. 라이선스 키는 자동으로 발급 · 적용돼요.
+              보유 포인트로 바로 결제하고 {PREMIUM_DAYS}일 동안 혜택이 적용돼요.
             </p>
             <div className="mt-4 grid gap-2 rounded-xl border border-white/10 p-3 text-sm">
               <div className="flex justify-between">

@@ -285,6 +285,10 @@ export function parseIosDepositMessage(
   for (const line of lines) {
     if (/원/.test(line) && /\d/.test(line)) continue;
     if (blacklist.has(line)) continue;
+    // [Web발신] · [카카오뱅크] 같은 머리말, 11/18 16:18 같은 날짜, 양*영(0645) 같은 계좌주(계좌번호) 줄은 입금자가 아님
+    if (/^\[.*\]$/.test(line)) continue;
+    if (/\d{1,2}\/\d{1,2}|\d{1,2}:\d{2}/.test(line)) continue;
+    if (/\(\d{2,}\)$/.test(line)) continue;
     const name = sanitizeIosName(line);
     if (name) return { name, amount };
   }
@@ -300,7 +304,8 @@ export function parseIosDepositMessage(
 }
 
 function sanitizeIosName(raw: string): string | null {
-  const name = normDepositorName(raw.replace(/[님이은는을를]+$/g, ""));
+  // "홍길동님이" / "홍길동님" 의 꼬리만 뗀다. 이름 끝의 이·은 등은 그대로 둔다 (박지은, 이이이)
+  const name = normDepositorName(raw.replace(/\s*님(?:이|께서)?$/, ""));
   if (!name) return null;
   if (/^\d+$/.test(name)) return null;
   if (name.length < 2 || name.length > 20) return null;

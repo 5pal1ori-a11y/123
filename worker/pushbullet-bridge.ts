@@ -34,6 +34,8 @@ export class PushbulletBridge extends DurableObject<Env> {
   /** 토큰이 거절되면 (만료·삭제) 잠시 다시 붙지 않는다 */
   private refusedUntil = 0;
   private recent = new Map<string, number>();
+  /** 진단용: 마지막으로 받은 알림 (내용은 저장하지 않음) */
+  private lastPush: { at: number; type: string; app: string; deposit: boolean; forwarded: number | null } | null = null;
 
   async fetch(request: Request) {
     const body = (await request.json().catch(() => ({}))) as Partial<Config> & { stop?: boolean };
@@ -61,7 +63,7 @@ export class PushbulletBridge extends DurableObject<Env> {
 
     await this.ensureConnected();
     await this.ctx.storage.setAlarm(Date.now() + ALARM_MS);
-    return Response.json({ ok: true, connected: !!this.ws, lastMessage: this.lastMessage });
+    return Response.json({ ok: true, connected: !!this.ws, lastMessage: this.lastMessage, lastPush: this.lastPush });
   }
 
   async alarm() {
@@ -135,6 +137,8 @@ export class PushbulletBridge extends DurableObject<Env> {
     }
     if (msg.type !== "push" || !msg.push) return;
     const push = msg.push;
+    // 진단: 어떤 알림이 왔는지 (앱·종류만, 내용은 남기지 않음)
+    console.log("pushbullet push", this.config?.slug, push.type, push.package_name ?? push.application_name ?? "-");
     const items: PushPayload[] =
       push.type === "sms_changed"
         ? (push.notifications ?? []).map((n) => ({ title: n.title ?? "", body: n.body ?? "" }))
@@ -143,7 +147,10 @@ export class PushbulletBridge extends DurableObject<Env> {
           : [];
     for (const item of items) {
       const text = `${item.title ?? ""}\n${item.body ?? ""}`;
-      if (!looksLikeDeposit(text) || this.seen(text)) continue;
+      const deposit = looksLikeDeposit(text);
+      this.lastPush = { at: Date.now(), type: push.type ?? "", app: item.package_name ?? item.application_name ?? push.package_name ?? "", deposit, forwarded: null };
+      if (!deposit) console.log("pushbullet push not deposit", this.config?.slug, this.lastPush.app);
+      if (!deposit || this.seen(text)) continue;
       await this.forward({
         title: item.title ?? "",
         body: item.body ?? "",
@@ -177,6 +184,7 @@ export class PushbulletBridge extends DurableObject<Env> {
     try {
       const res = await (this.env.WORKER_SELF_REFERENCE?.fetch(req) ?? fetch(req));
       console.log("pushbullet forward", cfg.slug, res.status);
+      if (this.lastPush) this.lastPush.forwarded = res.status;
     } catch (err) {
       console.log("pushbullet forward failed", cfg.slug, String(err));
     }

@@ -28,6 +28,17 @@ const REFUSED_BACKOFF_MS = 10 * 60_000;
 
 const looksLikeDeposit = (text: string) => /입금|\d[\d,]*\s*원/.test(text);
 
+/** 진단용: 이름 등 한글은 ○ 로 가리고 은행 문구·숫자만 남긴다 */
+const KEEP = ["입금", "출금", "원", "카카오뱅크", "Web발신", "잔액", "이체", "송금"];
+function maskText(text: string) {
+  return text
+    .split(/(입금|출금|카카오뱅크|Web발신|잔액|이체|송금|원)/)
+    .map((part) => (KEEP.includes(part) ? part : part.replace(/[가-힣]/g, "○")))
+    .join("")
+    .replace(/\n/g, " / ")
+    .slice(0, 160);
+}
+
 /** 상점 하나의 Pushbullet 알림 스트림을 계속 열어 두고, 입금 알림을 /api/charges/auto 로 넘긴다 */
 export class PushbulletBridge extends DurableObject<Env> {
   private ws: WebSocket | null = null;
@@ -170,7 +181,14 @@ export class PushbulletBridge extends DurableObject<Env> {
       const deposit = looksLikeDeposit(text);
       this.lastPush = { at: Date.now(), type: push.type ?? "", app: item.package_name ?? item.application_name ?? push.package_name ?? "", deposit, forwarded: null };
       await this.ctx.storage.put("lastPush", this.lastPush);
-      if (!deposit) console.log("pushbullet push not deposit", this.config?.slug, this.lastPush.app);
+      if (!deposit)
+        console.log(
+          "pushbullet push not deposit",
+          this.config?.slug,
+          this.lastPush.app,
+          `title(${(item.title ?? "").length})="${maskText(item.title ?? "")}" body(${(item.body ?? "").length})="${maskText(item.body ?? "")}"`,
+          push.type === "sms_changed" ? `notifications=${(push.notifications ?? []).length} keys=${Object.keys(push).join(",")}` : "",
+        );
       if (!deposit || this.seen(text)) continue;
       await this.forward({
         title: item.title ?? "",

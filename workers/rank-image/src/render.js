@@ -340,6 +340,19 @@ export function statusTree(d) {
         d.since ? h("div", { display: "flex", marginTop: 12, fontSize: 18, fontWeight: 500, color: "#94a3b8" }, d.since) : null,
       ),
     ),
+    (d.services && d.services.length)
+      ? h("div", { display: "flex", justifyContent: "center", gap: 12, marginTop: 30, flexWrap: "wrap" },
+          ...d.services.map((sv) =>
+            h("div", { display: "flex", alignItems: "center", gap: 10, padding: "12px 20px", borderRadius: 16, background: "rgba(255,255,255,0.045)", border: `1px solid ${sv.ok ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.35)"}` },
+              h("div", { display: "flex", width: 12, height: 12, borderRadius: 12, background: sv.ok ? "#22c55e" : "#ef4444", boxShadow: `0 0 12px ${sv.ok ? "#22c55e" : "#ef4444"}` }),
+              h("div", { display: "flex", flexDirection: "column" },
+                h("div", { display: "flex", fontSize: 18, fontWeight: 700, color: "#e2e8f0" }, sv.label),
+                h("div", { display: "flex", fontSize: 14, fontWeight: 500, color: sv.ok ? "#4ade80" : "#f87171" }, sv.ok ? "정상 작동" : "점검 중"),
+              ),
+            ),
+          ),
+        )
+      : null,
     h("div", { display: "flex", justifyContent: "space-between", marginTop: "auto", paddingTop: 18, fontSize: 15, fontWeight: 500, color: "#475569" },
       h("div", { display: "flex" }, "문의는 티켓으로 남겨 주세요 · 돌아오면 순서대로 답변해요"),
       h("div", { display: "flex" }, d.updated ?? ""),

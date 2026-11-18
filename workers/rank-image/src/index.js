@@ -53,10 +53,10 @@ export default {
     const clog = d.kind === "charge_log";
     const wel = d.kind === "welcome";
     const rev = d.kind === "review";
-    const one = { restock: [restockTree, 420], receipt: [receiptTree, 470], profile: [profileTree, 380], card: [cardTree, 470] }[d.kind];
+    XX
     return ImageResponse.async(one ? one[0](d) : rev ? reviewTree(d) : wel ? welcomeTree(d) : clog ? chargeTree(d) : plog ? purchaseTree(d) : status ? statusTree(d) : stock ? stockTree(d) : queue ? queueTree(d) : rankTree(d), {
       width: 1100,
-      height: one ? one[1] : rev ? reviewHeight(d) : wel ? 440 : plog || clog ? 420 : status ? 440 : stock ? stockHeight(d) : queue ? (d.queue?.length ? 700 : 590) : rankHeight(d),
+      height: one ? one[1] : rev ? reviewHeight(d) : wel ? 440 : plog || clog ? 420 : status ? 560 : stock ? stockHeight(d) : queue ? (d.queue?.length ? 700 : 590) : rankHeight(d),
       fonts: [
         new CustomFont("Pretendard", () => medium, { weight: 500 }),
         new CustomFont("Pretendard", () => bold, { weight: 700 }),

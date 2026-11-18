@@ -260,7 +260,7 @@ export async function renderStockImage(shopId: string, page = 0) {
   return res.ok ? res : null;
 }
 
-export type StatusImageData = { kind: "status"; title: string; status: string; name: string; avatar: string | null; since: string; updated: string };
+export type StatusImageData = { kind: "status"; title: string; status: string; name: string; avatar: string | null; since: string; updated: string; services?: { label: string; ok: boolean }[] };
 
 function kstTime(iso: string) {
   const d = new Date(new Date(iso).getTime() + 9 * 3_600_000);
@@ -276,14 +276,29 @@ export async function statusImageData(shopId: string): Promise<StatusImageData> 
   const names = await resolveNames(guildId, [userId]);
   const last = settings.serverStatusLast ?? null;
   const status = last?.status ?? "offline";
+  // 시스템 상태 (봇 · 웹 · AI 비서) — 이 이미지가 사이트에서 그려졌다는 것 자체가 웹·AI 작동을 뜻한다
+  let botOnline = Boolean(settings.discordBotEnabled);
+  try {
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+    const { env } = await getCloudflareContext({ async: true });
+    botOnline = botOnline && (env as Record<string, string | undefined>).STATUS_WATCH_ENABLED?.trim() === "1";
+  } catch {
+    /* local */
+  }
+  const services = [
+    { label: "디스코드 봇", ok: botOnline },
+    { label: "웹사이트", ok: true },
+    { label: "AI 비서", ok: true },
+  ];
   return {
     kind: "status",
-    title: `${shop?.name ?? "DOES"} 관리자 상황`,
+    title: `${shop?.name ?? "DOES"} 서버 상태`,
     status,
     name: names[userId]?.name ?? "관리자",
     avatar: names[userId]?.avatar ?? null,
     since: last ? (status === "offline" ? `마지막 접속 · ${kstTime(last.since)}` : `${kstTime(last.since)}부터 접속 중`) : "",
     updated: stamp(),
+    services,
   };
 }
 

@@ -624,14 +624,20 @@ async function cardSig(slug: string, body: string) {
  * 최대 1분 가까이 안 보여 502 → 디스코드가 깨진 이미지로 캐시한다. 그래서 그릴 데이터를 보낼 때 미리 만들어
  * 서명과 함께 주소에 넣고, 그리는 쪽은 저장소를 다시 읽지 않는다.
  */
-const SIGNED_KINDS = new Set(["purchase_log", "charge_log", "review", "receipt"]);
+const SIGNED_KINDS = new Set(["purchase_log", "charge_log", "review", "receipt", "shop_stats"]);
 const SIGNED_MAX_BODY = 1900;
 
-async function signedDataImageUrl(shopSlug: string, data: { kind: string } | null) {
+async function signedDataImageUrl(shopSlug: string, data: ({ kind: string } & Record<string, unknown>) | null) {
   if (!data || !SIGNED_KINDS.has(data.kind)) return null;
   const body = b64url(JSON.stringify(data));
   if (body.length > SIGNED_MAX_BODY) return null;
   return `https://doesmc.xyz/api/discord/rank-image/${shopSlug}-sd-${body}-${await cardSig(shopSlug, `sd:${body}`)}.png`;
+}
+
+/** 상점 통계 띠 이미지 (링크 미리보기 맨 아래) — 숫자가 바뀌면 주소도 바뀌어 디스코드 캐시가 갱신된다 */
+export async function shopStatsImageUrl(shopSlug: string, s: { sold: number; buyers: number; reviews: number; avg: number; since?: string }) {
+  if (!(await rankBinding())) return null;
+  return signedDataImageUrl(shopSlug, { kind: "shop_stats", sold: s.sold, buyers: s.buyers, reviews: s.reviews, avg: Math.round(s.avg * 10) / 10, ...(s.since ? { since: s.since } : {}) });
 }
 
 export async function renderSignedDataImage(shopSlug: string, body: string, sig: string) {

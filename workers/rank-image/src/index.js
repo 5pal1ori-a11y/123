@@ -1,6 +1,6 @@
 // DOES 랭킹 이미지 워커 — vendix 가 서비스 바인딩으로 POST {data} 를 보내면 PNG 를 돌려준다
 import { ImageResponse, CustomFont, cache } from "@cf-wasm/og/workerd";
-import { cardTree, profileTree, receiptTree, restockTree, reviewTree, reviewHeight, welcomeTree, chargeTree, purchaseTree, queueTree, rankTree, rankHeight, statusTree, stockTree, stockHeight } from "./render.js";
+import { shopStatsTree, cardTree, profileTree, receiptTree, restockTree, reviewTree, reviewHeight, welcomeTree, chargeTree, purchaseTree, queueTree, rankTree, rankHeight, statusTree, stockTree, stockHeight } from "./render.js";
 
 const fonts = {};
 async function font(w) {
@@ -33,13 +33,13 @@ export default {
     if (request.method !== "POST") return new Response("POST only", { status: 405 });
     const body = await request.json().catch(() => null);
     const d = body?.data;
-    if (!d || (!["queue", "stock", "status", "purchase_log", "charge_log", "welcome", "review", "restock", "receipt", "profile", "card"].includes(d.kind) && !Array.isArray(d.rows))) return new Response("bad", { status: 400 });
+    if (!d || (!["queue", "stock", "status", "purchase_log", "charge_log", "welcome", "review", "restock", "receipt", "profile", "card", "shop_stats"].includes(d.kind) && !Array.isArray(d.rows))) return new Response("bad", { status: 400 });
     if (["status", "purchase_log", "charge_log", "welcome", "review", "restock", "receipt", "profile", "card"].includes(d.kind)) d.avatar = await toDataUrl(d.avatar);
     if (["purchase_log", "review", "restock", "receipt"].includes(d.kind)) d.img = await toDataUrl(d.img, d.imgKind === "thumb");
     if (d.kind === "stock") {
       for (const g of d.groups ?? []) g.items = await Promise.all(g.items.map(async (it) => ({ ...it, img: await toDataUrl(it.img, it.imgKind === "thumb") })));
     }
-    else if (["status", "purchase_log", "charge_log", "welcome", "review", "restock", "receipt", "profile", "card"].includes(d.kind)) {
+    else if (["status", "purchase_log", "charge_log", "welcome", "review", "restock", "receipt", "profile", "card", "shop_stats"].includes(d.kind)) {
       /* 위에서 처리 */
     } else if (d.kind === "queue") d.queue = await Promise.all((d.queue ?? []).slice(0, 8).map(async (r) => ({ ...r, avatar: await toDataUrl(r.avatar) })));
     else d.rows = await Promise.all(d.rows.slice(0, 10).map(async (r) => ({ ...r, avatar: await toDataUrl(r.avatar) })));
@@ -53,7 +53,7 @@ export default {
     const clog = d.kind === "charge_log";
     const wel = d.kind === "welcome";
     const rev = d.kind === "review";
-    const one = { restock: [restockTree, 420], receipt: [receiptTree, 470], profile: [profileTree, 380], card: [cardTree, 470] }[d.kind];
+    const one = { restock: [restockTree, 420], receipt: [receiptTree, 470], profile: [profileTree, 380], card: [cardTree, 470], shop_stats: [shopStatsTree, 250] }[d.kind];
     return ImageResponse.async(one ? one[0](d) : rev ? reviewTree(d) : wel ? welcomeTree(d) : clog ? chargeTree(d) : plog ? purchaseTree(d) : status ? statusTree(d) : stock ? stockTree(d) : queue ? queueTree(d) : rankTree(d), {
       width: 1100,
       height: one ? one[1] : rev ? reviewHeight(d) : wel ? 440 : plog || clog ? 420 : status ? 560 : stock ? stockHeight(d) : queue ? (d.queue?.length ? 700 : 590) : rankHeight(d),

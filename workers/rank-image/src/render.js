@@ -712,3 +712,36 @@ export function cardTree(d) {
     d.note ? h("div", { display: "flex", marginTop: "auto", paddingTop: 12, fontSize: 15, fontWeight: 500, color: "#64748b" }, d.note) : null,
   );
 }
+
+/**
+ * 상점 통계 띠 (디스코드 링크 미리보기 맨 아래) — 판매 · 구매자 · 후기 · 평점 4칸 + 운영 시작
+ * d: { sold, buyers, reviews, avg, since? }
+ */
+export function shopStatsTree(d) {
+  const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
+  const tiles = [
+    ["판매", fmt(d.sold), "개", "#a5b4fc"],
+    ["구매자", fmt(d.buyers), "명", "#67e8f9"],
+    ["후기", fmt(d.reviews), "개", "#f9a8d4"],
+    ["평점", `★ ${Number(d.avg || 0).toFixed(1)}`, "", "#fcd34d"],
+  ];
+  return h(
+    "div",
+    { display: "flex", flexDirection: "column", width: "100%", height: "100%", padding: "26px 40px 22px", background: "radial-gradient(ellipse 35% 80% at 15% 40%, rgba(99,102,241,0.30) 0%, rgba(11,15,26,0) 100%), radial-gradient(ellipse 30% 80% at 88% 50%, rgba(20,184,166,0.18) 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)", fontFamily: "Pretendard", color: "#fff" },
+    h("div", { display: "flex", gap: 16, flex: 1 },
+      ...tiles.map(([label, value, unit, color]) =>
+        h("div", { display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, padding: "0 26px", borderRadius: 18, background: "rgba(255,255,255,0.045)", border: "1.5px solid rgba(255,255,255,0.10)" },
+          h("div", { display: "flex", fontSize: 19, fontWeight: 700, color: "#94a3b8", letterSpacing: 1 }, label),
+          h("div", { display: "flex", alignItems: "flex-end", marginTop: 6 },
+            h("div", { display: "flex", fontSize: 50, fontWeight: 900, color, letterSpacing: -1.5, lineHeight: 1 }, value),
+            unit ? h("div", { display: "flex", fontSize: 22, fontWeight: 700, color: "#cbd5e1", marginLeft: 6, marginBottom: 4 }, unit) : null,
+          ),
+        ),
+      ),
+    ),
+    h("div", { display: "flex", justifyContent: "space-between", marginTop: 14, fontSize: 16, fontWeight: 500, color: "#64748b" },
+      h("div", { display: "flex" }, d.since ? `${d.since} · 실제 주문·후기 기준` : "실제 주문·후기 기준"),
+      h("div", { display: "flex" }, "doesmc.xyz"),
+    ),
+  );
+}

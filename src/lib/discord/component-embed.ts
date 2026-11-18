@@ -43,18 +43,22 @@ function buttonEmojiObj(v: string) {
   return m ? { id: m[3], name: m[2], ...(m[1] ? { animated: true } : {}) } : { name: v };
 }
 
-export function buildComponentEmbed(stats: ShopStats | null, e: (name: AppEmojiName) => string = fallbackEmoji) {
+/**
+ * statsImageUrl 이 있으면 통계는 맨 아래 이미지 한 장으로, 없으면(이미지 워커 없음) 글자 한 줄로.
+ */
+export function buildComponentEmbed(
+  stats: ShopStats | null,
+  e: (name: AppEmojiName) => string = fallbackEmoji,
+  statsImageUrl: string | null = null,
+) {
   const head: unknown[] = [
     { type: 12, items: [{ media: { url: BANNER_URL }, description: "DOES 마인크래프트 상점" }] },
     {
       type: 10,
-      content:
-        `### ${e("does_gem")} DOES Store\n` +
-        `## ${e("does_fire")} 한국 마인크래프트 정품 계정 · 망토 샵\n` +
-        `## ${e("does_crown")} 믿고 사는 24시간 자동 거래`,
+      content: `## ${e("does_gem")} DOES Store`,
     },
   ];
-  const statBlock: unknown[] = stats
+  const statBlock: unknown[] = stats && !statsImageUrl
     ? [
         { type: 14, divider: true, spacing: 1 },
         {
@@ -82,18 +86,25 @@ export function buildComponentEmbed(stats: ShopStats | null, e: (name: AppEmojiN
       type: 1,
       components: [
         { type: 2, style: 5, url: SITE_URL, label: "웹사이트 바로가기", emoji: buttonEmojiObj(e("does_cart")) },
-        { type: 2, style: 5, url: INVITE_URL, label: "디스코드 입당하기", emoji: buttonEmojiObj(e("does_party")) },
+        { type: 2, style: 5, url: INVITE_URL, label: "디스코드 입장하기", emoji: buttonEmojiObj(e("does_party")) },
       ],
     },
   ];
-  return { component: { type: 17, accent_color: 0x6366f1, components: [...head, ...statBlock, ...tail] } };
+  const statsImage: unknown[] = stats && statsImageUrl
+    ? [{ type: 12, items: [{ media: { url: statsImageUrl }, description: `판매 ${n(stats.sold)}개 · 구매자 ${n(stats.buyers)}명 · 후기 ${n(stats.reviews)}개 · 평점 ${stats.avg.toFixed(1)}` }] }]
+    : [];
+  return { component: { type: 17, accent_color: 0x6366f1, components: [...head, ...statBlock, ...tail, ...statsImage] } };
 }
 
 /** 3,000바이트를 넘으면 디스코드가 통째로 버리므로, 넘을 때는 통계 없이 보낸다. */
-export function componentEmbedJson(stats: ShopStats | null, e: (name: AppEmojiName) => string = fallbackEmoji): string {
+export function componentEmbedJson(
+  stats: ShopStats | null,
+  e: (name: AppEmojiName) => string = fallbackEmoji,
+  statsImageUrl: string | null = null,
+): string {
   const fits = (j: string) => new TextEncoder().encode(j).length <= MAX_BYTES;
   for (const [st, em] of [[stats, e], [stats, fallbackEmoji], [null, fallbackEmoji]] as const) {
-    const j = JSON.stringify(buildComponentEmbed(st, em));
+    const j = JSON.stringify(buildComponentEmbed(st, em, statsImageUrl));
     if (fits(j)) return j;
   }
   return JSON.stringify(buildComponentEmbed(null));

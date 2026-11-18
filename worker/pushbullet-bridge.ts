@@ -36,6 +36,8 @@ export class PushbulletBridge extends DurableObject<Env> {
   private recent = new Map<string, number>();
   /** 진단용: 마지막으로 받은 알림 (내용은 저장하지 않음) */
   private lastPush: { at: number; type: string; app: string; deposit: boolean; forwarded: number | null } | null = null;
+  /** 진단용: 연결 시각 · 연결 후 받은 메시지 종류별 개수 (저장소에도 남겨 재시작돼도 보임) */
+  private diag = { bootAt: Date.now(), connects: 0, connectedAt: 0, closes: 0, lastClose: "", counts: {} as Record<string, number> };
 
   async fetch(request: Request) {
     const body = (await request.json().catch(() => ({}))) as Partial<Config> & { stop?: boolean };
@@ -63,7 +65,8 @@ export class PushbulletBridge extends DurableObject<Env> {
 
     await this.ensureConnected();
     await this.ctx.storage.setAlarm(Date.now() + ALARM_MS);
-    return Response.json({ ok: true, connected: !!this.ws, lastMessage: this.lastMessage, lastPush: this.lastPush });
+    const savedPush = this.lastPush ?? (await this.ctx.storage.get<typeof this.lastPush>("lastPush")) ?? null;
+    return Response.json({ ok: true, connected: !!this.ws, lastMessage: this.lastMessage, lastPush: savedPush, diag: this.diag });
   }
 
   async alarm() {
@@ -112,15 +115,20 @@ export class PushbulletBridge extends DurableObject<Env> {
       ws.accept();
       this.ws = ws;
       this.lastMessage = Date.now();
+      this.diag.connects += 1;
+      this.diag.connectedAt = Date.now();
+      console.log("pushbullet stream connected", this.config.slug, this.diag.connects);
       ws.addEventListener("message", (ev) => {
         this.lastMessage = Date.now();
         if (typeof ev.data === "string") this.ctx.waitUntil(this.onMessage(ev.data));
       });
-      const drop = () => {
+      const drop = (why: string) => {
+        this.diag.closes += 1;
+        this.diag.lastClose = `${new Date().toISOString()} ${why}`;
         if (this.ws === ws) this.ws = null;
       };
-      ws.addEventListener("close", drop);
-      ws.addEventListener("error", drop);
+      ws.addEventListener("close", (ev) => drop(`close ${(ev as CloseEvent).code ?? ""}`));
+      ws.addEventListener("error", () => drop("error"));
     } catch (err) {
       console.log("pushbullet connect failed", this.config.slug, String(err));
     } finally {
@@ -135,6 +143,8 @@ export class PushbulletBridge extends DurableObject<Env> {
     } catch {
       return;
     }
+    const kind = msg.type === "push" ? `push:${msg.push?.type ?? "?"}` : (msg.type ?? "?");
+    this.diag.counts[kind] = (this.diag.counts[kind] ?? 0) + 1;
     if (msg.type !== "push" || !msg.push) return;
     const push = msg.push;
     // 진단: 어떤 알림이 왔는지 (앱·종류만, 내용은 남기지 않음)
@@ -149,6 +159,7 @@ export class PushbulletBridge extends DurableObject<Env> {
       const text = `${item.title ?? ""}\n${item.body ?? ""}`;
       const deposit = looksLikeDeposit(text);
       this.lastPush = { at: Date.now(), type: push.type ?? "", app: item.package_name ?? item.application_name ?? push.package_name ?? "", deposit, forwarded: null };
+      await this.ctx.storage.put("lastPush", this.lastPush);
       if (!deposit) console.log("pushbullet push not deposit", this.config?.slug, this.lastPush.app);
       if (!deposit || this.seen(text)) continue;
       await this.forward({

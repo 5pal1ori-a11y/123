@@ -82,6 +82,9 @@ const COMMANDS: Cmd[] = [
   { names: ["경고"], usage: "!경고 <@유저|ID> [사유]", desc: "경고를 줘요 · 3회 쌓일 때마다 자동으로 1시간 타임아웃", perm: P.MODERATE, permLabel: "" },
   { names: ["경고확인"], usage: "!경고확인 <@유저|ID>", desc: "받은 경고 횟수와 최근 사유를 보여 줘요", perm: P.MODERATE, permLabel: "" },
   { names: ["경고초기화"], usage: "!경고초기화 <@유저|ID>", desc: "경고를 모두 지워요", perm: P.MODERATE, permLabel: "" },
+  { names: ["블랙"], usage: "!블랙 <@유저|ID> [사유]", desc: "블랙리스트 등록 — 사이트 구매·충전·로그인과 봇 사용을 막아요", perm: P.BAN, permLabel: "멤버 차단" },
+  { names: ["블랙해제"], usage: "!블랙해제 <@유저|ID>", desc: "블랙리스트에서 빼요", perm: P.BAN, permLabel: "멤버 차단" },
+  { names: ["블랙목록"], usage: "!블랙목록", desc: "블랙리스트에 등록된 사람을 보여 줘요", perm: P.BAN, permLabel: "멤버 차단" },
 ];
 
 const SEND_MESSAGES = BigInt(2048);
@@ -222,6 +225,15 @@ export async function handlePrefixCommand(input: PrefixInput, opts: PrefixOption
   const token = (await doesDiscordEnvAsync()).botToken;
   if (!token) return { error: "no token" };
   const api = makeApi(token);
+
+  // 블랙리스트는 명령 사용 불가 (명령어 도움말만 허용)
+  if (cmd.names[0] !== "명령어") {
+    const shopId = await shopIdForGuild(input.guildId);
+    if (shopId && (await (await import("@/lib/discord/blacklist")).isDiscordBlacklisted(shopId, input.userId))) {
+      await fail(api, input, "사용할 수 없어요", "블랙리스트에 등록된 계정이에요.");
+      return { denied: true };
+    }
+  }
 
   // 명령을 쓴 사람의 권한 · 역할 순서 — 관리자만 쓸 수 있다
   const [g, m] = await Promise.all([api("GET", `/guilds/${input.guildId}`), api("GET", `/guilds/${input.guildId}/members/${input.userId}`)]);
@@ -479,5 +491,37 @@ export async function handlePrefixCommand(input: PrefixInput, opts: PrefixOption
     return { ok: true, count };
   }
 
+  if (name === "블랙" || name === "블랙해제" || name === "블랙목록") {
+    const bl = await import("@/lib/discord/blacklist");
+    const shopIdL = await shopIdForGuild(input.guildId);
+    if (!shopIdL) return fail(api, input, "상점을 찾지 못했어요").then(() => ({ bad: true }));
+    if (name === "블랙목록") {
+      const db = await bl.getBlacklist(shopIdL);
+      const ids = Object.keys(db);
+      return reply(api, input, `${appEmoji("does_warning")} 블랙리스트 ${ids.length}명`, ids.length ? ids.slice(0, 20).map((id) => `<@${id}> · ${db[id].reason || "사유 없음"}`).join("\n") : "등록된 사람이 없어요.", 0xf59e0b);
+    }
+    const target = parseUserId(args[0]);
+    if (!target) return fail(api, input, "대상을 적어 주세요", `\`${cmd.usage}\``).then(() => ({ bad: true }));
+    const shopId = shopIdL;
+    if (name === "블랙") {
+      const blocked = await checkTarget(target, false);
+      if (blocked) return fail(api, input, "블랙할 수 없어요", blocked).then(() => ({ denied: true }));
+      const reason = reasonTail(1);
+      const r = await bl.addBlacklist(shopId, target, reason, input.userId);
+      await ok(api, input, "블랙리스트에 등록했어요", `<@${target}>\n**사유** ${reason || "없음"}\n-# 사이트 ${r.siteBanned ? "계정도 이용제한됨" : "연동 계정 없음"} · 봇 사용 차단`);
+      return { ok: true };
+    }
+    const r = await bl.removeBlacklist(shopId, target);
+    await ok(api, input, r.had ? "블랙리스트에서 뺐어요" : "블랙리스트에 없던 유저예요", `<@${target}>`);
+    return { ok: true };
+  }
+
   return { skipped: "unhandled" };
+}
+
+/** 길드 ID → shopId (DOES 상점) */
+async function shopIdForGuild(guildId: string): Promise<string | null> {
+  const { findShopByDiscordGuildId, getShopBySlug, MFA_SHOP_SLUG, MFA_DISCORD_GUILD_ID } = await import("@/lib/store");
+  const shop = findShopByDiscordGuildId(guildId) ?? (guildId === MFA_DISCORD_GUILD_ID ? getShopBySlug(MFA_SHOP_SLUG) : null);
+  return shop?.id ?? null;
 }

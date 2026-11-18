@@ -74,6 +74,8 @@ export async function POST(request: Request) {
     const rank = await refreshRankingEvery10m(shop.id).catch((err) => ({ error: String(err) }));
     // 서버 태그 착용자 집계 (1시간마다 · 자체 게이트)
     await import("@/lib/discord/server-tag").then(({ scanServerTag }) => scanServerTag(shop.id)).catch((err) => console.error("[server-tag]", err));
+    // 구매 후 후기 요청 DM (지급 하루 뒤)
+    await import("@/lib/discord/review-remind").then(({ remindReviews }) => remindReviews(shop.id)).catch((err) => console.error("[review-remind]", err));
     return NextResponse.json({ ...r, queue, rank });
   }
   if (parsed.data.op === "guess") {

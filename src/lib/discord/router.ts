@@ -192,6 +192,10 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       );
     }
 
+    if (await import("@/lib/discord/blacklist").then((m) => m.isDiscordBlacklisted(shop.id, actor.id)).catch(() => false)) {
+      return plainEphemeral("블랙리스트에 등록된 계정이에요. 이용할 수 없어요.");
+    }
+
     const settings = getShopSettings(shop.id);
     const allowWhenDisabled =
       name === "개인봇설정" ||
@@ -560,6 +564,9 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
 
     const shop = resolveShopBySlugLoose(parsed.shopSlug);
     if (!shop) return plainEphemeral("상점 없음");
+    if (await import("@/lib/discord/blacklist").then((m) => m.isDiscordBlacklisted(shop.id, actor.id)).catch(() => false)) {
+      return plainEphemeral("블랙리스트에 등록된 계정이에요. 이용할 수 없어요.");
+    }
     const settings = getShopSettings(shop.id);
     const action = parsed.action;
     const allowDisabledAction =

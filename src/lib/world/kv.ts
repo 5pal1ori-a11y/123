@@ -30,6 +30,19 @@ export async function kvPutJson(key: string, value: unknown, ttlSeconds?: number
   else memory.set(key, { value: raw, expires: ttlSeconds ? Date.now() + ttlSeconds * 1000 : Number.MAX_SAFE_INTEGER });
 }
 
+export async function kvGetRaw(key: string): Promise<string | null> {
+  const kv = (await getKvBinding()) as KvWithTtl | null;
+  if (kv) return kv.get(key);
+  const hit = memory.get(key);
+  return hit && hit.expires > Date.now() ? hit.value : null;
+}
+
+export async function kvPutRaw(key: string, raw: string, ttlSeconds?: number) {
+  const kv = (await getKvBinding()) as KvWithTtl | null;
+  if (kv) await kv.put(key, raw, ttlSeconds ? { expirationTtl: Math.max(60, Math.floor(ttlSeconds)) } : undefined);
+  else memory.set(key, { value: raw, expires: ttlSeconds ? Date.now() + ttlSeconds * 1000 : Number.MAX_SAFE_INTEGER });
+}
+
 /** 같은 isolate 안에서 한 사용자의 요청을 한 줄로 세운다 (토큰 이중 사용 방지) */
 const chains = new Map<string, Promise<unknown>>();
 

@@ -76,6 +76,8 @@ export async function POST(request: Request) {
     await import("@/lib/discord/server-tag").then(({ scanServerTag }) => scanServerTag(shop.id)).catch((err) => console.error("[server-tag]", err));
     // 구매 후 후기 요청 DM (지급 하루 뒤)
     await import("@/lib/discord/review-remind").then(({ remindReviews }) => remindReviews(shop.id)).catch((err) => console.error("[review-remind]", err));
+    // 자동 DB 백업 (6시간마다 · 전체 1회)
+    await import("@/lib/backup").then(({ runBackup }) => runBackup()).catch((err) => console.error("[backup]", err));
     return NextResponse.json({ ...r, queue, rank });
   }
   if (parsed.data.op === "guess") {

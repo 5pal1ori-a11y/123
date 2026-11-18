@@ -67,6 +67,7 @@ import { AdminMcProductsPanel } from "./admin-mc-products-panel";
 import { AdminResalePanel } from "./admin-resale-panel";
 import { AdminApiKeysCard } from "./admin-api-keys-card";
 import { AdminChecklockCard } from "./admin-checklock-card";
+import { AdminBackupCard } from "./admin-backup-card";
 import { AdminPremiumPanel } from "./admin-premium-panel";
 import { AdminCapeProductsPanel } from "./admin-cape-products-panel";
 import { AdminGachaPanel } from "./admin-gacha-panel";
@@ -1373,6 +1374,7 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
             <AdminStaffPanel users={data.users} onOpenUsers={() => setTab("users")} />
           )}
 
+          {tab === "logs" && <AdminBackupCard shopSlug={shopSlug} onMessage={pushToast} />}
           {tab === "logs" && <AdminLogsPanel shopSlug={shopSlug} />}
 
           {tab === "world" && <AdminWorldPanel shopSlug={shopSlug} onMessage={pushToast} />}

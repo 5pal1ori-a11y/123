@@ -40,6 +40,12 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
+      # 이미지 워커(does-rank-image) — 사이트가 새 이미지 종류를 쓰기 전에 먼저 배포한다
+      - name: Deploy image worker (does-rank-image)
+        run: |
+          npm ci --prefix workers/rank-image --no-audit --no-fund
+          npx wrangler deploy --config workers/rank-image/wrangler.jsonc
+
       # Google Fonts가 확장자 없는 폰트 URL(/l/font?kit=...)을 주면 Next 15.5 폰트 로더가 터진다.
       # 그 경우 woff2로 간주하도록 해당 한 줄만 고친다.
       - name: Patch next/font for extensionless Google font URLs

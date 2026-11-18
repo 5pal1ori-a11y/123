@@ -76,6 +76,11 @@ let guildCache: Record<string, string> = {};
 let ensured = false;
 let inflight: Promise<void> | null = null;
 
+/** 커스텀 이모지 없이 일반 이모지만 */
+export function fallbackEmoji(name: AppEmojiName) {
+  return FALLBACK[name];
+}
+
 /** 메시지 글자에 넣을 문자열 (<a:이름:ID>) */
 export function appEmoji(name: AppEmojiName) {
   return guildCache[name] ?? cache[name] ?? FALLBACK[name];
@@ -103,6 +108,19 @@ export function reactionEmoji(name: AppEmojiName) {
   const v = appEmoji(name);
   const m = /^<a?:(\w+):(\d+)>$/.exec(v);
   return m ? `${m[1]}:${m[2]}` : v;
+}
+
+/**
+ * KV 에 저장된 이모지 ID 만 읽어 온다 (디스코드 API 호출·업로드 없음).
+ * 누구나 부르는 공개 주소(링크 미리보기 등)에서 appEmoji 를 쓸 때 사용한다.
+ */
+export async function loadSavedEmojis() {
+  const [guild, saved] = await Promise.all([
+    kvGetJson<Record<string, string>>(GUILD_EMOJI_MAP_KEY).catch(() => null),
+    kvGetJson<{ appId: string; map: Partial<Record<BotEmojiName, string>> }>(KV_KEY).catch(() => null),
+  ]);
+  if (guild) guildCache = guild;
+  if (saved?.map) cache = { ...saved.map, ...cache };
 }
 
 export function ensureAppEmojis(_shopId?: string) {

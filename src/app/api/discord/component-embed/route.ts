@@ -1,3 +1,4 @@
+import { appEmoji, loadSavedEmojis } from "@/lib/discord/app-emojis";
 import { componentEmbedJson, shopStats } from "@/lib/discord/component-embed";
 import { getShopBySlug, getStoreForRead, initStore } from "@/lib/store";
 
@@ -17,7 +18,9 @@ export async function GET() {
   } catch (err) {
     console.error("[component-embed] 통계 조회 실패 — 통계 없이 응답", err);
   }
-  return new Response(componentEmbedJson(stats), {
+  // 상점 커스텀 이모지 (KV 에 저장된 ID 만 읽음 — 없으면 일반 이모지)
+  await loadSavedEmojis().catch(() => null);
+  return new Response(componentEmbedJson(stats, appEmoji), {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "public, max-age=300",

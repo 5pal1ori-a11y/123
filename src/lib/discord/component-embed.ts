@@ -9,6 +9,7 @@
  * - 실패하면 Open Graph 미리보기로 대체되므로 layout 의 openGraph 메타는 유지한다
  */
 import type { DbStore } from "@/lib/store";
+import { fallbackEmoji, type AppEmojiName } from "@/lib/discord/app-emojis";
 
 export const COMPONENT_EMBED_PATH = "/api/discord/component-embed";
 export const COMPONENT_EMBED_URL = `https://doesmc.xyz${COMPONENT_EMBED_PATH}`;
@@ -36,10 +37,22 @@ export function shopStats(store: DbStore, shopId: string, createdAt?: string): S
 
 const n = (v: number) => v.toLocaleString("ko-KR");
 
-export function buildComponentEmbed(stats: ShopStats | null) {
+/** 커스텀 이모지 문자열(<:이름:ID>)을 버튼 emoji 객체로 */
+function buttonEmojiObj(v: string) {
+  const m = /^<(a?):(\w+):(\d+)>$/.exec(v);
+  return m ? { id: m[3], name: m[2], ...(m[1] ? { animated: true } : {}) } : { name: v };
+}
+
+export function buildComponentEmbed(stats: ShopStats | null, e: (name: AppEmojiName) => string = fallbackEmoji) {
   const head: unknown[] = [
     { type: 12, items: [{ media: { url: BANNER_URL }, description: "DOES 마인크래프트 상점" }] },
-    { type: 10, content: "### 💎 DOES Store\n## 🔥 한국 마인크래프트 정품 계정 샵 · 거래소\n## 👑 믿고 사는 자동 거래" },
+    {
+      type: 10,
+      content:
+        `### ${e("does_gem")} DOES Store\n` +
+        `## ${e("does_fire")} 한국 마인크래프트 정품 계정 · 망토 샵\n` +
+        `## ${e("does_crown")} 믿고 사는 24시간 자동 거래`,
+    },
   ];
   const statBlock: unknown[] = stats
     ? [
@@ -47,7 +60,7 @@ export function buildComponentEmbed(stats: ShopStats | null) {
         {
           type: 10,
           content:
-            `**🛒 판매된 계정 ${n(stats.sold)}개 · 구매자 ${n(stats.buyers)}명 · 후기 ${n(stats.reviews)}개 ⭐${stats.avg.toFixed(1)}**` +
+            `${e("does_sold")} **판매된 계정 ${n(stats.sold)}개 · 구매자 ${n(stats.buyers)}명 · 후기 ${n(stats.reviews)}개** ${e("does_star")} **${stats.avg.toFixed(1)}**` +
             (stats.since ? `\n-# ${stats.since}` : ""),
         },
       ]
@@ -57,10 +70,10 @@ export function buildComponentEmbed(stats: ShopStats | null) {
     {
       type: 10,
       content: [
-        "⚡ **자동 자판기** — 충전·구매·전달까지 24시간 자동",
-        "🔒 **안전 전달** — 구매하면 16자리 코드로 안전하게 전달",
-        "💰 **입금 자동 확인** — 계좌이체 / 코인 / 컬쳐랜드",
-        "✅ **30일 보증** — 수령 후 30일 교체·환불 보장",
+        `${e("does_lightning")} **자동 자판기** — 충전·구매·전달까지 24시간 자동`,
+        `${e("does_lock")} **안전 전달** — 구매하면 16자리 코드로 안전하게 전달`,
+        `${e("does_coin")} **입금 자동 확인** — 계좌이체 / 코인 / 컬쳐랜드`,
+        `${e("does_check")} **30일 보증** — 수령 후 30일 교체·환불 보장`,
       ].join("\n"),
     },
     { type: 14, divider: true, spacing: 1 },
@@ -68,8 +81,8 @@ export function buildComponentEmbed(stats: ShopStats | null) {
     {
       type: 1,
       components: [
-        { type: 2, style: 5, url: SITE_URL, label: "웹사이트 바로가기", emoji: { name: "🌐" } },
-        { type: 2, style: 5, url: INVITE_URL, label: "디스코드 입당하기", emoji: { name: "💬" } },
+        { type: 2, style: 5, url: SITE_URL, label: "웹사이트 바로가기", emoji: buttonEmojiObj(e("does_cart")) },
+        { type: 2, style: 5, url: INVITE_URL, label: "디스코드 입당하기", emoji: buttonEmojiObj(e("does_party")) },
       ],
     },
   ];
@@ -77,8 +90,11 @@ export function buildComponentEmbed(stats: ShopStats | null) {
 }
 
 /** 3,000바이트를 넘으면 디스코드가 통째로 버리므로, 넘을 때는 통계 없이 보낸다. */
-export function componentEmbedJson(stats: ShopStats | null): string {
-  const full = JSON.stringify(buildComponentEmbed(stats));
-  if (new TextEncoder().encode(full).length <= MAX_BYTES) return full;
+export function componentEmbedJson(stats: ShopStats | null, e: (name: AppEmojiName) => string = fallbackEmoji): string {
+  const fits = (j: string) => new TextEncoder().encode(j).length <= MAX_BYTES;
+  for (const [st, em] of [[stats, e], [stats, fallbackEmoji], [null, fallbackEmoji]] as const) {
+    const j = JSON.stringify(buildComponentEmbed(st, em));
+    if (fits(j)) return j;
+  }
   return JSON.stringify(buildComponentEmbed(null));
 }

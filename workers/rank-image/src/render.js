@@ -914,8 +914,8 @@ function goalBlock(d, width) {
         ),
       ),
       d.festivalActive
-        ? h("div", { display: "flex", padding: "8px 18px", borderRadius: 999, background: "linear-gradient(90deg, rgba(245,158,11,0.25), rgba(253,230,138,0.18))", border: "1.5px solid rgba(253,230,138,0.6)", color: "#fde68a", fontSize: 19, fontWeight: 900 }, `채굴 축제 · 보상 2배 ${d.festivalUntil ? `~${d.festivalUntil}` : ""}`)
-        : h("div", { display: "flex", fontSize: 18, fontWeight: 700, color: "#a5b4fc" }, share >= 1 ? "목표 달성!" : `${fmtN(Math.max(0, (d.target || 0) - (d.attempts || 0)))}회 더 캐면 24시간 보상 2배`),
+        ? h("div", { display: "flex", padding: "8px 18px", borderRadius: 999, background: "linear-gradient(90deg, rgba(245,158,11,0.25), rgba(253,230,138,0.18))", border: "1.5px solid rgba(253,230,138,0.6)", color: "#fde68a", fontSize: 19, fontWeight: 900 }, `채굴 축제 · 무료 채굴 2배 ${d.festivalUntil ? `~${d.festivalUntil}` : ""}`)
+        : h("div", { display: "flex", fontSize: 18, fontWeight: 700, color: "#a5b4fc" }, share >= 1 ? "목표 달성!" : `${fmtN(Math.max(0, (d.target || 0) - (d.attempts || 0)))}회 더 캐면 24시간 무료 채굴 2배`),
     ),
     h("div", { display: "flex", marginTop: 14 }, premiumBar(width, share, d.festivalActive || share >= 1 ? GOLD_BAR : BAR_DEFAULT, 14)),
   );
@@ -941,7 +941,7 @@ export function minePanelTree(d) {
         );
       }),
     ),
-    footer("하루 한 번 · 곡괭이를 강화하면 좋은 광석이 더 잘 나와요 (확률은 기본 곡괭이 기준)", d.time ? `${d.time} 갱신` : "doesmc.xyz"),
+    footer("하루 1회 무료 · 500P 채굴은 보상 ×1.5 · 확률은 기본 곡괭이 기준", d.time ? `${d.time} 갱신` : "doesmc.xyz"),
   );
 }
 
@@ -952,7 +952,7 @@ export function mineResultTree(d) {
   const o = ORE_STYLE[d.ore] ?? ORE_STYLE.stone;
   const miss = d.ore === "stone" || !d.amount;
   return h("div", PAGE(miss ? "#1e293b" : `${o.dark}55`),
-    brandHeader(d, d.already ? "TODAY'S MINING" : "MINING RESULT", `${d.name ?? "회원"} 님의 채굴`, d.already ? "오늘 이미 캤어요" : "오늘 획득", miss ? "꽝" : `+${fmtN(d.amount)}P`, { avatar: d.avatar ?? null, titleSize: 38 }),
+    brandHeader(d, d.already ? "TODAY'S MINING" : d.paid ? "500P MINING" : "MINING RESULT", `${d.name ?? "회원"} 님의 채굴`, d.already ? "오늘 이미 캤어요" : "오늘 획득", miss ? "꽝" : `+${fmtN(d.amount)}P`, { avatar: d.avatar ?? null, titleSize: 38 }),
     h("div", { display: "flex", alignItems: "center", marginTop: 26, padding: "26px 34px", borderRadius: 28, background: `radial-gradient(ellipse 45% 90% at 18% 50%, ${o.dark}44 0%, rgba(255,255,255,0.02) 100%)`, border: "1.5px solid rgba(255,255,255,0.08)" },
       h("div", { display: "flex", width: 190, height: 190, alignItems: "center", justifyContent: "center", borderRadius: 190, background: `radial-gradient(circle, ${o.dark}66 0%, rgba(0,0,0,0) 70%)` }, oreIcon(d.ore, 150)),
       h("div", { display: "flex", flexDirection: "column", marginLeft: 34, flex: 1 },
@@ -966,7 +966,7 @@ export function mineResultTree(d) {
       ),
     ),
     h("div", { display: "flex", marginTop: 24 }, goalBlock(d, 988)),
-    footer("내일 0시(한국 시간)에 다시 캘 수 있어요", "doesmc.xyz"),
+    footer(d.paid ? "500P 채굴은 보상 ×1.5 · 원하는 만큼 다시 캘 수 있어요" : "무료 채굴은 내일 0시(한국 시간)에 다시 · 더 캐려면 500P", "doesmc.xyz"),
   );
 }
 

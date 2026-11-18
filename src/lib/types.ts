@@ -327,6 +327,8 @@ export type RandomBoxClaim = {
   ore?: string;
   base?: number;
   mult?: number;
+  /** 500P 유료 채굴 (하루 1회 무료 채굴과 따로 센다) */
+  paid?: boolean;
 };
 
 export type ShopCategory = {

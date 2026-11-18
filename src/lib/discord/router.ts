@@ -695,6 +695,17 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         avatar,
       });
     }
+    if (action === "mine_paid") {
+      const u = interaction.member?.user ?? interaction.user;
+      const avatar = u?.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128` : null;
+      const { handlePaidMine } = await import("@/lib/discord/handlers");
+      // 결과 화면의 '한 번 더' 버튼은 나만 보는 메시지라 패널 메시지 ID 를 넘기지 않는다
+      const fromPanel = !(interaction.message?.flags && (interaction.message.flags & 64));
+      return handlePaidMine(shop.slug, actor.id, interaction.channel_id, fromPanel ? interaction.message?.id : undefined, {
+        name: u?.global_name || actor.username,
+        avatar,
+      });
+    }
     if (action === "pick_view" || action === "pick_buy") {
       const { handlePickaxeView, handlePickaxeBuy } = await import("@/lib/discord/handlers");
       return action === "pick_view" ? handlePickaxeView(shop.slug, actor.id) : handlePickaxeBuy(shop.slug, actor.id);

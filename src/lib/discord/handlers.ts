@@ -1,4 +1,4 @@
-import { expectedMine, MAX_PICKAXE_LEVEL, oreForBase, oreInfo, oreOdds, pickaxe, PICKAXES } from "@/lib/mining-shared";
+import { expectedMine, MAX_PICKAXE_LEVEL, oreForBase, oreInfo, oreOdds, PAID_MINE_PRICE, pickaxe, PICKAXES } from "@/lib/mining-shared";
 import { formatKRW } from "@/lib/utils";
 import { escapeMd } from "@/lib/discord/components";
 import { appEmoji, plainEmoji } from "@/lib/discord/app-emojis";
@@ -56,6 +56,7 @@ import {
   updateShopSettings,
   getShopById,
   mineWeekStats,
+  mineWithPoints,
   upgradePickaxe,
 } from "@/lib/store";
 import { refreshMfaStockIfStale } from "@/lib/mfa";
@@ -494,15 +495,16 @@ async function randomBoxPanelComponents(shopId: string, shopSlug: string) {
         textDisplay(
           goal.festivalActive
             ? `## ${plainEmoji("does_party")} 채굴 축제 진행 중!\n${goal.festivalUntil} 까지 모든 채굴 보상 **2배**`
-            : `## 다이아 캐기\n하루 한 번 · 이번 주 서버 목표 **${goal.attempts}/${goal.target}회** · 달성하면 24시간 보상 **2배**`,
+            : `## 다이아 캐기\n하루 1회 무료 · 더 캐려면 **500P** · 이번 주 서버 목표 **${goal.attempts}/${goal.target}회** · 달성하면 24시간 무료 채굴 보상 **2배**`,
         ),
         separator(true, 1),
         textDisplay(`### 이번 주 TOP 3\n${topLines}`),
         actionRow(
-          button({ customId: cid(shopSlug, "rbox_open"), label: "다이아 캐기", emoji: appEmoji("does_pickaxe") }),
+          button({ customId: cid(shopSlug, "rbox_open"), label: "무료로 캐기 (하루 1회)", emoji: appEmoji("does_pickaxe") }),
+          button({ customId: cid(shopSlug, "mine_paid"), label: `${PAID_MINE_PRICE.toLocaleString("ko-KR")}P로 캐기`, emoji: appEmoji("does_gem") }),
           button({ customId: cid(shopSlug, "pick_view"), label: "곡괭이 강화", emoji: appEmoji("does_sparkles") }),
         ),
-        textDisplay(`-# 계정 연동 필요 · 곡괭이를 강화하면 좋은 광석이 더 잘 나와요 · 10분마다 갱신`),
+        textDisplay(`-# 계정 연동 필요 · 500P 채굴은 보상 ×1.5 (축제 2배 제외) · 곡괭이를 강화하면 좋은 광석이 더 잘 나와요 · 10분마다 갱신`),
       ],
       goal.festivalActive ? 0xf59e0b : 0x6366f1,
     ),
@@ -673,7 +675,69 @@ export async function handleRandomBoxOpen(
 
   const result = await openRandomBoxOnce(shop.id, linked.user);
   if (!result.ok) return errorPanel(result.error);
+  return mineResultResponse(shop, linked.user, discordId, result, channelId, panelMessageId, who);
+}
 
+type MineResult = {
+  already: boolean;
+  amount: number;
+  balance: number;
+  ore?: string;
+  base?: number;
+  mult?: number;
+  pickaxeLevel?: number;
+  festivalStarted?: boolean;
+  paid?: boolean;
+};
+
+/** [500P로 캐기] — 하루 1회 무료와 별개 */
+export async function handlePaidMine(
+  shopSlug: string,
+  discordId: string,
+  channelId?: string,
+  panelMessageId?: string,
+  who?: { name: string; avatar: string | null },
+) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return errorPanel("상점을 찾을 수 없어요.");
+  const linked = requireLinkedUser(shop, discordId);
+  if ("error" in linked) return linked.error;
+  // 같은 사람이 버튼을 연타해도 포인트가 꼬이지 않게 한 번에 하나씩
+  const { withLock } = await import("@/lib/world/kv");
+  const result = await withLock(`mine:paid:${shop.id}:${linked.user.id}`, async () => {
+    const r = mineWithPoints(shop.id, linked.user.id);
+    if (r.ok) await persistAsync();
+    return r;
+  });
+  if (!result.ok) {
+    return v2Ephemeral([
+      container([
+        textDisplay(`## 포인트가 부족해요\n${result.error}`),
+        actionRow(button({ label: "포인트 충전하기", url: shopUrl(shop.slug, "/dashboard?tab=charge") })),
+      ]),
+    ]);
+  }
+  const { postRandomBoxLog } = await import("@/lib/discord/logs");
+  postRandomBoxLog(shop.id, {
+    mention: `<@${discordId}>`,
+    name: linked.user.discordUsername || linked.user.name,
+    amount: result.amount,
+    jackpot: result.jackpot,
+    already: false,
+  });
+  return mineResultResponse(shop, { ...linked.user, points: result.balance }, discordId, result, channelId, panelMessageId, who);
+}
+
+async function mineResultResponse(
+  shop: { id: string; slug: string; name: string },
+  user: { points: number; pickaxeLevel?: number; discordUsername?: string | null; name: string },
+  discordId: string,
+  result: MineResult,
+  channelId?: string,
+  panelMessageId?: string,
+  who?: { name: string; avatar: string | null },
+) {
+  const linked = { user };
   const ore = result.ore ?? oreForBase(result.base ?? result.amount);
   const level = result.pickaxeLevel ?? Math.max(0, Math.floor(linked.user.pickaxeLevel ?? 0));
   const pick = pickaxe(level);
@@ -689,6 +753,7 @@ export async function handleRandomBoxOpen(
     pickaxeName: pick.name,
     pickaxeColor: pick.color,
     already: result.already,
+    paid: Boolean(result.paid),
     ...goal,
   });
   const info = oreInfo(ore);
@@ -698,8 +763,9 @@ export async function handleRandomBoxOpen(
     return v2Ephemeral([
       container([
         ...(image ? [mediaGallery([image])] : []),
-        textDisplay(`## 오늘은 이미 캤어요\n오늘 결과: ${line}`),
-        textDisplay("-# 내일 0시(한국 시간)에 다시 캘 수 있어요"),
+        textDisplay(`## 오늘 무료 채굴은 이미 했어요\n오늘 결과: ${line}`),
+        textDisplay(`-# 무료는 내일 0시(한국 시간)에 다시 · 지금 더 캐려면 ${PAID_MINE_PRICE.toLocaleString("ko-KR")}P`),
+        actionRow(button({ customId: cid(shop.slug, "mine_paid"), label: `${PAID_MINE_PRICE.toLocaleString("ko-KR")}P로 캐기`, emoji: appEmoji("does_pickaxe") })),
       ]),
     ]);
   }
@@ -763,7 +829,10 @@ export async function handleRandomBoxOpen(
       [
         ...(image ? [mediaGallery([image])] : [mediaGallery([`${appOrigin()}${randomBoxGifPath(result.amount)}`])]),
         textDisplay(`## ${line}`),
-        textDisplay(`-# ${pick.name} 사용 중${(result.mult ?? 1) > 1 ? ` · ×${result.mult} 배율` : ""} · 현재 잔액 ${formatKRW(result.balance)} · 내일 0시에 다시 캘 수 있어요`),
+        textDisplay(
+          `-# ${result.paid ? `500P 채굴 · ` : ""}${pick.name} 사용 중${(result.mult ?? 1) > 1 ? ` · ×${result.mult} 배율` : ""} · 현재 잔액 ${formatKRW(result.balance)}${result.paid ? "" : " · 무료는 내일 0시에 다시"}`,
+        ),
+        actionRow(button({ customId: cid(shop.slug, "mine_paid"), label: `한 번 더 캐기 · ${PAID_MINE_PRICE.toLocaleString("ko-KR")}P`, emoji: appEmoji("does_pickaxe") })),
       ],
       RARE_ORES.has(ore) ? 0x10b981 : 0x6366f1,
     ),

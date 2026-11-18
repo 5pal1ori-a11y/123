@@ -1,4 +1,4 @@
-import { DEFAULT_MINE_GOAL, FESTIVAL_HOURS, FESTIVAL_MULTIPLIER, kstWeekStart, MAX_PICKAXE_LEVEL, oreForBase, pickaxe, rollMine } from "@/lib/mining-shared";
+import { DEFAULT_MINE_GOAL, FESTIVAL_HOURS, FESTIVAL_MULTIPLIER, kstWeekStart, MAX_PICKAXE_LEVEL, oreForBase, PAID_MINE_MULTIPLIER, PAID_MINE_PRICE, pickaxe, rollMine } from "@/lib/mining-shared";
 import { PREMIUM_PLANS } from "@/lib/premium-plans";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
@@ -4117,6 +4117,69 @@ export function mineWeekStats(shopId: string, now = new Date()) {
   };
 }
 
+/**
+ * 유료 채굴 (500P) — 하루 1회 무료와 별개로 원하는 만큼.
+ * 곡괭이 확률표 × 1.5 · 채굴 축제·프리미엄 배율은 적용하지 않는다 (환급률이 100% 를 넘지 않게).
+ * 서버 공동 목표 횟수에는 포함된다.
+ */
+export function mineWithPoints(shopId: string, userId: string) {
+  const store = getStore();
+  if (!Array.isArray(store.randomBoxClaims)) store.randomBoxClaims = [];
+  const user = store.users.find((u) => u.id === userId && u.shopId === shopId);
+  if (!user) return { ok: false as const, error: "회원을 찾을 수 없어요." };
+  if (user.points < PAID_MINE_PRICE) {
+    return { ok: false as const, error: `포인트가 부족해요. 한 번에 ${PAID_MINE_PRICE.toLocaleString("ko-KR")}P 예요 (현재 ${user.points.toLocaleString("ko-KR")}P).` };
+  }
+  const now = new Date();
+  const level = Math.max(0, Math.floor(user.pickaxeLevel ?? 0));
+  const rolled = rollRandomBoxAmount(level);
+  const week = mineWeekStats(shopId, now);
+  const amount = Math.round(rolled.base * PAID_MINE_MULTIPLIER);
+  user.points -= PAID_MINE_PRICE;
+  user.points += amount;
+  const claim: RandomBoxClaim = {
+    id: randomUUID(),
+    shopId,
+    userId,
+    dayKey: kstDayKey(now),
+    amount,
+    jackpot: amount >= RANDOM_BOX_JACKPOT,
+    createdAt: now.toISOString(),
+    ore: rolled.ore,
+    base: rolled.base,
+    mult: PAID_MINE_MULTIPLIER,
+    paid: true,
+  };
+  store.randomBoxClaims.unshift(claim);
+  let festivalStarted = false;
+  if (!week.festivalUntil && week.attempts + 1 >= week.target) {
+    updateShopSettings(shopId, {
+      mineFestival: { weekKey: week.weekKey, until: new Date(now.getTime() + FESTIVAL_HOURS * 3_600_000).toISOString() },
+    });
+    festivalStarted = true;
+  }
+  // 유료 채굴 기록은 14일만 남긴다 (주간 목표·TOP 3 는 7일 안만 본다) — 상점 DB 가 커지지 않게
+  const paidCutoff = shiftDayKey(claim.dayKey, -14);
+  store.randomBoxClaims = store.randomBoxClaims.filter((c) => !c.paid || c.dayKey >= paidCutoff);
+  pushLog(user.email, "mine.paid", { price: PAID_MINE_PRICE, ore: rolled.ore, points: amount }, shopId);
+  persist(store);
+  return {
+    ok: true as const,
+    already: false,
+    amount,
+    jackpot: claim.jackpot,
+    balance: user.points,
+    dayKey: claim.dayKey,
+    ore: rolled.ore,
+    base: rolled.base,
+    mult: PAID_MINE_MULTIPLIER,
+    pickaxeLevel: level,
+    festivalStarted,
+    festivalActive: week.festivalActive,
+    paid: true as const,
+  };
+}
+
 /** 곡괭이 강화 — 포인트를 내고 한 단계 올린다 */
 export function upgradePickaxe(shopId: string, userId: string) {
   const store = getStore();
@@ -4146,7 +4209,7 @@ export function getTodayRandomBoxClaim(shopId: string, userId: string): RandomBo
   }
   return (
     store.randomBoxClaims.find(
-      (c) => c.shopId === shopId && ids.has(c.userId) && c.dayKey === dayKey,
+      (c) => c.shopId === shopId && ids.has(c.userId) && c.dayKey === dayKey && !c.paid,
     ) ?? null
   );
 }
@@ -4270,7 +4333,7 @@ export function getRandomBoxHistory(shopId: string, userId: string) {
   if (!Array.isArray(store.randomBoxClaims)) store.randomBoxClaims = [];
   const today = kstDayKey();
   const month = today.slice(0, 7);
-  const mine = store.randomBoxClaims.filter((c) => c.shopId === shopId && c.userId === userId);
+  const mine = store.randomBoxClaims.filter((c) => c.shopId === shopId && c.userId === userId && !c.paid);
   const byDay = new Map<string, { amount: number; jackpot: boolean }>();
   for (const c of mine) {
     if (!byDay.has(c.dayKey)) byDay.set(c.dayKey, { amount: c.amount, jackpot: c.jackpot });

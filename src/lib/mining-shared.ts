@@ -112,3 +112,7 @@ export function kstWeekStart(now = new Date()) {
   const monday = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() - dow));
   return monday.toISOString().slice(0, 10);
 }
+
+/** 유료 채굴 — 하루 1회 무료 이후 원하는 만큼. 보상은 무료 확률표 × 1.5 (나무 곡괭이 기대값 약 280P · 환급률 약 56%) */
+export const PAID_MINE_PRICE = 500;
+export const PAID_MINE_MULTIPLIER = 1.5;

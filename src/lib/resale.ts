@@ -39,10 +39,13 @@ export type ResaleInput = {
   capes: string[];
   description: string;
   price: number;
+  payoutAccount?: string;
 };
 
 export function validateResaleInput(input: ResaleInput, types: readonly string[] = RESALE_TYPES): string | null {
   if (!types.includes(input.accountType)) return "상품 유형을 골라 주세요.";
+  if (input.payoutAccount !== undefined && input.payoutAccount.trim().length < 6) return "정산 계좌를 은행 · 계좌번호 · 예금주까지 적어 주세요.";
+  if ((input.payoutAccount ?? "").length > 100) return "정산 계좌는 100자까지 적을 수 있어요.";
   if (!MC_NICKNAME_RE.test(input.ign.trim())) return "닉네임은 영문·숫자·_ 3~16자예요.";
   if (!Number.isInteger(input.price) || input.price < 1000 || input.price > 10_000_000) return "판매 가격은 1,000원 ~ 10,000,000원 사이로 적어 주세요.";
   if (input.description.length > 1000) return "설명은 1000자까지 적을 수 있어요.";
@@ -54,6 +57,7 @@ export async function createResaleRequest(
   user: { id: string; name: string; discordId: string | null },
   input: ResaleInput,
   feePercent: number,
+  source: "web" | "discord" = "web",
 ) {
   const capeSet = new Set(RESALE_CAPE_CHOICES.map((c) => c.type));
   const req: ResaleRequest = {
@@ -75,6 +79,10 @@ export async function createResaleRequest(
     reviewedAt: null,
     rejectReason: null,
     productId: null,
+    payoutAccount: input.payoutAccount?.trim() || null,
+    source,
+    soldAt: null,
+    soldOrderUuid: null,
   };
   return mutate(shopId, (list) => {
     const pending = list.filter((r) => r.userId === user.id && r.status === "pending").length;
@@ -98,4 +106,15 @@ export async function updateResaleRequest(shopId: string, id: string, fn: (r: Re
 
 export function resaleProductName(r: Pick<ResaleRequest, "ign" | "showName">) {
   return `대리판매 ${r.showName ? r.ign : maskMcNickname(r.ign)}`;
+}
+
+/** 대리판매 상품이 팔리면 신청 건에 판매 완료를 표시한다 (이미 표시됐으면 null) */
+export async function markResaleSold(shopId: string, requestId: string, orderUuid: string) {
+  return mutate(shopId, (list) => {
+    const r = list.find((x) => x.id === requestId);
+    if (!r || r.soldAt) return null;
+    r.soldAt = new Date().toISOString();
+    r.soldOrderUuid = orderUuid;
+    return { ...r };
+  });
 }

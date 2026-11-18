@@ -263,6 +263,11 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const { handleTemplateCommand } = await import("@/lib/discord/template-panels");
       return handleTemplateCommand(shop.slug, actor.roles, perms, { kind: o("종류"), link1: o("링크1"), link2: o("링크2"), channelId: interaction.channel_id });
     }
+    if (name === "프록시등록") {
+      const ch = interaction.data?.options?.find((o) => o.name === "승인채널")?.value;
+      const { handleProxyCommand } = await import("@/lib/discord/proxy-sale");
+      return handleProxyCommand(shop.slug, actor.roles, perms, interaction.channel_id, typeof ch === "string" ? ch : null);
+    }
     if (name === "재고요청") {
       const ch = interaction.data?.options?.find((o) => o.name === "받을채널")?.value;
       const { handleStockRequestCommand } = await import("@/lib/discord/stock-request");
@@ -525,6 +530,14 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       return handleBuyConfirm(shop.slug, actor.id, productId, Math.floor(quantity));
     }
 
+    if (parsed.action === "px_modal" || parsed.action === "px_okm" || parsed.action === "px_nom") {
+      const px = await import("@/lib/discord/proxy-sale");
+      const modalPerms = interaction.member?.permissions;
+      if (parsed.action === "px_modal") return px.handleProxyRegisterSubmit(shop.slug, { id: actor.id, name: actor.username }, interaction);
+      if (parsed.action === "px_okm") return px.handleProxyApproveSubmit(shop.slug, parsed.payload, actor.id, actor.roles, modalPerms, interaction);
+      return px.handleProxyRejectSubmit(shop.slug, parsed.payload, actor.id, actor.roles, modalPerms, interaction);
+    }
+
     if (parsed.action === "sr_modal") {
       const { handleStockRequestModal } = await import("@/lib/discord/stock-request");
       return handleStockRequestModal(shop.slug, actor.id, interaction);
@@ -654,6 +667,15 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
     if (action === "tq_mine") {
       const { handleTicketQueueMine } = await import("@/lib/discord/ticket-queue");
       return handleTicketQueueMine(interaction.guild_id, actor.id);
+    }
+    if (action === "px_reg" || action === "px_mine" || action === "px_ok" || action === "px_no") {
+      const px = await import("@/lib/discord/proxy-sale");
+      if (action === "px_reg") return px.handleProxyRegisterButton(shop.slug);
+      if (action === "px_ok") return px.handleProxyApproveButton(shop.slug, payload, actor.roles, perms);
+      if (action === "px_no") return px.handleProxyRejectButton(shop.slug, payload, actor.roles, perms);
+      const u = interaction.member?.user ?? interaction.user;
+      const avatar = u?.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128` : null;
+      return px.handleProxyMine(shop.slug, { id: actor.id, name: u?.global_name || actor.username, avatar });
     }
     if (action === "sr_pick") {
       const { handleStockRequestPick } = await import("@/lib/discord/stock-request");

@@ -273,6 +273,14 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "프록시등록",
+    description: "프록시(대리판매) 등록 패널을 이 채널에 올립니다 (관리자)",
+    type: 1,
+    options: [
+      { name: "승인채널", description: "신청 승인·거절 카드를 받을 관리자 채널 (처음 한 번)", type: 7, channel_types: [0, 5], required: false },
+    ],
+  },
+  {
     name: "다이아채굴",
     description: "다이아 캐기 패널을 채널에 올립니다 (관리자)",
     type: 1,

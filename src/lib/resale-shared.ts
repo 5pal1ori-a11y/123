@@ -37,6 +37,13 @@ export type ResaleRequest = {
   reviewedAt: string | null;
   rejectReason: string | null;
   productId: string | null;
+  /** 판매되면 정산받을 계좌 (디스코드 /프록시등록 신청 · 관리자만 봄) */
+  payoutAccount?: string | null;
+  /** 어디서 신청했는지 */
+  source?: "web" | "discord";
+  /** 판매 완료 시각 · 주문 */
+  soldAt?: string | null;
+  soldOrderUuid?: string | null;
 };
 
 export function resalePayout(price: number, feePercent: number) {

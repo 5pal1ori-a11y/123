@@ -64,11 +64,11 @@ export type DiscordInteraction = {
   guild_id?: string;
   channel_id?: string;
   member?: {
-    user: { id: string; username: string; global_name?: string | null };
+    user: { id: string; username: string; global_name?: string | null; avatar?: string | null };
     roles: string[];
     permissions?: string;
   };
-  user?: { id: string; username: string; global_name?: string | null };
+  user?: { id: string; username: string; global_name?: string | null; avatar?: string | null };
   /** 버튼·셀렉트를 누른 그 메시지 (컴포넌트 상호작용일 때만) */
   message?: { id: string; channel_id?: string };
   data?: {

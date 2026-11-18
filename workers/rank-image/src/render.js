@@ -64,9 +64,7 @@ function line(row, t, last) {
     avatar(row.avatar, 54, "rgba(255,255,255,0.14)"),
     h("div", { display: "flex", flexDirection: "column", marginLeft: 18, flexGrow: 1 },
       h("div", { display: "flex", fontSize: 24, fontWeight: 700, color: "#f1f5f9", maxWidth: 460, overflow: "hidden", whiteSpace: "nowrap" }, row.name),
-      h("div", { display: "flex", marginTop: 9, width: 460, height: 6, borderRadius: 6, background: "rgba(255,255,255,0.06)" },
-        h("div", { display: "flex", width: Math.max(10, Math.round(460 * row.barShare)), height: 6, borderRadius: 6, background: `linear-gradient(90deg,${t.accent},${t.accent2})` }),
-      ),
+      h("div", { display: "flex", marginTop: 11 }, premiumBar(460, row.barShare, [t.accent, t.accent === "#fbbf24" ? "#fb923c" : "#a78bfa", t.accent2], 10)),
     ),
     h("div", { display: "flex", flexDirection: "column", alignItems: "flex-end" },
       h("div", { display: "flex", fontSize: 27, fontWeight: 900, color: "#fff", letterSpacing: -0.5 }, t.value(row)),
@@ -713,35 +711,162 @@ export function cardTree(d) {
   );
 }
 
-/**
- * 상점 통계 띠 (디스코드 링크 미리보기 맨 아래) — 판매 · 구매자 · 후기 · 평점 4칸 + 운영 시작
- * d: { sold, buyers, reviews, avg, since? }
- */
-export function shopStatsTree(d) {
-  const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
-  const tiles = [
-    ["판매", fmt(d.sold), "개", "#a5b4fc"],
-    ["구매자", fmt(d.buyers), "명", "#67e8f9"],
-    ["후기", fmt(d.reviews), "개", "#f9a8d4"],
-    ["평점", `★ ${Number(d.avg || 0).toFixed(1)}`, "", "#fcd34d"],
-  ];
-  return h(
-    "div",
-    { display: "flex", flexDirection: "column", width: "100%", height: "100%", padding: "26px 40px 22px", background: "radial-gradient(ellipse 35% 80% at 15% 40%, rgba(99,102,241,0.30) 0%, rgba(11,15,26,0) 100%), radial-gradient(ellipse 30% 80% at 88% 50%, rgba(20,184,166,0.18) 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)", fontFamily: "Pretendard", color: "#fff" },
-    h("div", { display: "flex", gap: 16, flex: 1 },
-      ...tiles.map(([label, value, unit, color]) =>
-        h("div", { display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, padding: "0 26px", borderRadius: 18, background: "rgba(255,255,255,0.045)", border: "1.5px solid rgba(255,255,255,0.10)" },
-          h("div", { display: "flex", fontSize: 19, fontWeight: 700, color: "#94a3b8", letterSpacing: 1 }, label),
-          h("div", { display: "flex", alignItems: "flex-end", marginTop: 6 },
-            h("div", { display: "flex", fontSize: 50, fontWeight: 900, color, letterSpacing: -1.5, lineHeight: 1 }, value),
-            unit ? h("div", { display: "flex", fontSize: 22, fontWeight: 700, color: "#cbd5e1", marginLeft: 6, marginBottom: 4 }, unit) : null,
-          ),
-        ),
+/* ───────── 구매 랭킹과 같은 톤의 공용 조각 (상점 통계 · 프록시) ───────── */
+const ACC = "#818cf8";
+const ACC2 = "#22d3ee";
+const fmtN = (n) => Number(n || 0).toLocaleString("ko-KR");
+
+function brandHeader(d, eyebrow, title, statLabel, statValue, opts = {}) {
+  return h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+    h("div", { display: "flex", alignItems: "center" },
+      opts.avatar !== undefined
+        ? h("div", { display: "flex", marginRight: 18 }, avatar(opts.avatar, 76, `linear-gradient(135deg, ${ACC}, ${ACC2})`, "rgba(129,140,248,0.30)"))
+        : d.logo ? img(d.logo, { width: 72, height: 72, marginRight: 18 }) : null,
+      h("div", { display: "flex", flexDirection: "column" },
+        h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: ACC, letterSpacing: 5 }, eyebrow),
+        h("div", { display: "flex", fontSize: opts.titleSize ?? 44, fontWeight: 900, marginTop: 2, letterSpacing: -1.5, maxWidth: 640, overflow: "hidden", whiteSpace: "nowrap" }, title),
       ),
     ),
-    h("div", { display: "flex", justifyContent: "space-between", marginTop: 14, fontSize: 16, fontWeight: 500, color: "#64748b" },
-      h("div", { display: "flex" }, d.since ? `${d.since} · 실제 주문·후기 기준` : "실제 주문·후기 기준"),
-      h("div", { display: "flex" }, "doesmc.xyz"),
+    h("div", { display: "flex", flexDirection: "column", alignItems: "flex-end" },
+      h("div", { display: "flex", fontSize: 17, fontWeight: 500, color: "#94a3b8" }, statLabel),
+      h("div", { display: "flex", fontSize: 32, fontWeight: 900, marginTop: 2, letterSpacing: -0.5 }, statValue),
     ),
+  );
+}
+
+/**
+ * 고급 진행 막대 — 안쪽 그림자가 있는 트랙 + 3단 그라데이션 채움 + 윗면 광택 + 빛나는 끝점
+ * width: px 숫자, share: 0~1
+ */
+const BAR_DEFAULT = ["#6366f1", "#a78bfa", "#22d3ee"];
+const BAR_SOLD = ["#10b981", "#4ade80", "#22d3ee"];
+function premiumBar(width, share, colors = BAR_DEFAULT, height = 12) {
+  const fill = Math.max(height + 4, Math.round(width * Math.min(1, Math.max(0, share ?? 0))));
+  const [c1, c2, c3] = colors;
+  return h("div", {
+      display: "flex", position: "relative", width, height, borderRadius: height,
+      background: "linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(255,255,255,0.04) 100%)",
+      border: "1px solid rgba(255,255,255,0.07)",
+      boxShadow: "inset 0 1px 3px rgba(0,0,0,0.6)",
+    },
+    // 채움
+    h("div", { display: "flex", position: "absolute", left: 0, top: -1, width: fill, height, borderRadius: height,
+      background: `linear-gradient(90deg, ${c1} 0%, ${c2} 55%, ${c3} 100%)`,
+      boxShadow: `0 0 14px ${c2}88, 0 0 4px ${c3}aa` }),
+    // 윗면 광택
+    h("div", { display: "flex", position: "absolute", left: 3, top: 1, width: Math.max(0, fill - 6), height: Math.max(2, Math.round(height * 0.32)), borderRadius: height,
+      background: "linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0))" }),
+    // 끝점
+    h("div", { display: "flex", position: "absolute", left: fill - height - 2, top: -3, width: height + 4, height: height + 4, borderRadius: height + 4,
+      background: "radial-gradient(circle at 40% 35%, #ffffff 0%, #e0e7ff 45%, " + c3 + " 100%)",
+      boxShadow: `0 0 10px ${c3}, 0 0 22px ${c2}99` }),
+  );
+}
+
+function glowLine() {
+  return h("div", { display: "flex", height: 2, background: `linear-gradient(90deg, rgba(255,255,255,0), ${ACC}88, rgba(255,255,255,0))` });
+}
+
+/** 큰 숫자 칸 (구분선으로만 나눈다) — share 가 있으면 랭킹처럼 진행 막대 */
+function bigStat(label, value, unit, color, share, last) {
+  return h("div", { display: "flex", flexDirection: "column", flex: 1, padding: "0 28px", borderRight: last ? "none" : "1px solid rgba(255,255,255,0.08)" },
+    h("div", { display: "flex", fontSize: 18, fontWeight: 700, color: "#94a3b8" }, label),
+    h("div", { display: "flex", alignItems: "flex-end", marginTop: 8 },
+      h("div", { display: "flex", fontSize: String(value).length > 9 ? 40 : 54, fontWeight: 900, color, letterSpacing: -1.5, lineHeight: 1 }, value),
+      unit ? h("div", { display: "flex", fontSize: 22, fontWeight: 700, color: "#cbd5e1", marginLeft: 6, marginBottom: 4 }, unit) : null,
+    ),
+    h("div", { display: "flex", marginTop: 18 }, premiumBar(270, share ?? 1, color === "#86efac" ? BAR_SOLD : BAR_DEFAULT)),
+  );
+}
+
+function footer(left, right) {
+  return h("div", { display: "flex", justifyContent: "space-between", marginTop: "auto", paddingTop: 18, fontSize: 15, fontWeight: 500, color: "#475569" },
+    h("div", { display: "flex" }, left),
+    h("div", { display: "flex" }, right),
+  );
+}
+
+const PAGE = (bg) => ({
+  display: "flex", flexDirection: "column", width: "100%", height: "100%", padding: "40px 56px 30px",
+  background: `radial-gradient(ellipse 60% 55% at 50% 20%, ${bg} 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)`,
+  fontFamily: "Pretendard", color: "#fff",
+});
+
+/**
+ * 상점 통계 (디스코드 링크 미리보기 맨 아래) — d: { sold, buyers, reviews, avg, since? }
+ */
+export function shopStatsTree(d) {
+  const top = Math.max(d.sold || 0, d.buyers || 0, d.reviews || 0, 1);
+  return h("div", PAGE("#1e1b4b"),
+    brandHeader(d, "DOES STORE", "실시간 판매 현황", "평균 평점", `★ ${Number(d.avg || 0).toFixed(1)}`),
+    h("div", { display: "flex", marginTop: 34 },
+      bigStat("판매된 계정", fmtN(d.sold), "개", "#c7d2fe", (d.sold || 0) / top),
+      bigStat("구매자", fmtN(d.buyers), "명", "#67e8f9", (d.buyers || 0) / top),
+      bigStat("후기", fmtN(d.reviews), "개", "#f9a8d4", (d.reviews || 0) / top, true),
+    ),
+    footer(d.since ? `${d.since} · 실제 주문·후기 기준` : "실제 주문·후기 기준", "doesmc.xyz"),
+  );
+}
+
+/**
+ * /프록시등록 패널 — d: { registrants, selling, sold, soldAmount, pending, time }
+ */
+export function proxyPanelTree(d) {
+  const top = Math.max(d.registrants || 0, d.selling || 0, d.sold || 0, 1);
+  return h("div", PAGE("#1e1b4b"),
+    brandHeader(d, "PROXY RESALE", "DOES 프록시 대리판매", "누적 판매액", `₩${fmtN(d.soldAmount)}`),
+    h("div", { display: "flex", marginTop: 34 },
+      bigStat("프록시 등록자", fmtN(d.registrants), "명", "#c7d2fe", (d.registrants || 0) / top),
+      bigStat("판매 중", fmtN(d.selling), "개", "#67e8f9", (d.selling || 0) / top),
+      bigStat("판매 완료", fmtN(d.sold), "개", "#86efac", (d.sold || 0) / top, true),
+    ),
+    h("div", { display: "flex", marginTop: 26 }, glowLine()),
+    footer(d.pending ? `지금 검토 중인 신청 ${fmtN(d.pending)}건 · 실제 등록·주문 기준` : "실제 등록·주문 기준", d.time ? `${d.time} 갱신` : "doesmc.xyz"),
+  );
+}
+
+/**
+ * 내 프록시 현황 — d: { name, avatar, rows: [{ ign, price, payout, status }], totals: { selling, sold, payoutDue } }
+ */
+const PROXY_STATUS = {
+  pending: ["검토 중", "#fde68a", "rgba(250,204,21,0.14)"],
+  selling: ["판매 중", "#67e8f9", "rgba(34,211,238,0.14)"],
+  sold: ["판매 완료", "#86efac", "rgba(74,222,128,0.16)"],
+  rejected: ["반려", "#fca5a5", "rgba(248,113,113,0.14)"],
+  cancelled: ["취소", "#94a3b8", "rgba(148,163,184,0.14)"],
+};
+export function proxyStatusHeight(d) {
+  return 40 + 82 + 30 + 2 + 14 + Math.max(1, (d.rows ?? []).length) * 87 + 70;
+}
+export function proxyStatusTree(d) {
+  const rows = (d.rows ?? []).slice(0, 6);
+  const t = d.totals ?? {};
+  const max = Math.max(1, ...rows.map((r) => r.price || 0));
+  return h("div", PAGE("#1e1b4b"),
+    brandHeader(d, "MY PROXY", `${d.name ?? "회원"} 님의 프록시`, `판매 중 ${fmtN(t.selling)} · 판매 완료 ${fmtN(t.sold)}`, `정산 예정 ₩${fmtN(t.payoutDue)}`, { avatar: d.avatar ?? null, titleSize: 40 }),
+    h("div", { display: "flex", marginTop: 30 }, glowLine()),
+    h("div", { display: "flex", flexDirection: "column", marginTop: 14 },
+      ...(rows.length
+        ? rows.map((r, k) => {
+            const [label, color, bg] = PROXY_STATUS[r.status] ?? PROXY_STATUS.pending;
+            const share = (r.price || 0) / max;
+            return h("div", { display: "flex", alignItems: "center", width: "100%", padding: "16px 8px", borderBottom: k === rows.length - 1 ? "none" : "1px solid rgba(255,255,255,0.07)" },
+              h("div", { display: "flex", width: 64, fontSize: 26, fontWeight: 900, color: "#475569" }, String(k + 1).padStart(2, "0")),
+              h("div", { display: "flex", flexDirection: "column", flexGrow: 1 },
+                h("div", { display: "flex", alignItems: "center" },
+                  h("div", { display: "flex", fontSize: 24, fontWeight: 700, color: "#f1f5f9", maxWidth: 360, overflow: "hidden", whiteSpace: "nowrap" }, String(r.ign ?? "")),
+                  h("div", { display: "flex", marginLeft: 12, padding: "3px 12px", borderRadius: 999, background: bg, color, fontSize: 15, fontWeight: 700 }, label),
+                ),
+                h("div", { display: "flex", marginTop: 11 }, premiumBar(460, share, r.status === "sold" ? BAR_SOLD : BAR_DEFAULT, 10)),
+              ),
+              h("div", { display: "flex", flexDirection: "column", alignItems: "flex-end" },
+                h("div", { display: "flex", fontSize: 27, fontWeight: 900, color: "#fff", letterSpacing: -0.5 }, `₩${fmtN(r.price)}`),
+                h("div", { display: "flex", marginTop: 2, fontSize: 15, fontWeight: 500, color: "#64748b" }, `정산 ₩${fmtN(r.payout)}`),
+              ),
+            );
+          })
+        : [h("div", { display: "flex", justifyContent: "center", padding: "26px 0", fontSize: 22, fontWeight: 700, color: "#64748b" }, "아직 등록한 프록시가 없어요")]),
+    ),
+    footer("판매되면 관리자가 확인 후 등록한 계좌로 정산해 드려요", "doesmc.xyz"),
   );
 }

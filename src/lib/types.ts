@@ -132,6 +132,10 @@ export type ShopSettings = {
   serverStatusUserId?: string | null;
   /** /재고요청 — 손님 요청을 받을 채널 */
   stockRequestChannelId?: string | null;
+  /** /프록시등록 — 대리판매 신청 승인·거절 카드를 올릴 관리자 채널 */
+  proxyAdminChannelId?: string | null;
+  /** /프록시등록 — 숫자를 다시 그릴 패널 위치 */
+  proxyPanel?: { channelId: string; messageId: string } | null;
   /** /환영설정 — 새 멤버 환영 패널 */
   welcome?: {
     channelId: string;

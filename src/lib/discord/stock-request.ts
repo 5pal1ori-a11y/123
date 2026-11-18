@@ -9,6 +9,7 @@ import {
   cid,
   container,
   errorPanel,
+  escapeMd,
   sectionText,
   thumbnail,
   modalFieldValue,
@@ -38,8 +39,8 @@ const recent = new Map<string, number>();
 function requesterNotice(name: string, note?: string) {
   const panel = v2Ephemeral([
     container([
-      textDisplay(`${plainEmoji("does_inbox")} **${name.slice(0, 100)}** 재고 요청이 접수됐어요`),
-      ...(note ? [textDisplay(`> ${note.slice(0, 300)}`)] : []),
+      textDisplay(`${plainEmoji("does_inbox")} **${escapeMd(name.slice(0, 100))}** 재고 요청이 접수됐어요`),
+      ...(note ? [textDisplay(`> ${escapeMd(note.slice(0, 300))}`)] : []),
       textDisplay("-# 이 메시지는 나에게만 보여요 · 요청이 많은 제품부터 처리합니다."),
     ]),
   ]);

@@ -4615,6 +4615,13 @@ export function purchaseWithPoints(
     0,
   );
 
+  // 대리판매(프록시) 상품이 팔리면 판매자에게 DM · 프록시 패널 갱신
+  if (product.resale?.requestId) {
+    scheduleDiscordBackground(
+      import("@/lib/resale-actions").then(({ notifyResaleSold }) => notifyResaleSold(shopId, product, first.orderUuid)),
+    );
+  }
+
   scheduleDiscordBackground(
     import("@/lib/discord/logs").then(({ postPurchaseLog }) =>
       postPurchaseLog(shopId, {

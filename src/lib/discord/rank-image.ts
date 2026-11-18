@@ -624,10 +624,10 @@ async function cardSig(slug: string, body: string) {
  * 최대 1분 가까이 안 보여 502 → 디스코드가 깨진 이미지로 캐시한다. 그래서 그릴 데이터를 보낼 때 미리 만들어
  * 서명과 함께 주소에 넣고, 그리는 쪽은 저장소를 다시 읽지 않는다.
  */
-const SIGNED_KINDS = new Set(["purchase_log", "charge_log", "review", "receipt", "shop_stats"]);
+const SIGNED_KINDS = new Set(["purchase_log", "charge_log", "review", "receipt", "shop_stats", "proxy_panel", "proxy_status"]);
 const SIGNED_MAX_BODY = 1900;
 
-async function signedDataImageUrl(shopSlug: string, data: ({ kind: string } & Record<string, unknown>) | null) {
+export async function signedDataImageUrl(shopSlug: string, data: ({ kind: string } & Record<string, unknown>) | null) {
   if (!data || !SIGNED_KINDS.has(data.kind)) return null;
   const body = b64url(JSON.stringify(data));
   if (body.length > SIGNED_MAX_BODY) return null;

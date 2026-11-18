@@ -11,6 +11,7 @@ export async function POST(request: Request) {
   const { id } = (await request.json().catch(() => ({}))) as { id?: string };
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
   await initStore();
+  await (await import("@/lib/discord/app-emojis")).ensureAppEmojis();
   const result = await finishGiveaway(String(id));
   return NextResponse.json(result, { status: result.ok ? 200 : 500 });
 }

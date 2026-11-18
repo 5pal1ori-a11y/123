@@ -1,0 +1,60 @@
+# Cloudflare 배포 (Linux에서 빌드)
+# Windows에서 OpenNext로 빌드하면 런타임 500(workUnitAsyncStorage invariant)이 날 수 있어서 여기서 빌드한다.
+# 실행 조건: 이 브랜치에 커밋 메시지에 [deploy]가 들어간 push, 또는 Actions 탭에서 수동 실행.
+# 필요한 저장소 시크릿: CLOUDFLARE_API_TOKEN (Workers 편집 권한)
+name: Deploy to Cloudflare
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/minecraft-account-product-ui-nax6xg
+
+concurrency:
+  group: cloudflare-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: 0d534114b2ec23051f976533656d46f1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check token
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::저장소 시크릿 CLOUDFLARE_API_TOKEN 이 없습니다."
+            exit 1
+          fi
+
+      - run: npm ci --no-audit --no-fund
+
+      # Google Fonts가 확장자 없는 폰트 URL(/l/font?kit=...)을 주면 Next 15.5 폰트 로더가 터진다.
+      # 그 경우 woff2로 간주하도록 해당 한 줄만 고친다.
+      - name: Patch next/font for extensionless Google font URLs
+        run: |
+          f=node_modules/next/dist/compiled/@next/font/dist/google/loader.js
+          sed -i 's#/\\.(woff|woff2|eot|ttf|otf)\$/.exec(googleFontFileUrl)\[1\]#(/\\.(woff|woff2|eot|ttf|otf)$/.exec(googleFontFileUrl) || [0, "woff2"])[1]#' "$f"
+          grep -n 'exec(googleFontFileUrl)' "$f"
+          grep -q '\[0, "woff2"\]' "$f"
+
+      # Next 15.5.24 는 배포 중인 버전과 같다 (지원 기간 종료 경고만 우회)
+      - name: Build
+        run: npx opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion
+
+      # opennextjs-cloudflare deploy 는 배포 전에 원격 미리보기 세션을 여는데, 그게 가끔 실패한다 (10013).
+      # 이 프로젝트는 캐시 채우기·스큐 보호를 안 써서 마지막 단계인 wrangler deploy 만 하면 된다.
+      - name: Deploy
+        env:
+          OPEN_NEXT_DEPLOY: "true"
+        run: npx wrangler deploy

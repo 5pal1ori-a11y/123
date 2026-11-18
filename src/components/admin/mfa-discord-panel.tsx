@@ -15,6 +15,7 @@ const LOG_CHANNELS = [
   ["discordRandomBoxLogChannelId", "랜덤박스 로그"],
   ["discordAdminLogChannelId", "관리 로그"],
   ["discordStockChannelId", "재고현황 채널"],
+  ["discordLeaderboardChannelId", "실시간 구매 랭킹 채널"],
 ] as const;
 type LogKey = (typeof LOG_CHANNELS)[number][0];
 type Logs = Record<LogKey, string | null>;

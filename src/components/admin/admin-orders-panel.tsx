@@ -14,6 +14,8 @@ type AdminOrder = {
   quantity: number;
   dispensedCode?: string | null;
   productName?: string | null;
+  /** 구매할 때 손님이 넣은 정보 (서버 초대 링크 · 이메일 등) */
+  buyerInput?: { label: string; value: string } | null;
   createdAt: string;
   paidAt: string | null;
 };
@@ -114,7 +116,7 @@ export function AdminOrdersPanel({ shopSlug }: { shopSlug: string }) {
     const q = query.trim().toLowerCase();
     if (!q) return byStatus;
     return byStatus.filter((o) =>
-      [o.buyerEmail, o.productName, o.dispensedCode, o.id].some((v) => v?.toLowerCase().includes(q)),
+      [o.buyerEmail, o.productName, o.dispensedCode, o.id, o.buyerInput?.value].some((v) => v?.toLowerCase().includes(q)),
     );
   }, [orders, filter, query]);
 
@@ -163,6 +165,11 @@ export function AdminOrdersPanel({ shopSlug }: { shopSlug: string }) {
                     {o.productName ? `${o.productName} · ` : ""}
                     {STATUS_LABEL[o.status] ?? o.status} · {o.paymentMethod} · 수량 {o.quantity}
                   </p>
+                  {o.buyerInput ? (
+                    <p className="mt-1 break-all rounded-lg border border-amber-400/25 bg-amber-400/10 px-2 py-1 text-[12px] text-amber-100">
+                      {o.buyerInput.label}: <span className="font-mono">{o.buyerInput.value}</span>
+                    </p>
+                  ) : null}
                   {o.dispensedCode ? (
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button

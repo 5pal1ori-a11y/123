@@ -224,6 +224,7 @@ export async function middleware(request: Request) {
         pathname === "/api/discord/sync-commands" ||
         pathname === "/api/discord/giveaway/end" ||
         pathname === "/api/discord/ticket-ai" ||
+        pathname === "/api/discord/server-status" ||
         pathname === "/api/verify-bot/interactions" ||
         pathname.startsWith("/api/verify-bot/") ||
         pathname === "/api/ticket-bot/interactions" ||

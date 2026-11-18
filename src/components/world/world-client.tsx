@@ -193,6 +193,8 @@ export function WorldClient({ shopSlug }: { shopSlug: string }) {
   const [unread, setUnread] = useState(0);
   const chatOpenRef = useRef(false);
   const ownSent = useRef<{ m: string; at: number }[]>([]);
+  /** 내가 보낸 채팅은 바로 화면에 띄우고, 서버에서 다시 돌아온 같은 줄은 건너뛴다 */
+  const echoed = useRef<{ m: string; at: number }[]>([]);
   const lastPing = useRef(0);
   const notifyChat = useCallback((lines: ChatLine[]) => {
     const now = Date.now();
@@ -480,8 +482,14 @@ export function WorldClient({ shopSlug }: { shopSlug: string }) {
       return;
     }
     if (!meRef.current?.user) return sys("로그인하면 채팅할 수 있어요");
-    if (!netRef.current?.sendChat(text)) sys("채팅 서버에 연결되지 않았어요");
-    else ownSent.current.push({ m: text.slice(0, 100), at: Date.now() });
+    if (!netRef.current?.sendChat(text)) {
+      sys("채팅 서버에 연결되지 않았어요 · 잠시 후 다시 보내 주세요");
+      return;
+    }
+    const line = text.replace(/\s+/g, " ").slice(0, 100);
+    ownSent.current.push({ m: line, at: Date.now() });
+    echoed.current.push({ m: line, at: Date.now() });
+    pushChat([{ n: meRef.current.user.name || "나", m: line, at: Date.now() }]);
   }, [chatText, closeChat, runCommand, sys]);
 
   const games = useWorldGames({
@@ -864,8 +872,21 @@ export function WorldClient({ shopSlug }: { shopSlug: string }) {
       safe: (game) => flash(game ? "미니게임 구역에서는 PvP가 꺼져 있어요" : "스폰 보호 구역에 있는 사람은 때릴 수 없어요"),
       duel: gameHandlers.onDuel,
       chat: (lines, history) => {
-        pushChat(lines, history);
-        if (!history) notifyChat(lines);
+        if (history) {
+          pushChat(lines, true);
+          return;
+        }
+        const now = Date.now();
+        echoed.current = echoed.current.filter((e) => now - e.at < 8000);
+        const fresh = lines.filter((l) => {
+          if (l.sys) return true;
+          const i = echoed.current.findIndex((e) => e.m === l.m);
+          if (i < 0) return true;
+          echoed.current.splice(i, 1);
+          return false;
+        });
+        if (fresh.length) pushChat(fresh);
+        notifyChat(lines);
       },
     });
     netRef.current = n;

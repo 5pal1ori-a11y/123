@@ -1,3 +1,4 @@
+import { PREMIUM_PLANS } from "@/lib/premium-plans";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
@@ -55,6 +56,7 @@ import { hashPassword, makeDeviceKey, verifyPassword } from "@/lib/auth";
 import { calcProductPrice } from "@/lib/pricing";
 import { normDepositorName } from "@/lib/auto-charge-push-parse";
 import { resolveStockStatus } from "@/lib/types";
+import { maskMcNickname } from "@/lib/mc-account";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
 import { clearMfaStockCache, getMfaStockCache, setMfaStockCache } from "@/lib/mfa-cache";
 
@@ -190,6 +192,8 @@ function defaultSettings(shopId: string): ShopSettings {
     discordRandomBoxLogChannelId: null,
     discordStockChannelId: null,
     discordStockMessageId: null,
+    discordLeaderboardChannelId: null,
+    discordLeaderboardMessageId: null,
     spendRoles: [],
     discordAdminRoleId: null,
     discordBotToken: null,
@@ -705,7 +709,8 @@ function safeMigrateLegacyIfNeeded() {
 let mfaCredentialsSynced = false;
 
 export const MFA_SHOP_SLUG = "mfa";
-export const MFA_DISCORD_GUILD_ID = "1432601807216967793";
+/** 상점이 연결된 디스코드 서버 (DOΞS). 옮길 때는 이 값과 wrangler.jsonc 의 MFA_VERIFY_GUILD_ID 를 같이 바꾼다 */
+export const MFA_DISCORD_GUILD_ID = "1560530136972140704";
 /** MFA MARKET 에서 들어오는 계정 상품의 기본 카테고리 */
 export const MFA_DEFAULT_CATEGORY = "정품계정";
 export const UNLIMITED_EXPIRES_AT = "9999-12-31T00:00:00.000Z";
@@ -818,6 +823,25 @@ function ensureMfaShop() {
       changed = true;
     }
     if (settings.discordGuildId !== MFA_DISCORD_GUILD_ID || !settings.discordBotEnabled) {
+      // 다른 서버에서 옮겨 오는 경우: 이전 서버의 채널·역할·패널 ID 는 새 서버에서 쓸 수 없으니 비운다
+      if (settings.discordGuildId && settings.discordGuildId !== MFA_DISCORD_GUILD_ID) {
+        settings.discordPurchaseLogChannelId = null;
+        settings.discordChargeLogChannelId = null;
+        settings.discordAdminLogChannelId = null;
+        settings.discordReviewLogChannelId = null;
+        settings.discordRestockLogChannelId = null;
+        settings.discordRestockRoleId = null;
+        settings.discordRandomBoxLogChannelId = null;
+        settings.discordStockChannelId = null;
+        settings.discordStockMessageId = null;
+        settings.accountCategoryId = null;
+        settings.stockRequestChannelId = null;
+        settings.serverStatusPanels = [];
+        settings.discordLeaderboardChannelId = null;
+        settings.discordLeaderboardMessageId = null;
+        settings.discordAdminRoleId = null;
+        settings.reviewFeedChannelId = null;
+      }
       settings.discordGuildId = MFA_DISCORD_GUILD_ID;
       settings.discordBotEnabled = true;
       changed = true;
@@ -1505,12 +1529,44 @@ export function verifyOrderAccess(order: Order, token: string | null | undefined
   return timingSafeEqual(a, b);
 }
 
+function cleanMcStatus(st: NonNullable<Product["mcStatus"]>): Product["mcStatus"] {
+  const out = {
+    hypixelBanned: typeof st.hypixelBanned === "boolean" ? st.hypixelBanned : null,
+    hypixelReason: st.hypixelBanned ? st.hypixelReason?.trim().slice(0, 40) || null : null,
+    donutBanned: typeof st.donutBanned === "boolean" ? st.donutBanned : null,
+  };
+  return out.hypixelBanned === null && out.donutBanned === null ? null : out;
+}
+
+function clampDiscount(v: number | null | undefined) {
+  const d = Math.floor(Number(v ?? 0));
+  return Number.isFinite(d) && d > 0 ? Math.min(90, d) : null;
+}
+
+/** 공개용: 마크계정 닉네임은 빼고 마스킹된 이름만 내보낸다 */
+function withPublicStock(product: Product): ProductWithStock {
+  const out = withStock(product);
+  if (out.productKind === "mc_account") {
+    out.mcMaskedName = product.mcShowName && product.mcNickname ? product.mcNickname : maskMcNickname(product.mcNickname ?? "");
+    // 닉네임이나 직접 지정한 망토가 바뀌면 값이 달라져 카드가 새로 받아 온다
+    out.mcVersion = product.mcNickname
+      ? createHmac("sha256", "mc-skin-version")
+          .update(`${product.mcNickname.toLowerCase()}|${(product.mcCapes ?? []).join(",")}|${product.mcCapes ? 1 : 0}`)
+          .digest("hex")
+          .slice(0, 10)
+      : null;
+  }
+  delete out.mcNickname;
+  delete out.resale;
+  return out;
+}
+
 export function listProducts(shopId: string): ProductWithStock[] {
   const store = getStore();
   releaseExpiredLocks(store);
   return store.products
     .filter((p) => p.shopId === shopId && p.active)
-    .map(withStock);
+    .map(withPublicStock);
 }
 
 export function listProductsAdmin(shopId: string): ProductWithStock[] {
@@ -1528,7 +1584,7 @@ export function getProductBySlug(
   const product = store.products.find(
     (p) => p.shopId === shopId && p.active && p.slug.toLowerCase() === key,
   );
-  return product ? withStock(product) : null;
+  return product ? withPublicStock(product) : null;
 }
 
 export function getProductById(id: string): Product | null {
@@ -1553,6 +1609,16 @@ export function createProduct(
     fulfillment?: Product["fulfillment"];
     manualNotice?: string | null;
     stockBoardHidden?: boolean;
+    productKind?: Product["productKind"];
+    mcNickname?: string | null;
+    capeType?: string | null;
+    mcCapes?: string[] | null;
+    buyerInput?: Product["buyerInput"];
+    discountPercent?: number | null;
+    mcShowName?: boolean;
+    mcGroup?: boolean;
+    mcStatus?: Product["mcStatus"];
+    resale?: Product["resale"];
   },
 ): Product {
   const store = getStore();
@@ -1594,6 +1660,16 @@ export function createProduct(
     fulfillment: input.fulfillment === "manual" ? "manual" : "auto",
     manualNotice: input.manualNotice?.trim() || null,
     stockBoardHidden: Boolean(input.stockBoardHidden),
+    discountPercent: clampDiscount(input.discountPercent),
+    productKind: input.productKind === "mc_account" ? "mc_account" : input.productKind === "mc_cape" ? "mc_cape" : "general",
+    capeType: input.productKind === "mc_cape" ? input.capeType?.trim() || null : null,
+    buyerInput: cleanBuyerInput(input.buyerInput),
+    mcCapes: input.productKind === "mc_account" && Array.isArray(input.mcCapes) ? cleanCapeList(input.mcCapes) : null,
+    mcNickname: input.productKind === "mc_account" ? input.mcNickname?.trim() || null : null,
+    ...(input.productKind === "mc_account" && input.mcShowName ? { mcShowName: true } : {}),
+    ...(input.productKind === "mc_account" && input.mcGroup ? { mcGroup: true } : {}),
+    ...(input.productKind === "mc_account" && input.mcStatus ? { mcStatus: cleanMcStatus(input.mcStatus) } : {}),
+    ...(input.resale ? { resale: input.resale } : {}),
     createdAt: new Date().toISOString(),
   };
 
@@ -1628,6 +1704,15 @@ export function updateProduct(
       | "manualNotice"
       | "stockBoardHidden"
       | "mfaAutoInactive"
+      | "productKind"
+      | "mcNickname"
+      | "capeType"
+      | "mcCapes"
+      | "buyerInput"
+      | "discountPercent"
+      | "mcShowName"
+      | "mcGroup"
+      | "mcStatus"
     >
   >,
 ): Product {
@@ -1684,6 +1769,38 @@ export function updateProduct(
   if (patch.stockBoardHidden !== undefined) {
     product.stockBoardHidden = Boolean(patch.stockBoardHidden);
   }
+  if (patch.discountPercent !== undefined) {
+    product.discountPercent = clampDiscount(patch.discountPercent);
+  }
+  if (patch.productKind !== undefined) {
+    product.productKind =
+      patch.productKind === "mc_account" ? "mc_account" : patch.productKind === "mc_cape" ? "mc_cape" : "general";
+  }
+  if (patch.buyerInput !== undefined) {
+    product.buyerInput = cleanBuyerInput(patch.buyerInput);
+  }
+  if (patch.mcCapes !== undefined) {
+    product.mcCapes = Array.isArray(patch.mcCapes) ? cleanCapeList(patch.mcCapes) : null;
+  }
+  if (patch.capeType !== undefined) {
+    product.capeType = patch.capeType?.trim() || null;
+  }
+  if (patch.mcNickname !== undefined) {
+    product.mcNickname = patch.mcNickname?.trim() || null;
+  }
+  if (patch.mcStatus !== undefined) {
+    const st = patch.mcStatus ? cleanMcStatus(patch.mcStatus) : null;
+    if (st) product.mcStatus = st;
+    else delete product.mcStatus;
+  }
+  if (patch.mcGroup !== undefined) {
+    if (patch.mcGroup) product.mcGroup = true;
+    else delete product.mcGroup;
+  }
+  if (patch.mcShowName !== undefined) {
+    if (patch.mcShowName) product.mcShowName = true;
+    else delete product.mcShowName;
+  }
 
   pushLog("admin", "product.update", { productId: id }, shopId);
   persist(store);
@@ -1696,7 +1813,7 @@ export function updateProduct(
 /** 계좌이체 주문도 포인트 결제와 같은 등급 · 이벤트 할인가를 쓴다 */
 function transferUnitPrice(store: DbStore, product: Product, userId: string | null) {
   const buyer = userId ? store.users.find((u) => u.id === userId && u.shopId === product.shopId) : null;
-  const tier = buyer ? resolveUserTier(product.shopId, buyer) : null;
+  const tier = buyer ? pricingTier(product.shopId, buyer) : null;
   const event = listEvents(product.shopId).find((e) => e.productId === product.id) ?? null;
   return calcProductPrice(product, tier, event).finalPrice;
 }
@@ -1957,6 +2074,78 @@ export function addInventoryCodes(
   return { added, duplicates, beforeAvailable, productName: product.name };
 }
 
+/** 재고 삭제 — 판매된 재고는 주문 기록이라 지우지 않는다 */
+/** 판매 전 재고의 내용(지급 정보)을 고친다. 판매된 재고는 기록이라 고치지 않는다 */
+export function updateInventoryCode(
+  shopId: string,
+  id: string,
+  codeValue: string,
+  actor = "admin",
+): { ok: true } | { ok: false; error: string } {
+  const store = getStore();
+  const item = store.inventories.find((i) => i.shopId === shopId && i.id === id);
+  if (!item) return { ok: false, error: "재고를 찾을 수 없어요." };
+  if (item.status === "sold") return { ok: false, error: "이미 판매된 재고는 고칠 수 없어요." };
+  const v = codeValue.trim();
+  if (!v) return { ok: false, error: "내용이 비어 있어요." };
+  item.codeValue = v;
+  pushLog(actor, "inventory.update", { id, productId: item.productId }, shopId);
+  persist(store);
+  return { ok: true };
+}
+
+function cleanBuyerInput(v: Product["buyerInput"] | undefined): Product["buyerInput"] {
+  if (!v || !["url", "email", "text"].includes(v.kind)) return null;
+  const label = String(v.label ?? "").trim().slice(0, 40);
+  return label ? { kind: v.kind, label } : null;
+}
+
+/** 주문에 손님이 넣은 정보를 붙인다 */
+export function setOrderBuyerInput(shopId: string, orderIds: string[], input: { label: string; value: string }) {
+  const store = getStore();
+  const want = new Set(orderIds);
+  let n = 0;
+  for (const o of store.orders) {
+    if (o.shopId === shopId && want.has(o.id)) {
+      o.buyerInput = { label: input.label.slice(0, 40), value: input.value.slice(0, 300) };
+      n += 1;
+    }
+  }
+  if (n) persist(store);
+  return n;
+}
+
+function cleanCapeList(list: string[]) {
+  return [...new Set(list.map((t) => String(t).trim().toLowerCase()).filter((t) => /^[a-z0-9_-]{2,32}$/.test(t)))].slice(0, 60);
+}
+
+export function deleteInventoryItems(
+  shopId: string,
+  ids: string[],
+  actor = "admin",
+): { deleted: number; skippedSold: number; productIds: string[] } {
+  const store = getStore();
+  const want = new Set(ids);
+  let deleted = 0;
+  let skippedSold = 0;
+  const productIds = new Set<string>();
+  store.inventories = store.inventories.filter((i) => {
+    if (i.shopId !== shopId || !want.has(i.id)) return true;
+    if (i.status === "sold") {
+      skippedSold += 1;
+      return true;
+    }
+    deleted += 1;
+    productIds.add(i.productId);
+    return false;
+  });
+  if (deleted > 0) {
+    pushLog(actor, "inventory.delete", { deleted, productIds: [...productIds] }, shopId);
+    persist(store);
+  }
+  return { deleted, skippedSold, productIds: [...productIds] };
+}
+
 export function adminStats(shopId: string) {
   const store = getStore();
   releaseExpiredLocks(store);
@@ -2145,6 +2334,7 @@ export function toPublicUser(u: ShopUser): PublicUser {
     minecraftUuid: u.minecraftUuid ?? null,
     minecraftName: u.minecraftName ?? null,
     minecraftManual: u.minecraftManual ?? false,
+    premium: u.premium && new Date(u.premium.expiresAt).getTime() > Date.now() ? u.premium : null,
   };
 }
 
@@ -2893,6 +3083,60 @@ export function changeUserEmail(
   return { ok: true, user };
 }
 
+function premiumMineMultiplier(plan: "basic" | "plus" | null) {
+  const mine = plan ? PREMIUM_PLANS[plan].mine : null;
+  if (!mine) return 1;
+  if (mine.kind === "fixed") return mine.multiplier;
+  if (Math.random() >= mine.chance) return 1;
+  return Math.min(mine.max, 2 + Math.floor(Math.pow(Math.random(), 2) * (mine.max - 1)));
+}
+
+/** 프리미엄 플랜 추가 할인 % (만료됐으면 0) */
+export function userPremiumPlan(user: Pick<ShopUser, "premium"> | null | undefined): "basic" | "plus" | null {
+  const p = user?.premium;
+  return p && new Date(p.expiresAt).getTime() > Date.now() ? p.plan : null;
+}
+const PREMIUM_EXTRA_DISCOUNT = { basic: PREMIUM_PLANS.basic.extraDiscountPercent, plus: PREMIUM_PLANS.plus.extraDiscountPercent };
+
+/** 가격 계산용 등급 — 등급 할인에 프리미엄 플랜 추가 할인을 더한다 */
+export function pricingTier(shopId: string, user: ShopUser): ShopTier | null {
+  const tier = resolveUserTier(shopId, user);
+  const plan = userPremiumPlan(user);
+  if (!plan) return tier;
+  const extra = PREMIUM_EXTRA_DISCOUNT[plan];
+  return tier
+    ? { ...tier, discountPercent: tier.discountPercent + extra }
+    : { id: `premium-${plan}`, shopId, name: plan === "plus" ? "DOES PASS+" : "BASIC PASS", minTotalCharged: 0, discountPercent: extra, color: "#a855f7", createdAt: new Date(0).toISOString() };
+}
+
+/** 신규 상품 우선 구매 — 등록 후 1시간은 DOES PASS+ 만 살 수 있다 (마크 계정 · 개별 상품) */
+export const PREMIUM_EARLY_MS = 60 * 60_000;
+export function earlyAccessBlocked(product: Pick<Product, "createdAt" | "productKind" | "listingKind">, user: Pick<ShopUser, "premium"> | null) {
+  if (product.productKind !== "mc_account") return false;
+  const age = Date.now() - new Date(product.createdAt).getTime();
+  return age >= 0 && age < PREMIUM_EARLY_MS && userPremiumPlan(user) !== "plus";
+}
+
+export function setUserPremium(shopId: string, userId: string, premium: ShopUser["premium"]) {
+  const store = getStore();
+  const user = store.users.find((u) => u.id === userId && u.shopId === shopId);
+  if (!user) throw new Error("회원을 찾을 수 없어요.");
+  if (premium) user.premium = premium;
+  else delete user.premium;
+  persist(store);
+  return user;
+}
+
+export function addUserPoints(shopId: string, userId: string, points: number, reason: string) {
+  const store = getStore();
+  const user = store.users.find((u) => u.id === userId && u.shopId === shopId);
+  if (!user) return null;
+  user.points = Math.max(0, user.points + Math.floor(points));
+  pushLog(user.email, "points.grant", { points, reason }, shopId);
+  persist(store);
+  return user;
+}
+
 export function resolveUserTier(shopId: string, user: ShopUser): ShopTier | null {
   const tiers = getStore()
     .tiers.filter((t) => t.shopId === shopId)
@@ -3132,6 +3376,8 @@ export function getShopSettings(shopId: string): ShopSettings {
   if (settings.discordRandomBoxLogChannelId === undefined) settings.discordRandomBoxLogChannelId = null;
   if (settings.discordStockChannelId === undefined) settings.discordStockChannelId = null;
   if (settings.discordStockMessageId === undefined) settings.discordStockMessageId = null;
+  if (settings.discordLeaderboardChannelId === undefined) settings.discordLeaderboardChannelId = null;
+  if (settings.discordLeaderboardMessageId === undefined) settings.discordLeaderboardMessageId = null;
   if (!Array.isArray(settings.spendRoles)) settings.spendRoles = [];
   if (settings.discordAdminRoleId === undefined) settings.discordAdminRoleId = null;
   if (settings.discordBotToken === undefined) settings.discordBotToken = null;
@@ -3474,6 +3720,14 @@ export function createPointCharge(
   };
   store.charges.unshift(charge);
   persist(store);
+  // 입금을 먼저 하고 신청을 나중에 한 경우: 최근 30분 안에 못 맞춘 입금 알림이 있으면 지금 맞춰 본다
+  if (method === "bank") {
+    try {
+      matchEarlyDeposits(shopId, amount);
+    } catch (err) {
+      console.error("[charge] early deposit match failed", err);
+    }
+  }
   return charge;
 }
 
@@ -3496,6 +3750,17 @@ export function cancelUserPointCharge(chargeId: string, shopId: string, userId: 
   );
   if (!charge) return { ok: false as const, error: "충전 요청 없음" };
   if (charge.status !== "pending") return { ok: false as const, error: "이미 처리된 요청이에요." };
+  // 이미 입금한 뒤 취소하면 돈이 묶이므로, 같은 금액·이름의 입금이 들어와 있으면 취소 대신 바로 충전한다
+  if (charge.method === "bank") {
+    try {
+      matchEarlyDeposits(shopId, charge.amount);
+    } catch {
+      /* 아래에서 그대로 취소 */
+    }
+    if ((charge.status as string) === "completed") {
+      return { ok: false as const, error: "입금이 이미 확인돼서 충전을 완료했어요. 잔액을 확인해 주세요.", charge };
+    }
+  }
   charge.status = "cancelled";
   pushLog("user", "charge.cancel", { chargeId, method: charge.method }, shopId);
   persist(store);
@@ -3613,6 +3878,20 @@ export function confirmPointCharge(
   pushLog(user.email, "charge.complete", { chargeId, amount: charge.amount }, shopId);
   persist(store);
 
+  // 사이트를 보고 있는 손님 브라우저에 바로 알린다 (KV 반영을 기다리지 않게)
+  {
+    const shopSlug = store.shops.find((s) => s.id === shopId)?.slug;
+    const notifyUserId = user.id;
+    const points = user.points;
+    if (shopSlug) {
+      scheduleDiscordBackground(
+        import("@/lib/presence-notify").then(({ notifyUser }) =>
+          notifyUser(shopSlug, notifyUserId, { type: "charge", chargeId, amount: charge.amount, points }),
+        ),
+      );
+    }
+  }
+
   if (user.discordId && store.tiers.some((t) => t.shopId === shopId && t.discordRoleId)) {
     const userId = user.id;
     scheduleDiscordBackground(
@@ -3635,6 +3914,7 @@ export function confirmPointCharge(
         depositorName: depositor,
         amount: charge.amount,
         balance,
+        chargeId,
       }),
     ),
   );
@@ -3717,6 +3997,67 @@ export function creditUserPoints(
 
 export const RANDOM_BOX_MIN = 0;
 export const RANDOM_BOX_MAX = 3000;
+
+/* ───────────── 랜덤뽑기 (잔액 차감) ───────────── */
+
+export const DEFAULT_GACHA = {
+  price: 500,
+  prizes: [
+    { id: "none", label: "꽝", weight: 69.5, points: 0 },
+    { id: "mcacc", label: "마인크래프트 계정", weight: 0.5, points: 0 },
+    { id: "p300", label: "300원", weight: 20, points: 300 },
+    { id: "p1000", label: "1,000원", weight: 8, points: 1000 },
+    { id: "p5000", label: "5,000원", weight: 2, points: 5000 },
+  ],
+};
+
+export function getGachaConfig(shopId: string) {
+  const g = getShopSettings(shopId).gacha;
+  return g && g.prizes?.length ? g : DEFAULT_GACHA;
+}
+
+export function saveGachaConfig(shopId: string, input: { price: number; prizes: { id?: string; label: string; weight: number; points: number }[] }) {
+  const price = Math.max(1, Math.min(1_000_000, Math.floor(input.price)));
+  const prizes = input.prizes
+    .map((p, i) => ({
+      id: (p.id && /^[a-z0-9_-]{1,24}$/i.test(p.id) ? p.id : `p${i}_${randomUUID().slice(0, 4)}`),
+      label: String(p.label ?? "").trim().slice(0, 40),
+      weight: Math.max(0, Math.min(1_000_000, Number(p.weight) || 0)),
+      points: Math.max(0, Math.min(10_000_000, Math.floor(Number(p.points) || 0))),
+    }))
+    .filter((p) => p.label && p.weight > 0)
+    .slice(0, 20);
+  if (!prizes.length) throw new Error("상품을 하나 이상 넣어 주세요.");
+  updateShopSettings(shopId, { gacha: { price, prizes } });
+  return getGachaConfig(shopId);
+}
+
+/** 한 번 뽑기: 잔액에서 가격을 빼고, 가중치로 상품을 고르고, 포인트 상품이면 바로 지급 */
+export function drawGacha(shopId: string, userId: string) {
+  const store = getStore();
+  const user = store.users.find((u) => u.id === userId && u.shopId === shopId);
+  if (!user) return { ok: false as const, error: "회원을 찾을 수 없어요." };
+  const cfg = getGachaConfig(shopId);
+  if (user.points < cfg.price) {
+    return { ok: false as const, error: `잔액이 부족해요. 한 번에 ${cfg.price.toLocaleString("ko-KR")}원이 필요해요 (현재 ${user.points.toLocaleString("ko-KR")}원).` };
+  }
+  const total = cfg.prizes.reduce((s, p) => s + p.weight, 0);
+  const r = (crypto.getRandomValues(new Uint32Array(1))[0]! / 0x1_0000_0000) * total;
+  let acc = 0;
+  let prize = cfg.prizes[cfg.prizes.length - 1]!;
+  for (const p of cfg.prizes) {
+    acc += p.weight;
+    if (r < acc) {
+      prize = p;
+      break;
+    }
+  }
+  user.points -= cfg.price;
+  if (prize.points > 0) user.points += prize.points;
+  pushLog(user.email, "gacha.draw", { price: cfg.price, prize: prize.label, points: prize.points }, shopId);
+  persist(store);
+  return { ok: true as const, prize, price: cfg.price, balance: user.points, user, chance: prize.weight / total };
+}
 export const RANDOM_BOX_JACKPOT = 1200;
 
 /** 출석체크 확률표 (합 100%). 0원 = 꽝. 구간 안에서는 1원 단위 균등 */
@@ -3809,7 +4150,8 @@ export function claimRandomBox(
     };
   }
 
-  const amount = rollRandomBoxAmount();
+  // 프리미엄 플랜: BASIC 은 랜덤 2~4배, DOES PASS+ 는 항상 2배
+  const amount = rollRandomBoxAmount() * premiumMineMultiplier(userPremiumPlan(user));
   const now = new Date();
   const claim: RandomBoxClaim = {
     id: randomUUID(),
@@ -3947,6 +4289,34 @@ export function listTodayRandomBoxDraws(shopId: string, limit = 16) {
     });
 }
 
+/** 신청보다 먼저 들어온(맞출 신청이 없던) 입금 알림을 다시 맞춰 본다 */
+export function matchEarlyDeposits(shopId: string, amount: number) {
+  const store = getStore();
+  const since = Date.now() - 30 * 60 * 1000;
+  const early = store.logs.filter(
+    (l) =>
+      l.shopId === shopId &&
+      l.action === "charge.auto.unmatched" &&
+      Number(l.meta?.amount) === amount &&
+      !l.meta?.consumed &&
+      new Date(l.createdAt).getTime() >= since,
+  );
+  for (const l of early) {
+    const name = typeof l.meta?.depositorName === "string" ? l.meta.depositorName : null;
+    const text = typeof l.meta?.depositorText === "string" ? l.meta.depositorText : name ?? "";
+    if (!name && !text) continue;
+    const r = autoMatchCharge({ shopId, amount, depositorText: text, depositorName: name });
+    if (r.ok) {
+      l.meta = { ...l.meta, consumed: true };
+      r.charge.earlyDepositAt = l.createdAt;
+      pushLog("auto:early", "charge.auto.matched", { amount, depositorName: name, chargeId: r.charge.id, error: null, early: true }, shopId);
+      persist(store);
+      return r;
+    }
+  }
+  return null;
+}
+
 export function autoMatchCharge(input: {
   shopId: string;
   amount: number;
@@ -3971,9 +4341,28 @@ export function autoMatchCharge(input: {
       c.amount === input.amount &&
       new Date(c.createdAt).getTime() >= cutoff,
   );
+  // 신청 시간(기본 10분)이 지나 만료된 뒤에 입금이 들어온 경우: 1시간 안이면 늦은 입금으로 자동 승인한다
+  let late = false;
+  if (!pending.length) {
+    const lateCutoff = Date.now() - 60 * 60 * 1000;
+    const expired = store.charges.filter(
+      (c) =>
+        c.shopId === input.shopId &&
+        c.status === "expired" &&
+        c.method === "bank" &&
+        c.amount === input.amount &&
+        (c.failReason ?? "").includes("초과로 만료") &&
+        new Date(c.createdAt).getTime() >= lateCutoff,
+    );
+    if (expired.length) {
+      pending.push(...expired);
+      late = true;
+    }
+  }
   if (!pending.length) {
     return { ok: false, error: "같은 금액의 대기 중인 충전이 없어요." };
   }
+  const confirmOpts = late ? { resultLabel: "자동 승인됨 (늦은 입금)", manual: true } : { resultLabel: "자동 승인됨" };
 
   const text = input.depositorText.toUpperCase().replace(/\s/g, "");
   const parsedName = input.depositorName ? normDepositorName(input.depositorName) : null;
@@ -4014,9 +4403,7 @@ export function autoMatchCharge(input: {
     );
     if (exact.length > 1) return ambiguous;
     if (exact[0]) {
-      return confirmPointCharge(exact[0].id, input.shopId, parsedName, input.amount, {
-        resultLabel: "자동 승인됨",
-      });
+      return confirmPointCharge(exact[0].id, input.shopId, parsedName, input.amount, confirmOpts);
     }
   }
 
@@ -4063,9 +4450,7 @@ export function autoMatchCharge(input: {
   }
 
   const depositorLabel = parsedName ?? match.depositorName ?? match.reference;
-  return confirmPointCharge(match.id, input.shopId, depositorLabel, input.amount, {
-    resultLabel: "자동 승인됨",
-  });
+  return confirmPointCharge(match.id, input.shopId, depositorLabel, input.amount, confirmOpts);
 }
 
 /** 1인 구매 한도 — 발급 대기 · 입금 대기 주문도 수량만큼 센다 */
@@ -4105,7 +4490,8 @@ export function purchasePrecheck(
   const unitPrice =
     unitPriceOverride != null
       ? Math.max(0, Math.floor(unitPriceOverride))
-      : calcProductPrice(product, resolveUserTier(shopId, user), event).finalPrice;
+      : calcProductPrice(product, pricingTier(shopId, user), event).finalPrice;
+  if (earlyAccessBlocked(product, user)) return "신규 상품은 등록 후 1시간 동안 DOES PASS+ 회원만 구매할 수 있어요.";
   if (user.points < unitPrice * quantity) return "포인트 부족";
   return null;
 }
@@ -4145,7 +4531,10 @@ export function purchaseWithPoints(
   if (limitError) return { ok: false, error: limitError };
 
   const event = listEvents(shopId).find((e) => e.productId === productId);
-  const tier = resolveUserTier(shopId, user);
+  const tier = pricingTier(shopId, user);
+  if (earlyAccessBlocked(product, user)) {
+    return { ok: false, error: "신규 상품은 등록 후 1시간 동안 DOES PASS+ 회원만 구매할 수 있어요." };
+  }
   const unitPrice =
     opts?.unitPriceOverride != null
       ? Math.max(0, Math.floor(opts.unitPriceOverride))
@@ -4233,6 +4622,7 @@ export function purchaseWithPoints(
         productName: product.name,
         quantity,
         totalSold,
+        orderUuid: first.orderUuid,
       }),
     ),
   );
@@ -4245,9 +4635,7 @@ export function purchaseWithPoints(
       grantSpendRolesForUser(shopId, user.id),
     ),
   );
-  scheduleDiscordBackground(
-    import("@/lib/discord/does-leaderboard").then(({ pushDoesLeaderboard }) => pushDoesLeaderboard(shopId)),
-  );
+  // 구매 랭킹(리더보드)은 구매마다가 아니라 10분마다 크론에서 고쳐 쓴다
 
   if (!opts?.suppressDiscordNotify && user.discordId) {
     const codes = isManual
@@ -4265,6 +4653,7 @@ export function purchaseWithPoints(
             amountLabel: quantity > 1 ? `${amountLabel} (${quantity}개)` : amountLabel,
             orderUuid: first.orderUuid,
             codePreview: codes || null,
+            receiptUrl: shopSlug ? `https://doesmc.xyz/api/discord/rank-image/${shopSlug}-receipt-${first.orderUuid}.png` : null,
           },
           [
             ...(external?.links ?? []).slice(0, 4).map((l) =>

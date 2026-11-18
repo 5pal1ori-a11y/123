@@ -1,0 +1,373 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Search, User, X } from "lucide-react";
+import Link from "next/link";
+import { CAPE_BY_TYPE, type CapeEntry } from "@/lib/capes-data";
+import { SELLABLE_CAPES } from "@/lib/sellable-capes";
+import { formatKRW } from "@/lib/utils";
+
+/** 판매하는 망토 10종 (표시 이름은 운영자 기준) */
+const CAPES: CapeEntry[] = SELLABLE_CAPES.flatMap((c) => {
+  const e = CAPE_BY_TYPE[c.type];
+  return e ? [{ ...e, title: c.title }] : [];
+});
+
+export type CapeStock = Record<string, { count: number; price: number; href: string | null }>;
+import { CapeViewer, type SkinInfo, type ViewMode } from "./cape-viewer";
+import { capeFace } from "./cape-face";
+
+const STORE_KEY = "does-cape-skin";
+
+type SavedSkin = SkinInfo & { name: string };
+
+/** 카드: 커서를 올리면 커서 위치에 따라 망토가 돌아간다 */
+function CapeCard({
+  cape,
+  onOpen,
+  stock,
+}: {
+  cape: CapeEntry;
+  onOpen: () => void;
+  stock?: CapeStock[string] | null;
+}) {
+  const out = !stock || stock.count <= 0;
+  const [src, setSrc] = useState<string | null>(null);
+  const [rot, setRot] = useState(-18);
+  const [hover, setHover] = useState(false);
+  const ref = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void capeFace(cape.hash).then((s) => alive && setSrc(s));
+    return () => {
+      alive = false;
+    };
+  }, [cape.hash]);
+
+  function onMove(e: React.PointerEvent) {
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return;
+    const x = (e.clientX - r.left) / r.width; // 0~1
+    setRot((x - 0.5) * 360);
+  }
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={onOpen}
+      onPointerEnter={() => setHover(true)}
+      onPointerLeave={() => {
+        setHover(false);
+        setRot(-18);
+      }}
+      onPointerMove={onMove}
+      className="group flex flex-col overflow-hidden rounded-3xl border border-black/5 bg-white text-left shadow-sm transition hover:shadow-xl"
+      style={out ? { filter: "grayscale(1)", opacity: 0.7 } : undefined}
+    >
+      <div
+        className="relative flex h-[260px] items-center justify-center overflow-hidden"
+        style={{ background: "radial-gradient(circle at 30% 20%, #fbbf6a 0%, #3b6b4a 45%, #14261c 100%)", perspective: 700 }}
+      >
+        <div
+          style={{
+            position: "relative",
+            width: 112,
+            height: 180,
+            transformStyle: "preserve-3d",
+            transform: `rotateY(${rot}deg) rotateX(${hover ? 4 : 8}deg)`,
+            transition: hover ? "transform 0.12s ease-out" : "transform 0.5s ease",
+            filter: "drop-shadow(0 14px 18px rgba(0,0,0,0.45))",
+          }}
+        >
+          {src ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt={cape.title}
+                draggable={false}
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", imageRendering: "pixelated", backfaceVisibility: "hidden" }}
+              />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt=""
+                draggable={false}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  imageRendering: "pixelated",
+                  backfaceVisibility: "hidden",
+                  transform: "rotateY(180deg)",
+                  filter: "brightness(0.55)",
+                }}
+              />
+            </>
+          ) : null}
+        </div>
+        <span className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-semibold text-white/90 backdrop-blur">
+          커서로 돌려보기
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-3 p-5">
+        <div className="min-w-0">
+          <p className="truncate text-[19px] font-extrabold tracking-tight text-neutral-900">{cape.title}</p>
+          <p className="mt-0.5 text-[13px] text-neutral-500">
+            {stock ? (out ? "재고없음" : `${formatKRW(stock.price)} · 재고 ${stock.count}개`) : "클릭하면 Player · Elytra 로 볼 수 있어요"}
+          </p>
+        </div>
+        <span className={`shrink-0 text-sm font-bold ${out ? "text-neutral-500" : "text-emerald-600"}`}>
+          {stock ? (out ? "재고없음" : "구매 →") : "3D 보기 →"}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+const MODES: { id: ViewMode; label: string }[] = [
+  { id: "cape", label: "Cape" },
+  { id: "player", label: "Player" },
+  { id: "elytra", label: "Elytra" },
+];
+
+export function CapeGallery({
+  stock,
+  renderCard,
+}: {
+  stock?: CapeStock;
+  /** 있으면 카드 모양을 바꾼다 (상점 상품 카드). open 을 부르면 3D 보기 창이 열린다 */
+  renderCard?: (cape: CapeEntry, open: () => void, index: number) => React.ReactNode;
+}) {
+  const [skin, setSkin] = useState<SavedSkin | null>(null);
+  const [nick, setNick] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [open, setOpen] = useState<CapeEntry | null>(null);
+  const [mode, setMode] = useState<ViewMode>("player");
+  const [q, setQ] = useState("");
+
+  // 창이 열려 있는 동안 뒤 페이지가 같이 스크롤되지 않게
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        const s = JSON.parse(raw) as SavedSkin;
+        if (s?.hash) {
+          setSkin(s);
+          setNick(s.name);
+        }
+      }
+    } catch {
+      /* 저장소 막힘 */
+    }
+  }, []);
+
+  async function applyNick(e: React.FormEvent) {
+    e.preventDefault();
+    const name = nick.trim();
+    if (!name) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/capes/skin?name=${encodeURIComponent(name)}`);
+      const data = (await res.json().catch(() => ({}))) as { name?: string; skinHash?: string; slim?: boolean; error?: string };
+      if (!res.ok || !data.skinHash) throw new Error(data.error || "찾지 못했어요");
+      const saved: SavedSkin = { name: data.name ?? name, hash: data.skinHash, slim: Boolean(data.slim) };
+      setSkin(saved);
+      setNick(saved.name);
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(saved));
+      } catch {
+        /* 무시 */
+      }
+      setMsg(`${saved.name} 스킨으로 모든 망토를 입혀 볼 수 있어요`);
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "조회 실패");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function clearSkin() {
+    setSkin(null);
+    setNick("");
+    setMsg(null);
+    try {
+      localStorage.removeItem(STORE_KEY);
+    } catch {
+      /* 무시 */
+    }
+  }
+
+  const list = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return s ? CAPES.filter((c) => c.title.toLowerCase().includes(s) || c.type.toLowerCase().includes(s)) : CAPES;
+  }, [q]);
+
+  return (
+    <div className="mf-dark space-y-6">
+      <div className="rounded-3xl border border-black/5 bg-white p-5 shadow-sm">
+        <h1 className="text-[26px] font-extrabold tracking-tight text-neutral-900">마인크래프트 망토</h1>
+        <p className="mt-1 text-[15px] text-neutral-500">
+          카드에 커서를 올리면 망토가 돌아가요. 닉네임을 넣으면 내 스킨에 모든 망토를 입혀서 볼 수 있어요.
+        </p>
+        <form onSubmit={applyNick} className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <div className="relative flex-1">
+            <User className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+            <input
+              value={nick}
+              onChange={(e) => setNick(e.target.value)}
+              placeholder="마인크래프트 닉네임"
+              maxLength={16}
+              className="h-12 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-10 pr-3 text-[15px] text-neutral-900 outline-none focus:border-neutral-400"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={busy || !nick.trim()}
+            className="h-12 rounded-xl bg-neutral-900 px-6 text-[15px] font-bold text-white disabled:opacity-40"
+          >
+            {busy ? "찾는 중…" : "내 스킨 적용"}
+          </button>
+          {skin ? (
+            <button type="button" onClick={clearSkin} className="h-12 rounded-xl border border-neutral-200 px-5 text-[15px] font-semibold text-neutral-600">
+              해제
+            </button>
+          ) : null}
+        </form>
+        {msg ? <p className="mt-2 text-[13px] text-neutral-500">{msg}</p> : null}
+        {skin ? <p className="mt-1 text-[13px] font-semibold text-emerald-600">적용 중: {skin.name} (브라우저에 저장돼요)</p> : null}
+        <div className="relative mt-4">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="망토 이름 검색 (예: Aurora)"
+            className="h-11 w-full rounded-xl border border-neutral-200 bg-white pl-10 pr-3 text-[14px] text-neutral-900 outline-none focus:border-neutral-400"
+          />
+        </div>
+      </div>
+
+      {renderCard ? (
+        <ul className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {list.map((c, i) => renderCard(c, () => setOpen(c), i))}
+        </ul>
+      ) : (
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        {list.map((c) => (
+          <CapeCard key={c.type} cape={c} stock={stock ? (stock[c.type] ?? { count: 0, price: 0, href: null }) : undefined} onOpen={() => setOpen(c)} />
+        ))}
+      </div>
+      )}
+      {list.length === 0 ? <p className="py-16 text-center text-neutral-500">검색 결과가 없어요</p> : null}
+
+      {open && typeof document !== "undefined" ? createPortal(
+        <div className="mf-dark fixed inset-0 z-[300] flex items-start justify-center overflow-y-auto bg-black/60 p-3 sm:items-center sm:p-6" onClick={() => setOpen(null)}>
+          <div className="relative w-full max-w-[1040px] rounded-3xl bg-white p-4 shadow-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={() => setOpen(null)} className="absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-full hover:bg-neutral-100" aria-label="닫기">
+              <X className="size-5 text-neutral-600" />
+            </button>
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* 왼쪽: 3D 보기 + Cape/Player/Elytra + 닉네임 */}
+              <div>
+                <div style={{ background: "radial-gradient(circle at 50% 25%, #4d7c5a 0%, #1b3325 60%, #0f1c15 100%)" }} className="overflow-hidden rounded-2xl">
+                  <CapeViewer capeHash={open.hash} mode={mode} skin={skin} className="h-[380px] w-full cursor-grab sm:h-[420px]" />
+                </div>
+                <div className="mt-3 flex justify-center gap-2">
+                  {MODES.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setMode(m.id)}
+                      style={mode === m.id ? { background: "#059669", color: "#ffffff", borderColor: "#059669" } : { background: "#ffffff", color: "#171717", borderColor: "#d4d4d4" }}
+                      className="rounded-full border px-5 py-1.5 text-[14px] font-bold transition"
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <form onSubmit={applyNick} className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                  <p className="text-[14px] font-extrabold text-neutral-900">내 스킨으로 미리보기</p>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      value={nick}
+                      onChange={(e) => setNick(e.target.value)}
+                      placeholder="닉네임(IGN)을 넣어 주세요"
+                      maxLength={16}
+                      className="h-11 min-w-0 flex-1 rounded-full border border-neutral-200 bg-white px-4 text-[14px] text-neutral-900 outline-none focus:border-emerald-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={busy || !nick.trim()}
+                      style={{ background: "#059669", color: "#ffffff" }}
+                      className="h-11 rounded-full px-5 text-[14px] font-bold disabled:opacity-50"
+                    >
+                      {busy ? "…" : "적용"}
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-[12px] text-neutral-500">
+                    {skin ? `${skin.name} 스킨으로 보는 중 · 저장돼요` : "넣으면 바로 그 스킨에 망토를 입혀 줘요"}
+                  </p>
+                </form>
+              </div>
+
+              {/* 오른쪽: 상품 정보 + 구매하기 */}
+              <div className="flex flex-col justify-center pr-2 pt-6 md:pt-0">
+                <h2 className="text-[30px] font-extrabold leading-tight tracking-tight text-neutral-900">{open.title} 망토 코드</h2>
+                {stock ? (
+                  (() => {
+                    const st = stock[open.type];
+                    const has = !!st && st.count > 0 && !!st.href;
+                    return (
+                      <>
+                        <p className="mt-3 text-[34px] font-extrabold text-neutral-900">{st && st.price > 0 ? formatKRW(st.price) : "—"}</p>
+                        <p className="mt-1">
+                          <span
+                            className="inline-block rounded-full px-3 py-1 text-[12px] font-bold"
+                            style={has ? { background: "#d1fae5", color: "#047857" } : { background: "#e5e5e5", color: "#737373" }}
+                          >
+                            {has ? `● 재고 ${st!.count}개` : "● 재고없음"}
+                          </span>
+                        </p>
+                        {has ? (
+                          <Link
+                            href={st!.href!}
+                            style={{ background: "#059669", color: "#ffffff" }}
+                            className="mt-6 flex h-14 items-center justify-center rounded-full text-[17px] font-extrabold"
+                          >
+                            구매하기 →
+                          </Link>
+                        ) : (
+                          <p className="mt-6 flex h-14 items-center justify-center rounded-full bg-neutral-200 text-[17px] font-extrabold text-neutral-500">
+                            재고없음
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()
+                ) : null}
+                <p className="mt-6 border-t border-neutral-200 pt-4 text-[12px] text-neutral-500">
+                  망토는 리딤 코드로 지급돼요. 드래그해서 돌려 보세요.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      , document.body) : null}
+    </div>
+  );
+}

@@ -228,6 +228,8 @@ export async function POST(request: Request) {
       {
         amount: payload.amount,
         depositorName: payload.depositorName ?? null,
+        // 신청이 나중에 들어오면 이 원문으로 다시 맞춘다 (store.matchEarlyDeposits)
+        ...(result.ok ? {} : { depositorText: payload.depositorText.slice(0, 300) }),
         chargeId: result.ok ? result.charge.id : null,
         error: result.ok ? null : result.error,
       },

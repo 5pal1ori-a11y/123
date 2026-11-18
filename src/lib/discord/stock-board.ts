@@ -3,10 +3,12 @@ import {
   button,
   ButtonStyle,
   cid,
+  mediaGallery,
   separator,
   textDisplay,
   v2Message,
 } from "@/lib/discord/components";
+import { escapeMd } from "@/lib/discord/components";
 import { discordRest, editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
 import { shopUrl } from "@/lib/domain";
 import {
@@ -18,6 +20,7 @@ import {
 } from "@/lib/store";
 import type { ProductWithStock } from "@/lib/types";
 import { formatKRW } from "@/lib/utils";
+import { appEmoji, capeEmoji, ensureAppEmojis } from "@/lib/discord/app-emojis";
 
 /** V2 메시지 하나의 글자 수 한도(4000) 안에 상품 목록을 담는다 */
 const TEXT_BUDGET = 3300;
@@ -29,7 +32,8 @@ function stockLabel(p: ProductWithStock) {
 }
 
 function productLine(p: ProductWithStock) {
-  return `${p.availableCount > 0 ? "🟢" : "⚫"} **${p.name}** · ${formatKRW(p.price)} · ${stockLabel(p)}`;
+  const cape = p.productKind === "mc_cape" && p.capeType ? capeEmoji(p.capeType) : "";
+  return `${p.availableCount > 0 ? appEmoji("does_check") : appEmoji("does_sold")} ${cape ? `${cape} ` : ""}**${escapeMd(p.name)}** · ${formatKRW(p.price)} · ${stockLabel(p)}`;
 }
 
 function groupByCategory(products: ProductWithStock[]) {
@@ -54,13 +58,15 @@ function groupByCategory(products: ProductWithStock[]) {
 export function buildStockPanel(shopId: string, mode: "board" | "view") {
   const shop = getShopById(shopId);
   const slug = shop?.slug ?? "shop";
-  const products = listProducts(shopId).filter((p) => !p.stockBoardHidden);
+  const products = listProducts(shopId).filter((p) => !p.stockBoardHidden && !(p.productKind === "mc_account" && !p.mcGroup && p.availableCount <= 0));
   const inStock = products.filter((p) => p.availableCount > 0).length;
   const now = Math.floor(Date.now() / 1000);
 
   const kids: unknown[] = [
+    // 상점 주인 서버(DOES)만 3D 배너를 붙인다
+    ...(slug === "mfa" ? [mediaGallery(["https://doesmc.xyz/brand/stock-board-3d.gif"])] : []),
     textDisplay(`## ${shop?.name ?? "상점"} 재고현황`),
-    textDisplay(`-# 실시간으로 갱신돼요 · 마지막 갱신 <t:${now}:R>`),
+    textDisplay(`-# 10분마다 갱신돼요 · 마지막 갱신 <t:${now}:R>`),
     separator(true, 1),
   ];
 
@@ -88,13 +94,11 @@ export function buildStockPanel(shopId: string, mode: "board" | "view") {
   }
 
   kids.push(separator(true, 1));
-  kids.push(textDisplay("-# 자판기 상품은 충전 후 바로 구매할 수 있어요."));
   kids.push(
     actionRow(
       ...(mode === "view"
         ? [button({ label: "새로고침", customId: cid(slug, "stock_refresh") })]
         : []),
-      button({ label: "자판기", customId: cid(slug, "stock_vending") }),
       button({ label: "사이트에서 보기", url: shopUrl(slug, "/dashboard"), style: ButtonStyle.LINK }),
     ),
   );
@@ -102,11 +106,43 @@ export function buildStockPanel(shopId: string, mode: "board" | "view") {
   return { ...v2Message(kids), allowed_mentions: { parse: [] as string[] } };
 }
 
+/**
+ * 재고현황을 카테고리별 이미지 한 장으로.
+ * board — 채널 고정판: 첫 카테고리 + 카테고리 버튼 (누르면 나만 보이는 창으로 그 카테고리)
+ * view — 나만 보이는 창: ◀ ▶ 로 카테고리를 넘긴다
+ * 이미지 워커가 없으면 null → 글자판
+ */
+export async function buildStockImagePanel(shopId: string, mode: "board" | "view" = "board", page = 0) {
+  const r = await import("@/lib/discord/rank-image").then((m) => m.stockImageUrl(shopId, page)).catch(() => null);
+  if (!r) return null;
+  const slug = getShopById(shopId)?.slug ?? "shop";
+  const now = Math.floor(Date.now() / 1000);
+  const n = r.pages.length;
+  // ◀ 이전 · 지금 카테고리 · 다음 ▶ — 누르면 그 메시지가 바로 넘어간다
+  const rows: unknown[] = [
+    actionRow(
+      button({ label: "◀ 이전", customId: cid(slug, "stock_pg", String((r.page - 1 + n) % n)), disabled: n < 2 }),
+      button({ label: `${r.page + 1} / ${n} · ${r.pages[r.page] ?? ""}`.slice(0, 80), customId: cid(slug, "stock_pg", `cur${r.page}`), style: ButtonStyle.PRIMARY, disabled: true }),
+      button({ label: "다음 ▶", customId: cid(slug, "stock_pg", String((r.page + 1) % n)), disabled: n < 2 }),
+    ),
+  ];
+  if (mode === "board") rows.push(actionRow(button({ label: "사이트에서 보기", url: shopUrl(slug, "/dashboard"), style: ButtonStyle.LINK })));
+  return {
+    ...v2Message([
+      mediaGallery([r.url]),
+      textDisplay(`-# ◀ ▶ 로 다른 카테고리를 볼 수 있어요 · ${mode === "board" ? "10분마다 갱신 · " : ""}<t:${now}:R> 기준`),
+      ...rows,
+    ]),
+    allowed_mentions: { parse: [] as string[] },
+  };
+}
+
 export async function refreshStockBoard(shopId: string) {
   const settings = getShopSettings(shopId);
   if (!settings.discordBotEnabled || !settings.discordStockChannelId) return { ok: false as const };
   const channelId = settings.discordStockChannelId;
-  const payload = buildStockPanel(shopId, "board");
+  await ensureAppEmojis(shopId);
+  const payload = (await buildStockImagePanel(shopId, "board", 0)) ?? buildStockPanel(shopId, "board");
   if (settings.discordStockMessageId) {
     const edited = await editChannelMessage(channelId, settings.discordStockMessageId, payload, shopId);
     if (edited.ok) return { ok: true as const, updated: true as const };

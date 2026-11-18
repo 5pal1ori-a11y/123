@@ -70,8 +70,8 @@ export async function registerVerifyGuildCommands(guildId: string) {
     const { VENDIX_DISCORD_COMMANDS } = await import("@/lib/discord/commands-list");
     const shop = findShopByDiscordGuildId(guildId);
     if (guildId === MFA_DISCORD_GUILD_ID || shop?.slug === MFA_SHOP_SLUG) {
-      const { doesCommandSet } = await import("@/lib/discord/sync-mfa-does");
-      commands = doesCommandSet();
+      // DOES 서버: 상점·커뮤니티 명령은 전역으로 등록돼 있으니 여기서는 인증 명령만 (중복 방지)
+      commands = [...VERIFY_DISCORD_COMMANDS];
     } else if (shop) {
       const { DOES_COMMUNITY_COMMANDS } = await import("@/lib/discord/does-community-commands");
       commands = [...VENDIX_DISCORD_COMMANDS, ...VERIFY_DISCORD_COMMANDS, ...DOES_COMMUNITY_COMMANDS];

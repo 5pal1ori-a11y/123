@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, Loader2, Pencil, RefreshCw, RotateCcw, Search, Send, Trash2, X } from "lucide-react";
 import { shopHeaders } from "@/lib/shop-client";
 
@@ -560,8 +561,8 @@ export function MfaInventoryPanel({
         </div>
       </section>
 
-      {editing ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setEditing(null)}>
+      {editing && typeof document !== "undefined" ? createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4" onClick={() => setEditing(null)}>
           <form
             className="admin-bento grid w-full max-w-2xl gap-3 p-6 sm:grid-cols-2"
             onClick={(e) => e.stopPropagation()}
@@ -588,7 +589,9 @@ export function MfaInventoryPanel({
               </button>
             </div>
           </form>
-        </div>
+        </div>,
+        // 애니메이션(transform) 안에 있으면 fixed 창이 화면 밖에 그려져서, 관리자 화면 최상단에 붙인다
+        document.querySelector(".admin-shell") ?? document.body,
       ) : null}
     </div>
   );

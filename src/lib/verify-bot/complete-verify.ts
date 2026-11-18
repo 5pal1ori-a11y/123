@@ -4,6 +4,7 @@ import {
   separator,
   textDisplay,
 } from "@/lib/discord/components";
+import { appEmoji } from "@/lib/discord/app-emojis";
 import { clientIp, clientUserAgent, deviceLabelFromUa } from "@/lib/request-meta";
 import { evaluateIpPolicy, formatIpRegion, lookupIpIntel } from "@/lib/verify-bot/ip-intel";
 import {
@@ -239,7 +240,7 @@ export async function completeGuildVerification(opts: {
   if (!returning && guild.webhookUrl) {
     void postVerifyWebhook(
       guild.webhookUrl,
-      `✅ 인증 · **${user.username}** (\`${user.id}\`)\n\`\`\`\n${logBody}\n\`\`\``,
+      `${appEmoji("does_check")} 인증 · **${user.username}** (\`${user.id}\`)\n\`\`\`\n${logBody}\n\`\`\``,
     ).catch(() => null);
   }
   if (!returning && guild.logChannelId && event) {

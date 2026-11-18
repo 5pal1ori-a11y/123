@@ -48,7 +48,7 @@ import {
 
   persistAsync,
 
-  resolveUserTier,
+  pricingTier,
 
   toPublicUser,
 
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
     const session = await getUserSession(shop.slug);
     if (!session) return unauthorized();
 
-    const tier = resolveUserTier(shop.id, session.user);
+    const tier = pricingTier(shop.id, session.user);
     const inquiries = listUserInquiries(shop.id, session.user.id);
     const orders = listUserOrders(shop.id, session.user.id)
       .slice()

@@ -6,12 +6,14 @@ export { WorldRoom } from "./worker/world-room";
 export { PushbulletBridge } from "./worker/pushbullet-bridge";
 export { GiveawayHub } from "./worker/giveaway-hub";
 export { TicketGateway } from "./worker/ticket-gateway";
+export { StatusWatch } from "./worker/status-watch";
 
 type Env = {
   PRESENCE: DurableObjectNamespace;
   WORLD: DurableObjectNamespace;
   PB_BRIDGE: DurableObjectNamespace;
   TICKET_GW: DurableObjectNamespace;
+  STATUS_WATCH: DurableObjectNamespace;
   AUTH_SECRET?: string;
   AOS_BRIDGE_SECRET?: string;
   [key: string]: unknown;
@@ -95,6 +97,56 @@ async function syncTicketGateway(env: Env, ctx: ExecutionContext) {
   console.log("ticket gateway sync", config.channels?.length ?? 0, r.status);
 }
 
+/** /서버상황 패널이 있으면 StatusWatch 를 붙여 두고, 없으면 닫는다 */
+async function syncStatusWatch(env: Env, ctx: ExecutionContext) {
+  const secret = (env.AOS_BRIDGE_SECRET || env.AUTH_SECRET || "").trim();
+  if (secret.length < 8) return;
+  const res: Response = await handler.fetch(
+    new Request("https://vendix.team/api/discord/server-status", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-vendix-bridge-secret": secret },
+      body: JSON.stringify({ op: "config" }),
+    }),
+    env,
+    ctx,
+  );
+  if (!res.ok) {
+    console.log("status watch config failed", res.status);
+    return;
+  }
+  const config = (await res.json()) as { token?: string; guildId?: string; userIds?: string[] };
+  // STATUS_WATCH_ENABLED=1(유료 플랜)이면 봇 '온라인' 표시용 상시 연결, 아니면 닫아 둔다
+  try {
+    const stub = env.STATUS_WATCH.get(env.STATUS_WATCH.idFromName("does"));
+    const r = await stub.fetch("https://status-watch/", {
+      method: "POST",
+      body: JSON.stringify(config.token ? config : { stop: true }),
+    });
+    console.log("status watch sync", r.status, (await r.text()).slice(0, 120));
+  } catch (err) {
+    // Durable Object 한도 초과 등
+    console.log("status watch sync failed", String(err));
+  }
+}
+
+/** 3분마다: /서버상황 패널이 있으면 관리자 상태를 잠깐 접속해서 확인 */
+async function pollServerStatus(env: Env, ctx: ExecutionContext) {
+  const secret = (env.AOS_BRIDGE_SECRET || env.AUTH_SECRET || "").trim();
+  if (secret.length < 8) return;
+  {
+    const poll: Response = await handler.fetch(
+      new Request("https://vendix.team/api/discord/server-status", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-vendix-bridge-secret": secret },
+        body: JSON.stringify({ op: "poll" }),
+      }),
+      env,
+      ctx,
+    );
+    console.log("status poll", poll.status, (await poll.text()).slice(0, 160));
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
@@ -115,9 +167,14 @@ export default {
     }
     return handler.fetch(request, env, ctx);
   },
-  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    if (controller.cron === "*/3 * * * *") {
+      ctx.waitUntil(pollServerStatus(env, ctx));
+      return;
+    }
     ctx.waitUntil(syncPushbulletBridges(env, ctx));
     ctx.waitUntil(syncDiscordCommands(env, ctx));
     ctx.waitUntil(syncTicketGateway(env, ctx));
+    ctx.waitUntil(syncStatusWatch(env, ctx));
   },
 } satisfies ExportedHandler<Env>;

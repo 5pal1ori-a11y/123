@@ -203,10 +203,136 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
-    name: "랜덤박스",
-    description: "랜덤박스 패널을 채널에 올립니다 (관리자)",
+    name: "환영설정",
+    description: "새 멤버가 들어오면 환영 메시지를 올릴 채널을 정합니다 (관리자)",
     type: 1,
-    default_member_permissions: "32",
+    options: [
+      { name: "채널", description: "환영 메시지를 올릴 채널", type: 7, channel_types: [0, 5], required: true },
+      { name: "인증채널", description: "처음 오셨나요? 1번 — 인증 채널", type: 7, channel_types: [0, 5], required: false },
+      { name: "규칙채널", description: "규칙·이용약관 채널", type: 7, channel_types: [0, 5], required: false },
+      { name: "구매채널", description: "자판기·구매 채널", type: 7, channel_types: [0, 5], required: false },
+      { name: "문의채널", description: "문의 채널", type: 7, channel_types: [0, 5], required: false },
+      { name: "웹사이트", description: "웹사이트 열기 버튼 주소 (비우면 https://doesmc.xyz)", type: 3, required: false },
+    ],
+  },
+  {
+    name: "숫자맞추기",
+    description: "채널에 숫자 맞추기를 시작합니다 · 숫자만 보내면 ✅/❌ (관리자)",
+    type: 1,
+    options: [
+      { name: "숫자", description: "정답 숫자", type: 4, required: true, min_value: 0 },
+      { name: "채널", description: "게임 채널", type: 7, channel_types: [0], required: true },
+      { name: "최소", description: "범위 시작 (예: 600)", type: 4, required: false },
+      { name: "최대", description: "범위 끝 (예: 900)", type: 4, required: false },
+      { name: "상품", description: "맞힌 사람에게 줄 상품", type: 3, required: false, max_length: 200 },
+    ],
+  },
+  {
+    name: "내정보",
+    description: "내 누적 구매 · 포인트 · 등급 · 랭킹을 카드로 보여 줍니다 (나만 보여요)",
+    type: 1,
+  },
+  {
+    name: "문의대기",
+    description: "문의 대기 현황 패널을 채널에 올립니다 · 3분마다 갱신 (관리자)",
+    type: 1,
+  },
+  {
+    name: "템플릿",
+    description: "이용약관 · 업체소개 같은 안내 패널을 채널에 올립니다 (관리자)",
+    type: 1,
+    options: [
+      {
+        name: "종류",
+        description: "올릴 패널",
+        type: 3,
+        required: true,
+        choices: [
+          { name: "이용약관", value: "terms" },
+          { name: "업체소개", value: "intro" },
+        ],
+      },
+      { name: "링크1", description: "이용약관 주소 (업체소개는 사이트 주소) — 비우면 기본값", type: 3, required: false },
+      { name: "링크2", description: "개인정보처리방침 주소 — 비우면 기본값", type: 3, required: false },
+    ],
+  },
+  {
+    name: "재고요청",
+    description: "재고 요청 패널을 채널에 올립니다 (관리자)",
+    type: 1,
+    options: [
+      {
+        name: "받을채널",
+        description: "손님 요청을 받을 채널 (한 번 지정하면 기억해요)",
+        type: 7,
+        channel_types: [0, 5],
+        required: false,
+      },
+
+    ],
+  },
+  {
+    name: "다이아채굴",
+    description: "다이아 캐기 패널을 채널에 올립니다 (관리자)",
+    type: 1,
+  },
+  {
+    name: "초대이벤트",
+    description: "초대 이벤트 패널(초대 링크 만들기 · 내 초대 확인)을 올립니다 (관리자)",
+    type: 1,
+  },
+  {
+    name: "초대랭킹",
+    description: "초대 랭킹판을 올립니다 · 1시간마다 갱신 (관리자)",
+    type: 1,
+  },
+  {
+    name: "초대로그",
+    description: "누가 누구를 초대했는지 올릴 채널을 정합니다 (관리자)",
+    type: 1,
+    options: [{ name: "채널", description: "초대 로그 채널", type: 7, channel_types: [0, 5], required: true }],
+  },
+  {
+    name: "뽑기로그",
+    description: "랜덤뽑기 결과(누가 무엇을 뽑았는지)를 올릴 채널을 정합니다 (관리자)",
+    type: 1,
+    options: [{ name: "채널", description: "뽑기 로그 채널", type: 7, channel_types: [0, 5], required: true }],
+  },
+  {
+    name: "랜덤뽑기",
+    description: "랜덤뽑기 패널을 채널에 올립니다 · 한 번에 잔액에서 차감 (관리자)",
+    type: 1,
+  },
+  {
+    name: "서버상황",
+    description: "관리자 온라인/오프라인 패널을 채널에 올립니다 (관리자)",
+    type: 1,
+    // 관리자 확인은 명령 처리에서 한다 (권한 필터로 목록에서 숨지 않게)
+    options: [
+      {
+        name: "대상",
+        description: "상태를 보여줄 관리자 (비우면 기본 관리자)",
+        type: 6,
+        required: false,
+      },
+    ],
+  },
+  {
+    name: "계정등록",
+    description: "마크 계정 판매 글을 올립니다 (관리자)",
+    type: 1,
+    options: [
+      { name: "닉네임", description: "마인크래프트 닉네임", type: 3, required: true, min_length: 3, max_length: 16 },
+      { name: "가격", description: "판매 가격 (원)", type: 4, required: true, min_value: 0 },
+      { name: "접두사", description: "채널·제목 앞에 붙일 말 (예: NON, 비우면 지난번 값)", type: 3, required: false, max_length: 12 },
+      { name: "카테고리", description: "채널을 만들 카테고리 (한 번 정하면 기억해요)", type: 7, required: false, channel_types: [4] },
+    ],
+  },
+  {
+    name: "추천인",
+    description: "추천인 코드 안내를 채널에 올립니다",
+    type: 1,
+    // 관리자 확인은 명령 처리에서 한다 (권한 필터로 목록에서 숨지 않게)
   },
 ] as const;
 
@@ -248,6 +374,25 @@ export const DOES_BOT_COMMANDS = [
       },
       { type: 7, name: "채널", description: "올릴 채널 (비우면 지금 채널)", channel_types: [0, 5], required: false },
     ],
+  },
+  {
+    name: "태그이벤트",
+    description: "서버 태그 착용자만 참여하는 추첨 이벤트를 엽니다 (관리자)",
+    type: 1,
+    default_member_permissions: "32",
+    options: [
+      { type: 3, name: "경품", description: "경품 이름", required: true, max_length: 100 },
+      { type: 4, name: "당첨자수", description: "뽑을 인원", required: true, min_value: 1, max_value: 50 },
+      { type: 4, name: "시간", description: "진행 시간 (1시간 단위, 최대 336시간)", required: true, min_value: 1, max_value: 336 },
+      { type: 3, name: "내용", description: "이벤트 설명 (선택)", required: false, max_length: 1000 },
+      { type: 7, name: "채널", description: "올릴 채널 (비우면 지금 채널)", channel_types: [0, 5], required: false },
+    ],
+  },
+  {
+    name: "태그현황",
+    description: "서버 태그 착용자 수를 확인하고 지금 다시 집계합니다 (관리자)",
+    type: 1,
+    default_member_permissions: "32",
   },
   {
     name: "이벤트생성",

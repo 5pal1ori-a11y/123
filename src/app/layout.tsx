@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Do_Hyeon, Geist, Inter, JetBrains_Mono, Noto_Sans_KR, Space_Grotesk } from "next/font/google";
 import { PwaRegister } from "@/components/pwa-register";
-import { BetaNotice } from "@/components/ui/beta-notice";
 import "./globals.css";
 import "./does-features.css";
 import "./does-world.css";
@@ -49,11 +48,27 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: { default: "DOES", template: "%s · DOES" },
-  description: "디지털 자판기 플랫폼. 계좌이체로 라이선스를 구매하고 나만의 상점을 운영해 보세요.",
+  metadataBase: new URL("https://doesmc.xyz"),
+  title: { default: "DOES · 마인크래프트 정품 계정 샵", template: "%s · DOES" },
+  description: "한국 마인크래프트 정품 계정 샵 · 거래소 — 자동 자판기, 16자리 코드 안전 전달, 30일 보증.",
   icons: {
     icon: "/does-logo.png",
     apple: "/does-logo.png",
+  },
+  openGraph: {
+    title: "DOES · 마인크래프트 정품 계정 샵",
+    description: "자동 자판기 · 16자리 코드 안전 전달 · 30일 보증 · 계좌이체/코인/컬쳐랜드 자동 입금",
+    url: "https://doesmc.xyz",
+    siteName: "DOES",
+    images: [{ url: "/brand/does-banner.png", width: 1500, height: 500 }],
+    type: "website",
+    locale: "ko_KR",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DOES · 마인크래프트 정품 계정 샵",
+    description: "자동 자판기 · 16자리 코드 안전 전달 · 30일 보증",
+    images: ["/brand/does-banner.png"],
   },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -77,7 +92,6 @@ export default function RootLayout({
           }}
         />
         {children}
-        <BetaNotice />
         <PwaRegister />
       </body>
     </html>

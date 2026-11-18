@@ -1,17 +1,37 @@
 "use client";
 
-import Link from "next/link";
-import { motion } from "framer-motion";
-import { Check, Copy, ShoppingBag } from "lucide-react";
+import { Check, Copy, Crown, Gem, Handshake, LayoutGrid, Plus, Star, Tag, Trophy, type LucideIcon } from "lucide-react";
+import { useState } from "react";
+import { MC_RESALE_CATEGORY, mcAccountCategory } from "@/lib/mc-account";
+import { ResaleRequestModal } from "./resale-request-modal";
 import type { ProductWithStock, ShopEvent, ShopTier, StockStatus } from "@/lib/types";
 import { calcProductPrice } from "@/lib/pricing";
 import { formatKRW } from "@/lib/utils";
 import { shopPath, useShopBase } from "@/lib/shop-nav";
-import { StockBadge } from "@/components/ui/stock-badge";
-import { WishHeartButton } from "@/components/ui/wish-heart-button";
 import { PanelPrimaryBtn, PanelStats } from "@/components/admin/admin-panel-ui";
+import { McAccountCard } from "./mc-account-card";
+import { MfaGroupCard } from "./mfa-group-card";
+import { CapeGallery, type CapeStock } from "@/components/capes/cape-gallery";
 
 export type ProductSort = "default" | "price_asc" | "price_desc" | "popular";
+export type ProductSection = "general" | "mc_account" | "mc_cape";
+export type ShopListingSummary = { rating: number | null; reviewCount: number; sold: number };
+
+const SECTIONS: { id: ProductSection; label: string; short: string }[] = [
+  { id: "mc_account", label: "마인크래프트 계정", short: "마크 계정" },
+  { id: "mc_cape", label: "마인크래프트 망토", short: "마크 망토" },
+  { id: "general", label: "기타상품", short: "기타상품" },
+];
+
+const MC_TAB_ICON: Record<string, LucideIcon> = {
+  all: LayoutGrid,
+  "일반 계정": Tag,
+  "OG 계정": Crown,
+  Minecon: Trophy,
+  Hypixel: Star,
+  대리판매: Handshake,
+  기타: Gem,
+};
 
 export function ShopProductsTab({
   products,
@@ -21,6 +41,12 @@ export function ShopProductsTab({
   productCategory,
   productSort,
   productCategories,
+  productSection,
+  sectionCounts,
+  onSectionChange,
+  shopName,
+  salesCounts,
+  shopSummary,
   liveStock,
   wishlistIds,
   tier,
@@ -37,7 +63,9 @@ export function ShopProductsTab({
   onBuy,
   onCopyCode,
   onAddToCart,
+  shopSlug,
 }: {
+  shopSlug: string;
   products: ProductWithStock[];
   eventByProduct: Map<string, ShopEvent>;
   filteredProducts: ProductWithStock[];
@@ -45,6 +73,12 @@ export function ShopProductsTab({
   productCategory: string;
   productSort: ProductSort;
   productCategories: string[];
+  productSection: ProductSection;
+  sectionCounts: Record<ProductSection, number>;
+  onSectionChange: (v: ProductSection) => void;
+  shopName: string;
+  salesCounts: Record<string, number>;
+  shopSummary: ShopListingSummary | null;
   liveStock: Record<string, { count: number; status: StockStatus }>;
   wishlistIds: Set<string>;
   tier: ShopTier | null;
@@ -63,6 +97,30 @@ export function ShopProductsTab({
   onAddToCart?: (productId: string) => void;
 }) {
   const base = useShopBase();
+  const [resaleOpen, setResaleOpen] = useState(false);
+  const mcCounts: Record<string, number> = { all: 0 };
+  if (productSection === "mc_account") {
+    for (const p of products) {
+      if (p.productKind !== "mc_account") continue;
+      if (!p.mcGroup && (liveStock[p.id]?.status ?? p.stockStatus) === "sold_out") continue;
+      mcCounts.all += 1;
+      const c = mcAccountCategory(p.category, productCategories.filter((x) => x !== "all"));
+      mcCounts[c] = (mcCounts[c] ?? 0) + 1;
+    }
+  }
+  const isSoldOut = (p: ProductWithStock) => (liveStock[p.id]?.status ?? p.stockStatus) === "sold_out";
+  // MFA 상품으로 묶인 계정은 개별 카드 대신 묶음 카드 하나로 보여 준다
+  const groupMc = productSection === "mc_account" ? filteredProducts.filter((p) => p.mcGroup && !isSoldOut(p)) : [];
+  const onSaleMc = filteredProducts.filter((p) => !isSoldOut(p) && !(productSection === "mc_account" && p.mcGroup));
+  // 마크 계정은 팔리면 목록에서 뺀다 (MFA 상품으로 묶인 계정만 Sold 에 남긴다)
+  const soldMc = filteredProducts.filter((p) => isSoldOut(p) && (p.productKind !== "mc_account" || p.mcGroup));
+  const capeStock: CapeStock = {};
+  for (const p of products) {
+    if (p.productKind !== "mc_cape" || !p.capeType) continue;
+    const live = liveStock[p.id];
+    const count = live?.count ?? p.availableCount;
+    capeStock[p.capeType] = { count, price: calcProductPrice(p, tier, eventByProduct.get(p.id) ?? null).finalPrice, href: shopPath(base, `/product/${p.slug}`) };
+  }
 
   return (
     <div className="space-y-5">
@@ -104,6 +162,111 @@ export function ShopProductsTab({
       {purchaseError ? <p className="text-sm text-red-400">{purchaseError}</p> : null}
 
       <div className="admin-bento p-4 sm:p-5">
+        <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+          {SECTIONS.map((sec) => (
+            <button
+              key={sec.id}
+              type="button"
+              onClick={() => onSectionChange(sec.id)}
+              className={`whitespace-nowrap rounded-lg px-1.5 py-2 text-[13px] font-semibold transition sm:px-3 sm:text-sm ${
+                productSection === sec.id ? "bg-white text-black" : "text-neutral-300 hover:bg-white/[0.06]"
+              }`}
+            >
+              <span className="sm:hidden">{sec.short}</span>
+              <span className="hidden sm:inline">{sec.label}</span>
+              <span className="ml-1.5 text-xs text-neutral-500">
+                {sectionCounts[sec.id]}
+              </span>
+            </button>
+          ))}
+        </div>
+        {productSection === "mc_cape" ? (
+          <CapeGallery
+            stock={capeStock}
+            renderCard={(cape, open, idx) => {
+              const p = products.find((x) => x.productKind === "mc_cape" && x.capeType === cape.type);
+              const stub = {
+                id: `cape-${cape.type}`,
+                slug: "",
+                name: `${cape.title} 망토`,
+                price: 0,
+                productKind: "mc_cape",
+                capeType: cape.type,
+                availableCount: 0,
+                stockStatus: "sold_out",
+                createdAt: new Date().toISOString(),
+                tags: [],
+              } as unknown as ProductWithStock;
+              const prod = p ?? stub;
+              const live = p ? liveStock[p.id] : undefined;
+              const stockStatus = p ? (live?.status ?? p.stockStatus) : "sold_out";
+              const { finalPrice, totalDiscountPercent } = p
+                ? calcProductPrice(p, tier, eventByProduct.get(p.id) ?? null)
+                : { finalPrice: 0, totalDiscountPercent: 0 };
+              return (
+                <McAccountCard
+                  key={cape.type}
+                  product={{ ...prod, name: `${cape.title} 망토` }}
+                  index={idx}
+                  shopName={shopName}
+                  priceText={p ? finalPrice.toLocaleString("ko-KR") : "-"}
+                  originalPriceText={p && totalDiscountPercent > 0 ? p.price.toLocaleString("ko-KR") : null}
+                  discountPercent={totalDiscountPercent}
+                  stockStatus={stockStatus}
+                  sold={p ? (shopSummary?.sold ?? salesCounts[p.id] ?? 0) : 0}
+                  rating={shopSummary?.rating ?? null}
+                  wishlisted={p ? wishlistIds.has(p.id) : false}
+                  onToggleWishlist={() => p && onToggleWishlist(p.id)}
+                  onAddToCart={() => p && onAddToCart?.(p.id)}
+                  onView={open}
+                />
+              );
+            }}
+          />
+        ) : (
+        <>
+        {productSection === "mc_account" ? (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden">
+            {productCategories.map((c) => {
+              const Icon = MC_TAB_ICON[c] ?? Tag;
+              const on = productCategory === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => onCategoryChange(c)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-[13px] font-bold transition sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm ${
+                    on
+                      ? "border-white bg-white text-black shadow-[0_0_0_3px_rgba(255,255,255,0.12)]"
+                      : "border-white/10 bg-white/[0.04] text-neutral-200 hover:border-white/30 hover:bg-white/[0.08]"
+                  }`}
+                >
+                  <Icon className="size-4" />
+                  {c === "all" ? "전체" : c}
+                  <span className={`text-xs font-semibold ${on ? "text-neutral-500" : "text-neutral-500"}`}>{mcCounts[c] ?? 0}</span>
+                </button>
+              );
+            })}
+            </div>
+            {productCategory === MC_RESALE_CATEGORY ? (
+              <button
+                type="button"
+                onClick={() => setResaleOpen(true)}
+                className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-indigo-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-400"
+              >
+                <Plus className="size-4" /> 대리판매 등록
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {resaleOpen ? (
+          <ResaleRequestModal
+            shopSlug={shopSlug}
+            types={productCategories.filter((x) => x !== "all" && x !== MC_RESALE_CATEGORY)}
+            onClose={() => setResaleOpen(false)}
+          />
+        ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <input
             value={productQuery}
@@ -111,7 +274,7 @@ export function ShopProductsTab({
             placeholder="제품 검색"
             className="toss-admin-field min-w-0 flex-1"
           />
-          <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+          <div className={`flex min-w-0 flex-1 flex-wrap gap-2 ${productSection === "mc_account" ? "hidden" : ""}`}>
             {productCategories.map((c) => (
               <button
                 key={c}
@@ -142,110 +305,57 @@ export function ShopProductsTab({
         {filteredProducts.length === 0 ? (
           <p className="py-12 text-center text-sm text-neutral-500">검색 결과가 없어요</p>
         ) : (
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {filteredProducts.map((p, idx) => {
-              const ev = eventByProduct.get(p.id);
-              const live = liveStock[p.id];
-              const stockStatus = live?.status ?? p.stockStatus;
-              const stockCount = live?.count ?? p.availableCount;
-              const soldOut = stockStatus === "sold_out";
-              const { finalPrice, totalDiscountPercent } = calcProductPrice(p, tier, ev ?? null);
-              const wishlisted = wishlistIds.has(p.id);
-              return (
-                <motion.li
-                  key={p.id}
-                  layout
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(idx * 0.03, 0.24), duration: 0.32 }}
-                  whileHover={{ y: -2 }}
-                  className="flex flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.02] p-4"
-                >
-                  <Link
-                    href={shopPath(base, `/product/${p.slug}`)}
-                    className={`min-w-0 flex-1 ${soldOut ? "opacity-55" : ""}`}
+          <>
+            {[
+              { key: "on", title: null as string | null, list: onSaleMc, show: onSaleMc.length + groupMc.length },
+              { key: "sold", title: "Sold", list: soldMc, show: soldMc.length },
+            ].map((grp) =>
+              grp.show === 0 ? null : (
+                <div key={grp.key} className={grp.title ? "mt-10" : ""}>
+                  {grp.title ? (
+                    <div className="mf-dark mb-4 flex items-baseline gap-3 border-b border-white/10 pb-2">
+                      <h3 className="text-2xl font-extrabold text-[#737373]">{grp.title}</h3>
+                      <span className="text-sm font-semibold text-[#525252]">{grp.list.length}개 계정</span>
+                    </div>
+                  ) : null}
+                  <ul
+                    className={`grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${
+                      grp.title ? "" : "mt-4"
+                    }`}
                   >
-                    {p.thumbnail?.trim() ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={p.thumbnail.trim()}
-                        alt=""
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                        className="mb-3 aspect-[16/9] w-full rounded-xl border border-white/10 bg-white/[0.03] object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                      />
+                    {grp.key === "on" && groupMc.length ? (
+                      <MfaGroupCard products={groupMc} priceOf={(p) => calcProductPrice(p, tier, eventByProduct.get(p.id) ?? null).finalPrice} />
                     ) : null}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <span className="font-semibold text-white hover:text-accent">{p.name}</span>
-                        <StockBadge status={stockStatus} />
-                      </div>
-                    </div>
-                    <p className="mt-1 text-[11px] text-neutral-500">
-                      {p.category ? `${p.category} · ` : ""}
-                      {p.fulfillment === "manual" ? "수동지급 · " : ""}
-                      재고 {p.fulfillment === "manual" ? "판매중" : `${stockCount}개`}
-                    </p>
-                    {ev || (tier && tier.discountPercent > 0) ? (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {ev ? (
-                          <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold text-orange-400">
-                            이벤트 {ev.discountPercent}%
-                          </span>
-                        ) : null}
-                        {tier && tier.discountPercent > 0 ? (
-                          <span
-                            className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                            style={{ backgroundColor: `${tier.color}22`, color: tier.color }}
-                          >
-                            {tier.name} {tier.discountPercent}%
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {p.description ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-neutral-500">{p.description}</p>
-                    ) : null}
-                    <div className="mt-2 flex items-baseline gap-2">
-                      {totalDiscountPercent > 0 ? (
-                        <span className="text-xs text-neutral-500 line-through">{formatKRW(p.price)}</span>
-                      ) : null}
-                      <p className="text-sm font-bold text-white">{formatKRW(finalPrice)}</p>
-                    </div>
-                  </Link>
-                  <div className="mt-3 flex items-center gap-2">
-                    <WishHeartButton
-                      active={wishlisted}
-                      onToggle={() => onToggleWishlist(p.id)}
-                      size="sm"
-                      className="!rounded-xl"
-                    />
-                    <motion.button
-                      type="button"
-                      disabled={soldOut}
-                      whileTap={{ scale: 0.92 }}
-                      onClick={() => onAddToCart?.(p.id)}
-                      className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2.5 text-xs font-semibold text-neutral-200 disabled:opacity-35"
-                    >
-                      <span className="inline-flex items-center gap-1">
-                        <ShoppingBag className="size-3.5" />
-                        담기
-                      </span>
-                    </motion.button>
-                    <Link
-                      href={shopPath(base, `/product/${p.slug}`)}
-                      className="flex flex-1 items-center justify-center rounded-xl bg-white px-3 py-2.5 text-xs font-semibold text-black transition active:scale-[0.98]"
-                    >
-                      {soldOut ? "상세 보기" : "구매하기"}
-                    </Link>
-                  </div>
-                </motion.li>
-              );
-            })}
-          </ul>
+                    {grp.list.map((p, idx) => {
+                      const ev = eventByProduct.get(p.id);
+                      const live = liveStock[p.id];
+                      const stockStatus = live?.status ?? p.stockStatus;
+                      const { finalPrice, totalDiscountPercent } = calcProductPrice(p, tier, ev ?? null);
+                      return (
+                        <McAccountCard
+                          key={p.id}
+                          product={p}
+                          index={idx}
+                          shopName={shopName}
+                          priceText={finalPrice.toLocaleString("ko-KR")}
+                          originalPriceText={totalDiscountPercent > 0 ? p.price.toLocaleString("ko-KR") : null}
+                          discountPercent={totalDiscountPercent}
+                          stockStatus={stockStatus}
+                          sold={shopSummary?.sold ?? salesCounts[p.id] ?? 0}
+                          rating={shopSummary?.rating ?? null}
+                          wishlisted={wishlistIds.has(p.id)}
+                          onToggleWishlist={() => onToggleWishlist(p.id)}
+                          onAddToCart={() => onAddToCart?.(p.id)}
+                        />
+                      );
+                    })}
+                  </ul>
+                </div>
+              ),
+            )}
+          </>
+        )}
+        </>
         )}
       </div>
     </div>

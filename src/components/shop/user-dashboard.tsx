@@ -1,5 +1,8 @@
 "use client";
 
+import { UserPremiumTab } from "./user-premium-tab";
+import { mcAccountCategory } from "@/lib/mc-account";
+import { useMcCategories } from "@/lib/use-mc-categories";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -10,6 +13,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Coins,
+  Crown,
   Home,
   LayoutGrid,
   Loader2,
@@ -30,7 +34,12 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { vxTransitionMobile } from "@/lib/motion";
 import { useShopUser } from "./user-context";
 import { ChargePageClient } from "./charge-page-client";
-import { ShopProductsTab, type ProductSort } from "./shop-products-tab";
+import {
+  ShopProductsTab,
+  type ProductSection,
+  type ProductSort,
+  type ShopListingSummary,
+} from "./shop-products-tab";
 import { ShopCartBar, addToCart } from "./shop-cart";
 import { UserHomeTab } from "./user-home-tab";
 import { UserHistoryTab } from "./user-history-tab";
@@ -40,6 +49,9 @@ import { UserAttendanceTab } from "./user-attendance-tab";
 import { UserReviewsTab } from "./user-reviews-tab";
 import { UserIslandTab } from "./island/user-island-tab";
 import { ShopInquiryChatWidget } from "./shop-inquiry-chat-widget";
+import { UserAuthPanel } from "./user-auth-panel";
+import { SELLABLE_CAPES } from "@/lib/sellable-capes";
+import { LoginRequiredNotice } from "./login-required-notice";
 import { VendixLogo } from "@/components/ui/vendix-logo";
 import type { UserCharge, UserOrder, UserTab } from "./user-dashboard-types";
 import { shopHeaders } from "@/lib/shop-client";
@@ -80,6 +92,7 @@ function saveDarkTheme(dark: boolean) {
 const NAV: { id: UserTab; label: string; icon: typeof Home }[] = [
   { id: "main", label: "홈", icon: Home },
   { id: "products", label: "쇼핑", icon: Package },
+  { id: "premium", label: "프리미엄 플랜", icon: Crown },
   { id: "charge", label: "충전", icon: Coins },
   { id: "attendance", label: "출석", icon: CalendarCheck },
   { id: "reviews", label: "후기", icon: Star },
@@ -91,9 +104,21 @@ const NAV: { id: UserTab; label: string; icon: typeof Home }[] = [
 
 const TABS = NAV.map((n) => n.id);
 
+/** 로그인해야 열 수 있는 탭 — 게스트는 홈·쇼핑·후기·랭킹만 */
+const LOGIN_TABS = new Set<UserTab>(["charge", "attendance", "island", "history", "account"]);
+
+/** 로그인 전 화면에 쓰는 자리표시 사용자 */
+const GUEST_VIEWER = {
+  name: "게스트",
+  email: "로그인하면 구매할 수 있어요",
+  points: 0,
+  totalCharged: 0,
+};
+
 const META: Record<UserTab, { title: string; sub: string }> = {
   main: { title: "홈", sub: "오늘도 좋은 하루 보내세요" },
   products: { title: "쇼핑", sub: "포인트로 바로 구매하고 즉시 받아보세요" },
+  premium: { title: "프리미엄 플랜", sub: "BASIC PASS · DOES PASS+ 로 더 많은 혜택을 받아보세요" },
   charge: { title: "포인트 충전", sub: "계좌 · 문화상품권 · 코인으로 간편하게" },
   attendance: { title: "출석체크", sub: "매일 한 번, 랜덤 포인트 상자를 열어보세요" },
   reviews: { title: "후기내역", sub: "디스코드에 남겨진 후기를 실시간으로 모아봤어요" },
@@ -168,6 +193,8 @@ export function UserDashboard({
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
   const [liveStock, setLiveStock] = useState<Record<string, { count: number; status: StockStatus }>>({});
   const [salesCounts, setSalesCounts] = useState<Record<string, number>>({});
+  const [shopSummary, setShopSummary] = useState<ShopListingSummary | null>(null);
+  const [productSection, setProductSection] = useState<ProductSection>("mc_account");
   const [loginHistory, setLoginHistory] = useState<
     { id: string; ip: string; deviceLabel: string; createdAt: string }[]
   >([]);
@@ -202,15 +229,41 @@ export function UserDashboard({
     return map;
   }, [activeEvents]);
 
-  const productCategories = useMemo(() => {
-    const set = new Set(products.map((p) => p.category).filter(Boolean));
-    return ["all", ...Array.from(set).sort()];
+  const sectionProducts = useMemo(
+    () =>
+      products.filter((p) =>
+        productSection === "mc_account"
+          ? p.productKind === "mc_account"
+          : productSection === "mc_cape"
+            ? p.productKind === "mc_cape"
+            : p.productKind !== "mc_account" && p.productKind !== "mc_cape",
+      ),
+    [products, productSection],
+  );
+
+  const sectionCounts = useMemo(() => {
+    const mcAll = products.filter((p) => p.productKind === "mc_account");
+    // 팔린 마크 계정(MFA 묶음 제외)은 목록에서 빠지므로 개수에서도 뺀다
+    const mc = mcAll.filter((p) => p.mcGroup || p.stockStatus !== "sold_out").length;
+    const cape = products.filter((p) => p.productKind === "mc_cape").length;
+    return { general: products.length - mcAll.length - cape, mc_account: mc, mc_cape: SELLABLE_CAPES.length };
   }, [products]);
+
+  const { categories: mcCategories } = useMcCategories(shopSlug);
+  const productCategories = useMemo(() => {
+    // 마크 계정은 정해진 카테고리 탭 (일반 · OG · Minecon · Hypixel · 대리판매 · 기타)
+    if (productSection === "mc_account") return ["all", ...mcCategories];
+    const set = new Set(sectionProducts.map((p) => p.category).filter(Boolean));
+    return ["all", ...Array.from(set).sort()];
+  }, [sectionProducts, productSection, mcCategories]);
 
   const filteredProducts = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
-    let list = products.filter((p) => {
-      if (productCategory !== "all" && p.category !== productCategory) return false;
+    let list = sectionProducts.filter((p) => {
+      if (productCategory !== "all") {
+        const cat = p.productKind === "mc_account" ? mcAccountCategory(p.category, mcCategories) : p.category;
+        if (cat !== productCategory) return false;
+      }
       if (!q) return true;
       return (
         p.name.toLowerCase().includes(q) ||
@@ -229,7 +282,7 @@ export function UserDashboard({
       list = [...list].sort((a, b) => (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0));
     }
     return list;
-  }, [products, productQuery, productCategory, productSort, tier, eventByProduct, salesCounts]);
+  }, [sectionProducts, productQuery, productCategory, productSort, tier, eventByProduct, salesCounts, mcCategories]);
 
   const recentOrders = useMemo(() => orders.slice(0, 3), [orders]);
 
@@ -301,6 +354,23 @@ export function UserDashboard({
   const needDiscord = shopSlug.toLowerCase() === "mfa" && Boolean(user) && !user?.discordId;
   const discordLinkHref = `/api/auth/user/discord/start?shop=${encodeURIComponent(shopSlug)}&next=${encodeURIComponent("/dashboard")}&link=1`;
   const [discordGate, setDiscordGate] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const isGuest = !user;
+  const viewer = user ?? GUEST_VIEWER;
+  // 로그인하면 디스코드 닉네임을 우선 보여 준다 (연동 전에는 기존 이름)
+  const displayName = (user?.discordUsername?.trim() || viewer.name || viewer.email) as string;
+  const requireLogin = useCallback(() => {
+    setMenuOpen(false);
+    setSheetOpen(false);
+    setLoginOpen(true);
+  }, []);
+
+  // 다른 컴포넌트(문의 위젯 등)에서 로그인 요청 시 로그인 창을 연다
+  useEffect(() => {
+    const onReq = () => requireLogin();
+    window.addEventListener("does-require-login", onReq);
+    return () => window.removeEventListener("does-require-login", onReq);
+  }, [requireLogin]);
 
   useEffect(() => {
     if (!needDiscord) return;
@@ -355,13 +425,15 @@ export function UserDashboard({
   }, [msg]);
 
   useEffect(() => {
-    if (!user || tab !== "products") return;
+    if (tab !== "products") return;
     const poll = async () => {
       const res = await fetch("/api/products/stock", { headers: shopHeaders(shopSlug, false) });
       if (!res.ok) return;
       const data = (await res.json()) as {
         products?: { id: string; count: number; status: StockStatus; sales: number }[];
+        summary?: ShopListingSummary;
       };
+      if (data.summary) setShopSummary(data.summary);
       if (!data.products) return;
       const stock: typeof liveStock = {};
       const sales: Record<string, number> = {};
@@ -378,6 +450,10 @@ export function UserDashboard({
   }, [user, tab, shopSlug]);
 
   async function toggleWishlist(productId: string) {
+    if (!user) {
+      requireLogin();
+      return;
+    }
     const res = await fetch("/api/wishlist", {
       method: "POST",
       credentials: "include",
@@ -405,6 +481,10 @@ export function UserDashboard({
   }
 
   function switchTab(next: UserTab) {
+    if (!user && LOGIN_TABS.has(next)) {
+      requireLogin();
+      return;
+    }
     setTab(next);
     setMsg(null);
     setSheetOpen(false);
@@ -429,6 +509,10 @@ export function UserDashboard({
   }
 
   async function buyProduct(productId: string) {
+    if (!user) {
+      requireLogin();
+      return;
+    }
     if (needDiscord) {
       setDiscordGate(true);
       return;
@@ -541,11 +625,9 @@ export function UserDashboard({
     rootRef.current?.style.setProperty("--my", `${e.clientY}px`);
   }
 
-  if (!user) return null;
-
   const meta = META[tab];
   const TabIcon = NAV.find((n) => n.id === tab)?.icon ?? Home;
-  const initial = (user.name || user.email).slice(0, 1).toUpperCase();
+  const initial = (displayName || viewer.email).slice(0, 1).toUpperCase();
   const msgIsError = msg ? /실패|오류|없|못/.test(msg) : false;
   const dockSide: { id: UserTab; label: string; icon: typeof Home }[][] = [
     [
@@ -579,7 +661,7 @@ export function UserDashboard({
         <button type="button" className="udx-side-wallet" onClick={() => switchTab("charge")}>
           <span className="min-w-0">
             <small>보유 포인트</small>
-            <b className="tabular-nums">{formatKRW(user.points)}</b>
+            <b className="tabular-nums">{formatKRW(viewer.points)}</b>
           </span>
           <span className="udx-side-wallet-cta">
             충전
@@ -633,14 +715,18 @@ export function UserDashboard({
           <button type="button" className="udx-side-me" onClick={() => switchTab("account")}>
             <span className="udx-avatar">{initial}</span>
             <span className="min-w-0">
-              <b>{user.name}</b>
-              <small>{user.email}</small>
+              <b>{displayName}</b>
+              <small>{user?.discordUsername ? "Discord 연동됨" : viewer.email}</small>
             </span>
             <Settings className="ml-auto size-4 shrink-0 opacity-50" />
           </button>
-          <button type="button" className="udx-side-logout" onClick={() => void handleLogout()}>
+          <button
+            type="button"
+            className="udx-side-logout"
+            onClick={() => (isGuest ? requireLogin() : void handleLogout())}
+          >
             <LogOut className="size-4" />
-            로그아웃
+            {isGuest ? "로그인" : "로그아웃"}
           </button>
         </div>
       </aside>
@@ -685,7 +771,7 @@ export function UserDashboard({
               <span className="udx-coin-icon">
                 <Coins className="size-3.5" />
               </span>
-              <span className="tabular-nums">{formatKRW(user.points)}</span>
+              <span className="tabular-nums">{formatKRW(viewer.points)}</span>
             </motion.button>
             <div className="relative">
               <button
@@ -716,8 +802,8 @@ export function UserDashboard({
                       <div className="udx-menu-me">
                         <span className="udx-avatar is-lg">{initial}</span>
                         <span className="min-w-0">
-                          <b>{user.name}</b>
-                          <small>{user.email}</small>
+                          <b>{displayName}</b>
+                          <small>{user?.discordUsername ? "Discord 연동됨" : viewer.email}</small>
                         </span>
                       </div>
                       <button type="button" onClick={() => switchTab("account")}>
@@ -735,9 +821,13 @@ export function UserDashboard({
                         서버 인증
                         <ChevronRight className="ml-auto size-4 opacity-50" />
                       </Link>
-                      <button type="button" className="is-danger" onClick={() => void handleLogout()}>
+                      <button
+                        type="button"
+                        className={isGuest ? undefined : "is-danger"}
+                        onClick={() => (isGuest ? requireLogin() : void handleLogout())}
+                      >
                         <LogOut className="size-4" />
-                        로그아웃
+                        {isGuest ? "로그인" : "로그아웃"}
                       </button>
                     </motion.div>
                   </>
@@ -810,11 +900,11 @@ export function UserDashboard({
             >
               {tab === "main" && (
                 <UserHomeTab
-                  userName={user.name}
+                  userName={viewer.name}
                   shopName={shopName}
                   welcomeMessage={welcomeMessage}
-                  points={user.points}
-                  totalCharged={user.totalCharged}
+                  points={viewer.points}
+                  totalCharged={viewer.totalCharged}
                   tier={tier}
                   tierLoading={profileLoading}
                   recentOrders={recentOrders}
@@ -834,6 +924,7 @@ export function UserDashboard({
               {tab === "products" && (
                 <>
                   <ShopProductsTab
+                    shopSlug={shopSlug}
                     products={products}
                     eventByProduct={eventByProduct}
                     filteredProducts={filteredProducts}
@@ -841,6 +932,15 @@ export function UserDashboard({
                     productCategory={productCategory}
                     productSort={productSort}
                     productCategories={productCategories}
+                    productSection={productSection}
+                    sectionCounts={sectionCounts}
+                    onSectionChange={(v) => {
+                      setProductSection(v);
+                      setProductCategory("all");
+                    }}
+                    shopName={shopName}
+                    salesCounts={salesCounts}
+                    shopSummary={shopSummary}
                     liveStock={liveStock}
                     wishlistIds={wishlistIds}
                     tier={tier}
@@ -848,7 +948,7 @@ export function UserDashboard({
                     onCategoryChange={setProductCategory}
                     onSortChange={setProductSort}
                     onToggleWishlist={(id) => void toggleWishlist(id)}
-                    userPoints={user.points}
+                    userPoints={viewer.points}
                     buyBusyId={buyBusyId}
                     purchaseCode={purchaseCode}
                     purchasePending={purchasePending}
@@ -857,18 +957,23 @@ export function UserDashboard({
                     onBuy={(id) => void buyProduct(id)}
                     onCopyCode={() => void copyPurchaseCode()}
                     onAddToCart={(id) => {
+                      if (!user) {
+                        requireLogin();
+                        return;
+                      }
                       addToCart(shopSlug, id);
                       setCartTick((n) => n + 1);
                       setMsg("장바구니에 담았어요");
                     }}
                   />
+                  {user ? (
                   <ShopCartBar
                     key={cartTick}
                     shopSlug={shopSlug}
                     products={products}
                     eventByProduct={eventByProduct}
                     tier={tier}
-                    userPoints={user.points}
+                    userPoints={viewer.points}
                     onPurchased={(codes) => {
                       if (codes.length === 0) {
                         setPurchasePending(true);
@@ -883,10 +988,19 @@ export function UserDashboard({
                       void loadProfile();
                     }}
                   />
+                  ) : null}
                 </>
               )}
 
-              {tab === "charge" && (
+              {isGuest && LOGIN_TABS.has(tab) ? (
+                <div className="admin-bento mx-auto max-w-md p-6">
+                  <LoginRequiredNotice className="mb-5" />
+                  <UserAuthPanel shopSlug={shopSlug} hideGuest />
+                </div>
+              ) : null}
+
+
+              {user && tab === "charge" && (
                 <div className="user-mypage-charge w-full">
                   <ChargePageClient
                     shopSlug={shopSlug}
@@ -900,7 +1014,7 @@ export function UserDashboard({
                 </div>
               )}
 
-              {tab === "history" && (
+              {user && tab === "history" && (
                 <UserHistoryTab
                   shopSlug={shopSlug}
                   onReviewed={() => void loadProfile()}
@@ -913,7 +1027,7 @@ export function UserDashboard({
                 />
               )}
 
-              {tab === "account" && (
+              {user && tab === "account" && (
                 <UserAccountTab
                   shopSlug={shopSlug}
                   user={user}
@@ -947,7 +1061,7 @@ export function UserDashboard({
                 />
               )}
 
-              {tab === "attendance" && (
+              {user && tab === "attendance" && (
                 <UserAttendanceTab
                   shopSlug={shopSlug}
                   onClaimed={(pts) => {
@@ -959,7 +1073,16 @@ export function UserDashboard({
 
               {tab === "reviews" && <UserReviewsTab shopSlug={shopSlug} />}
 
-              {tab === "island" && <UserIslandTab shopSlug={shopSlug} userName={user.name || user.email} />}
+              {tab === "premium" && (
+                <UserPremiumTab
+                  shopSlug={shopSlug}
+                  loggedIn={Boolean(user)}
+                  onPointsChanged={() => void loadProfile()}
+                  onGoCharge={() => switchTab("charge")}
+                />
+              )}
+
+              {user && tab === "island" && <UserIslandTab shopSlug={shopSlug} userName={user.name || user.email} />}
             </motion.div>
           </AnimatePresence>
         )}
@@ -1006,6 +1129,41 @@ export function UserDashboard({
               </a>
               <button type="button" className="udx-gate-later" onClick={() => setDiscordGate(false)}>
                 나중에 할게요
+              </button>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {loginOpen && isGuest ? (
+          <motion.div
+            className="udx-gate-back"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e) => e.target === e.currentTarget && setLoginOpen(false)}
+          >
+            <motion.div
+              className="udx-gate-card"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="udx-login-title"
+              initial={reduceMotion ? false : { opacity: 0, y: 24, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={reduceMotion ? undefined : { opacity: 0, y: 12, scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 420, damping: 32 }}
+            >
+              <button type="button" className="udx-gate-x" onClick={() => setLoginOpen(false)} aria-label="닫기">
+                <X className="size-4" />
+              </button>
+              <h2 id="udx-login-title" className="sr-only">로그인이 필요합니다</h2>
+              <LoginRequiredNotice className="w-full" />
+              <div className="mt-4 w-full text-left">
+                <UserAuthPanel shopSlug={shopSlug} hideGuest />
+              </div>
+              <button type="button" className="udx-gate-later" onClick={() => setLoginOpen(false)}>
+                계속 둘러보기
               </button>
             </motion.div>
           </motion.div>
@@ -1083,8 +1241,8 @@ export function UserDashboard({
               <div className="udx-sheet-me">
                 <span className="udx-avatar is-lg">{initial}</span>
                 <span className="min-w-0 flex-1">
-                  <b>{user.name}</b>
-                  <small>{user.email}</small>
+                  <b>{displayName}</b>
+                  <small>{user?.discordUsername ? "Discord 연동됨" : viewer.email}</small>
                 </span>
                 <button type="button" className="udx-round" onClick={() => setSheetOpen(false)} aria-label="닫기">
                   <X className="size-4" />
@@ -1093,7 +1251,7 @@ export function UserDashboard({
               <button type="button" className="udx-sheet-wallet" onClick={() => switchTab("charge")}>
                 <span>
                   <small>보유 포인트</small>
-                  <b className="tabular-nums">{formatKRW(user.points)}</b>
+                  <b className="tabular-nums">{formatKRW(viewer.points)}</b>
                 </span>
                 <span className="udx-sheet-wallet-cta">
                   <Coins className="size-4" />
@@ -1133,9 +1291,13 @@ export function UserDashboard({
                   </Link>
                 </motion.div>
               </div>
-              <button type="button" className="udx-sheet-logout" onClick={() => void handleLogout()}>
+              <button
+                type="button"
+                className="udx-sheet-logout"
+                onClick={() => (isGuest ? requireLogin() : void handleLogout())}
+              >
                 <LogOut className="size-4" />
-                로그아웃
+                {isGuest ? "로그인" : "로그아웃"}
               </button>
             </motion.div>
           </>

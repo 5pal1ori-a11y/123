@@ -26,6 +26,7 @@ export type UserCharge = {
 export type UserTab =
   | "main"
   | "products"
+  | "premium"
   | "charge"
   | "history"
   | "account"

@@ -104,13 +104,14 @@ function mfaProductSlug(shopId: string, name: string) {
  * 가격이 있으면 생성/가격 갱신 + 판매중, 가격이 없어지면 판매중지.
  */
 function syncMfaCatalog(shopId: string, catalog: MfaCatalogItem[]) {
-  const existing = listMfaProducts(shopId);
+  // 마크 계정 상품은 계정 하나당 MFA 상품 종류 하나로 따로 연동한다 (가격은 DOES 에서 정함) → 카탈로그 동기화에서 뺀다
+  const existing = listMfaProducts(shopId).filter((p) => p.productKind !== "mc_account");
   const byKey = new Map(existing.map((p) => [(p.mfaProduct ?? "").trim().toLowerCase(), p]));
   const category = existing.find((p) => p.category)?.category || MFA_DEFAULT_CATEGORY;
   let changed = 0;
   for (const item of catalog) {
     const key = item.product.trim().toLowerCase();
-    if (!key) continue;
+    if (!key || key.startsWith("does mc-")) continue;
     const current = byKey.get(key);
     if (item.price && item.price > 0) {
       if (!current) {
@@ -186,6 +187,13 @@ export async function mfaAdmin(
   return { status, data };
 }
 
+/** 관리자 API 를 재고 새로고침 없이 바로 부른다 (여러 건을 연달아 처리할 때) */
+export async function mfaAdminRaw(shopId: string, method: string, path: string, search = "", body?: unknown) {
+  const cfg = getMfaConfig(shopId);
+  if (!cfg) return { status: 400, data: { ok: false, error: "MFA MARKET 연동 설정이 없습니다." } as Record<string, unknown> };
+  return call<Record<string, unknown>>(cfg, `/api/partner/admin/${path}${search}`, { method, body });
+}
+
 export async function mfaRelease(cfg: MfaConfig, orderRef: string) {
   const { status, data } = await call<{ released: number; viewed: number }>(cfg, "/api/partner/release", {
     method: "POST",
@@ -225,7 +233,7 @@ async function announceRestocks(shopId: string, counts: Record<string, number>) 
     for (const p of restocked) {
       const before = seen[p.id] ?? 0;
       const added = counts[p.id]! - before;
-      postRestockLog(shopId, { productName: p.name, addedCount: added, newTotal: counts[p.id]!, price: p.price });
+      postRestockLog(shopId, { productName: p.name, productId: p.id, addedCount: added, newTotal: counts[p.id]!, price: p.price });
       if (before === 0) notifyRestockWatchers(shopId, p.id, p.name, added);
     }
     scheduleDiscordBackground(refreshStockBoard(shopId).catch(() => null));

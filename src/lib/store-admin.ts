@@ -473,6 +473,8 @@ export function deleteReview(shopId: string, reviewId: string) {
 const REVIEWABLE_STATUSES = new Set(["dispensed", "paid", "awaiting_fulfillment"]);
 
 /** 구매 1건당 후기 1개 — 아직 쓸 수 있는 후기 수 */
+export const REVIEW_REWARD_POINTS = 100;
+
 export function reviewableCount(shopId: string, userId: string, productId: string) {
   const store = s().getStore();
   const bought = store.orders.filter(
@@ -497,7 +499,18 @@ export function submitPurchaseReview(shopId: string, userId: string, productId: 
     return { ok: false as const, error: "이 상품에는 이미 후기를 남겼어요." };
   }
   const review = createReview({ shopId, userId, productId, body, approved: true });
-  return { ok: true as const, review };
+  // 후기 보상 — 구매자에게 포인트 지급
+  let rewarded = 0;
+  const { getStore, persist, pushLog } = s();
+  const st2 = getStore();
+  const u = st2.users.find((x) => x.id === userId && x.shopId === shopId);
+  if (u) {
+    u.points += REVIEW_REWARD_POINTS;
+    rewarded = REVIEW_REWARD_POINTS;
+    pushLog(u.email, "review.reward", { points: REVIEW_REWARD_POINTS, reviewId: review.id }, shopId);
+    persist(st2);
+  }
+  return { ok: true as const, review, rewarded };
 }
 
 export function createReview(input: {
@@ -536,6 +549,7 @@ export function createReview(input: {
         authorDiscordId: user?.discordId ?? null,
         productName: product?.name ?? "상품",
         body: review.body,
+        reviewId: review.id,
       }),
     ),
   );

@@ -36,5 +36,5 @@ export async function POST(request: Request) {
   const result = submitPurchaseReview(shop.id, session.user.id, order.productId, parsed.data.body);
   if (!result.ok) return badRequest(result.error);
   await persistAsync();
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, rewarded: result.rewarded ?? 0 });
 }

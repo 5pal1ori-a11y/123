@@ -16,7 +16,12 @@ import {
 } from "lucide-react";
 import type { ProductWithStock } from "@/lib/types";
 import { formatKRW } from "@/lib/utils";
+import { productDiscountPercent } from "@/lib/pricing";
+import { McAccountDetails, McCapeChips, McHypixelPanel, McSkinHero, useMcAccountInfo } from "@/components/catalog/mc-account-extras";
 import { StockBadge } from "@/components/ui/stock-badge";
+import { CapeFaceImg } from "@/components/capes/cape-face";
+import { MfaGroupPicker } from "@/components/catalog/mfa-group-picker";
+import { CAPE_BY_TYPE } from "@/lib/capes-data";
 import { WishHeartButton } from "@/components/ui/wish-heart-button";
 import { shopHeaders } from "@/lib/shop-client";
 import { shopPath, useShopBase } from "@/lib/shop-nav";
@@ -60,8 +65,11 @@ export function ProductDetailView({
   }, [shopSlug]);
 
   const soldOut = product.stockStatus === "sold_out";
+  const isMc = product.productKind === "mc_account";
+  const title = isMc && product.mcMaskedName ? product.mcMaskedName : product.name;
+  const mcInfo = useMcAccountInfo(product.id, product.mcVersion, isMc);
   const maxQty = Math.min(Math.max(product.availableCount, 1), 99);
-  const discount = Math.max(0, Math.min(99, eventDiscountPercent));
+  const discount = Math.max(0, Math.min(90, eventDiscountPercent + productDiscountPercent(product)));
   const finalPrice = discount > 0 ? Math.round(product.price * (1 - discount / 100)) : product.price;
   const total = finalPrice * quantity;
 
@@ -175,7 +183,13 @@ export function ProductDetailView({
         animate={fadeUp.animate}
         transition={vxTransition}
       >
-        {imageUrl ? (
+        {isMc && !imageUrl ? (
+          <McSkinHero productId={product.id} version={product.mcVersion} alt={title} />
+        ) : !imageUrl && product.productKind === "mc_cape" && product.capeType && CAPE_BY_TYPE[product.capeType] ? (
+          <div className="product-detail-image-placeholder" style={{ background: "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.08), transparent 65%)" }}>
+            <CapeFaceImg hash={CAPE_BY_TYPE[product.capeType].hash} width={110} alt={product.name} />
+          </div>
+        ) : imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imageUrl} alt={product.name} referrerPolicy="no-referrer" className="product-detail-image" />
         ) : (
@@ -197,7 +211,7 @@ export function ProductDetailView({
               {product.category || "상품"}
               {product.fulfillment === "manual" ? " · 수동지급" : ""}
             </p>
-            <h1 className="product-detail-title">{product.name}</h1>
+            <h1 className="product-detail-title">{title}</h1>
           </div>
           <WishHeartButton active={wishlisted} onToggle={() => void toggleWish()} />
         </div>
@@ -211,6 +225,10 @@ export function ProductDetailView({
           ) : null}
           <p className="product-detail-price">{formatKRW(finalPrice)}</p>
         </div>
+        {isMc && product.mcGroup ? <MfaGroupPicker current={product} shopSlug={shopSlug} /> : null}
+        {isMc ? <McCapeChips productId={product.id} version={product.mcVersion} info={mcInfo} /> : null}
+        {isMc ? <McAccountDetails status={product.mcStatus} info={mcInfo} /> : null}
+        {isMc ? <McHypixelPanel info={mcInfo} /> : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <StockBadge status={product.stockStatus} />

@@ -17,6 +17,7 @@ import {
   v2Update,
   type DiscordInteraction,
 } from "@/lib/discord/components";
+import { appEmoji } from "@/lib/discord/app-emojis";
 import { doesDiscordEnvAsync, isMfaShopSlug } from "@/lib/discord/does-env";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
@@ -135,9 +136,9 @@ function settingsComponents(shopSlug: string, guild: TicketGuild, notice?: strin
   }
   kids.push(
     actionRow(
-      button({ label: "주제 추가", emoji: "➕", customId: cid(shopSlug, "tk_topic_add"), disabled: guild.topics.length >= MAX_TOPICS }),
-      button({ label: "이 채널에 패널 올리기", emoji: "📨", customId: cid(shopSlug, "tk_post") }),
-      button({ label: guild.aiEnabled ? "AI 안내 끄기" : "AI 안내 켜기", emoji: "🤖", customId: cid(shopSlug, "tk_ai") }),
+      button({ label: "주제 추가", emoji: appEmoji("does_plus"), customId: cid(shopSlug, "tk_topic_add"), disabled: guild.topics.length >= MAX_TOPICS }),
+      button({ label: "이 채널에 패널 올리기", emoji: appEmoji("does_mail"), customId: cid(shopSlug, "tk_post") }),
+      button({ label: guild.aiEnabled ? "AI 안내 끄기" : "AI 안내 켜기", emoji: appEmoji("does_robot"), customId: cid(shopSlug, "tk_ai") }),
     ),
   );
   kids.push(textDisplay("-# 멘션 역할은 티켓이 열릴 때 호출되고, 티켓 채널을 보고 닫을 수 있어요. 제목·설명·배너를 바꾸려면 `/티켓패널` 을 쓰세요."));
@@ -258,7 +259,9 @@ async function postTicketPanel(
   const g = getTicketGuild(guildId) ?? guild;
 
   const kids: unknown[] = [];
-  if (g.panelBannerUrl) kids.push(mediaGallery([g.panelBannerUrl]));
+  // 배너를 따로 정하지 않았으면 기본 티켓 이미지
+  const origin = (process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://vendix.team").replace(/\/$/, "");
+  kids.push(mediaGallery([g.panelBannerUrl || `${origin}/brand/inquiry-3d.gif`]));
   kids.push(textDisplay(`## ${g.panelTitle}`), separator(true, 1), textDisplay(g.panelDescription), separator(true, 1));
   kids.push(
     actionRow(

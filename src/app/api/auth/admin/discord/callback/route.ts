@@ -10,7 +10,8 @@ import {
   verifyPanelOAuthState,
 } from "@/lib/discord/panel-oauth";
 import { shopUrl } from "@/lib/domain";
-import { findShopBySlug, getShopSettings, initStore } from "@/lib/store";
+import { createShopUserClaimTicket } from "@/lib/discord/user-oauth";
+import { findShopBySlug, getShopSettings, getUserByDiscordId, initStore } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -57,7 +58,28 @@ export async function GET(request: Request) {
     const shop = findShopBySlug(returnShop);
     if (!shop) return fail("shop");
     const ownerId = getShopSettings(shop.id).discordOwnerId;
-    if (!ownerId || ownerId !== session.discordUserId) return fail("forbidden", "상점 소유자 Discord 계정만 로그인할 수 있어요.");
+    if (!ownerId || ownerId !== session.discordUserId) {
+      // 소유자가 아니어도, 이 디스코드로 가입한 부관리자(스태프) 회원이면 회원 로그인으로 처리해서 관리자 화면으로 보낸다
+      const staff = getUserByDiscordId(shop.id, session.discordUserId);
+      if (staff?.isSubAdmin && !staff.banned) {
+        const ticket = createShopUserClaimTicket({
+          shopId: shop.id,
+          shopSlug: shop.slug,
+          userId: staff.id,
+          discordId: session.discordUserId,
+          discordUsername: staff.discordUsername || session.discordUsername || "",
+          avatar: staff.avatar,
+        });
+        return NextResponse.redirect(
+          `${shopUrl(shop.slug, "/api/auth/user/discord/claim")}?t=${encodeURIComponent(ticket)}&next=${encodeURIComponent("/admin")}`,
+          303,
+        );
+      }
+      return fail(
+        "forbidden",
+        "소유자 또는 스태프로 등록된 Discord 계정만 로그인할 수 있어요. 먼저 상점에 이 Discord 로 로그인한 뒤 부관리자로 지정돼야 해요.",
+      );
+    }
     const ticket = createShopAdminClaimTicket({
       shopId: shop.id,
       shopSlug: shop.slug,

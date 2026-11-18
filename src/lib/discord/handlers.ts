@@ -1,7 +1,9 @@
 import { formatKRW } from "@/lib/utils";
+import { escapeMd } from "@/lib/discord/components";
+import { plainEmoji } from "@/lib/discord/app-emojis";
 import { getShopBank } from "@/lib/bank";
 import { shopUrl } from "@/lib/domain";
-import { postChannelMessage } from "@/lib/discord/rest";
+import { editChannelMessage, postChannelMessage } from "@/lib/discord/rest";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
 import {
   actionRow,
@@ -29,6 +31,7 @@ import {
   errorPanel,
 } from "@/lib/discord/components";
 import { sendDiscordDm } from "@/lib/discord/dm";
+import type { DiscordInteraction } from "@/lib/discord/components";
 import { listReviewsAdmin, submitPurchaseReview } from "@/lib/store-admin";
 import {
   approvePointCharge,
@@ -43,16 +46,15 @@ import {
   listProducts,
   listCategories,
   listTopRandomBoxDraws,
-  getProductById,
+  getReferralSummary,
   persistAsync,
-  quoteUnitPrice,
   RANDOM_BOX_MAX,
   RANDOM_BOX_TABLE,
   setUserBankDepositorName,
   updateProduct,
   updateShopSettings,
 } from "@/lib/store";
-import { purchaseWithPointsSmart, refreshMfaStockIfStale } from "@/lib/mfa";
+import { refreshMfaStockIfStale } from "@/lib/mfa";
 import { openRandomBoxOnce } from "@/lib/random-box-claim";
 import { RANDOM_BOX_IDLE_GIF_PATH, randomBoxGifPath } from "@/lib/random-box-gif";
 import { redeemWorldCoupon } from "@/lib/world/server";
@@ -382,14 +384,63 @@ function randomBoxOddsLine() {
     .join(" · ");
 }
 
-export function handleRandomBoxCommand(shopSlug: string, roles: string[], permissions?: string) {
+export async function handleRandomBoxCommand(
+  shopSlug: string,
+  roles: string[],
+  permissions?: string,
+  channelId?: string,
+) {
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점을 찾을 수 없어요.");
   if (!isDiscordAdmin(getShopSettings(shop.id), roles, permissions)) {
-    return errorPanel("랜덤박스 패널은 관리자만 올릴 수 있어요. 채널에 있는 **박스 열기** 버튼을 눌러 주세요.", "권한 없음");
+    return errorPanel("랜덤박스 패널은 관리자만 올릴 수 있어요. 채널에 있는 **다이아 캐기** 버튼을 눌러 주세요.", "권한 없음");
   }
+  if (!channelId) return errorPanel("채널에서 다시 써 주세요.");
+  // 채널에 일반 메시지로 올리고 위치를 기억한다 (10분마다 TOP 3 갱신)
+  const posted = await postChannelMessage(
+    channelId,
+    { flags: MessageFlags.IS_COMPONENTS_V2, components: randomBoxPanelComponents(shop.id, shop.slug), allowed_mentions: { parse: [] } },
+    shop.id,
+  );
+  const id = posted.ok ? (posted.json as { id?: string } | null)?.id : null;
+  if (!id) return errorPanel("패널을 올리지 못했어요. 봇이 이 채널에 글을 쓸 수 있는지 확인해 주세요.");
+  rememberRandomBoxPanel(shop.id, channelId, String(id));
+  await persistAsync();
+  return plainEphemeral("다이아 캐기 패널을 올렸어요. TOP 3 는 10분마다 갱신돼요.");
+}
 
-  const top = listTopRandomBoxDraws(shop.id, 7, 3);
+function rememberRandomBoxPanel(shopId: string, channelId: string, messageId: string) {
+  const list = getShopSettings(shopId).randomBoxPanels ?? [];
+  if (list.some((p) => p.messageId === messageId)) return false;
+  updateShopSettings(shopId, { randomBoxPanels: [...list, { channelId, messageId }].slice(-10) });
+  return true;
+}
+
+/** 10분 크론: 올라가 있는 다이아 캐기 패널의 TOP 3 를 고쳐 쓴다 (지워진 패널은 목록에서 뺀다) */
+export async function refreshRandomBoxPanels(shopId: string) {
+  const shop = (await import("@/lib/store")).getShopById(shopId);
+  const panels = getShopSettings(shopId).randomBoxPanels ?? [];
+  if (!shop || !panels.length) return { panels: 0 };
+  const payload = {
+    flags: MessageFlags.IS_COMPONENTS_V2,
+    components: randomBoxPanelComponents(shop.id, shop.slug),
+    allowed_mentions: { parse: [] as string[] },
+  };
+  const alive: typeof panels = [];
+  for (const p of panels) {
+    const r = await editChannelMessage(p.channelId, p.messageId, payload, shopId).catch(() => null);
+    if (r?.ok || (r && r.status !== 404)) alive.push(p);
+  }
+  if (alive.length !== panels.length) {
+    updateShopSettings(shopId, { randomBoxPanels: alive });
+    await persistAsync();
+  }
+  return { panels: alive.length };
+}
+
+/** 랜덤박스 패널 본문 — 처음 올릴 때와, 누가 열 때마다 TOP 3 를 고쳐 쓸 때 같이 쓴다 */
+function randomBoxPanelComponents(shopId: string, shopSlug: string) {
+  const top = listTopRandomBoxDraws(shopId, 7, 3);
   const topLines = top.length
     ? top
         .map((d, i) => {
@@ -398,28 +449,153 @@ export function handleRandomBoxCommand(shopSlug: string, roles: string[], permis
           return `${i + 1}위 ${who} **${formatKRW(d.amount)}** · <t:${when}:R>`;
         })
         .join("\n")
-    : "아직 당첨 기록이 없어요. 첫 번째 주인공이 되어 보세요!";
+    : "아직 기록이 없어요";
 
-  const panel = v2Public([
+  return [
       container([
-        textDisplay("## 랜덤박스"),
         mediaGallery([`${appOrigin()}${RANDOM_BOX_IDLE_GIF_PATH}`]),
+        textDisplay(`## 다이아 캐기\n하루 한 번 · 최대 **${RANDOM_BOX_MAX.toLocaleString("ko-KR")}P**`),
+        separator(true, 1),
+        textDisplay(`### 이번 주 TOP 3\n${topLines}`),
+        actionRow(button({ customId: cid(shopSlug, "rbox_open"), label: "다이아 캐기" })),
+        textDisplay(`-# 확률 ${randomBoxOddsLine()} · 계정 연동 필요 · 10분마다 갱신`),
+      ]),
+    ];
+}
+
+/** 박스를 연 뒤 그 패널 메시지의 TOP 3 를 최신으로 고친다 (실패해도 무시) */
+function refreshRandomBoxPanel(shopId: string, shopSlug: string, channelId?: string, messageId?: string) {
+  if (!channelId || !messageId) return;
+  // 예전에 올린 패널도 누가 한 번 누르면 10분 갱신 목록에 들어간다
+  if (rememberRandomBoxPanel(shopId, channelId, messageId)) scheduleDiscordBackground(persistAsync());
+  scheduleDiscordBackground(
+    editChannelMessage(
+      channelId,
+      messageId,
+      {
+        flags: MessageFlags.IS_COMPONENTS_V2,
+        components: randomBoxPanelComponents(shopId, shopSlug),
+        allowed_mentions: { parse: [] },
+      },
+      shopId,
+    ).catch((err) => console.error("[rbox] panel refresh failed", err)),
+  );
+}
+
+/** /계정등록 닉네임 가격 [접두사] [카테고리] — 관리자 전용. 시간이 걸려서 먼저 '처리 중' 으로 응답하고 결과를 고쳐 쓴다 */
+export function handleAccountRegisterCommand(
+  shopSlug: string,
+  interaction: DiscordInteraction,
+  roles: string[],
+  permissions: string | undefined,
+) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return errorPanel("상점을 찾을 수 없어요.");
+  if (!isDiscordAdmin(getShopSettings(shop.id), roles, permissions)) return errorPanel("관리자만 쓸 수 있어요.", "권한 없음");
+  const opt = (name: string) => interaction.data?.options?.find((o) => o.name === name)?.value;
+  const nickname = String(opt("닉네임") ?? "").trim();
+  const price = Math.floor(Number(opt("가격")));
+  const prefix = opt("접두사") ? String(opt("접두사")) : undefined;
+  const categoryId = opt("카테고리") ? String(opt("카테고리")) : undefined;
+  const guildId = interaction.guild_id;
+  if (!guildId) return errorPanel("서버 안에서 써 주세요.");
+  if (!/^[A-Za-z0-9_]{3,16}$/.test(nickname)) return errorPanel("닉네임은 영문·숫자·_ 3~16자예요.");
+  if (!Number.isFinite(price) || price < 0) return errorPanel("가격을 확인해 주세요.");
+
+  scheduleDiscordBackground(
+    (async () => {
+      const { createListing } = await import("@/lib/discord/account-listing");
+      const r = await createListing({ shopId: shop.id, guildId, nickname, price, prefix, categoryId }).catch(
+        (err) => ({ ok: false as const, error: `오류: ${String(err).slice(0, 120)}` }),
+      );
+      const { editInteractionOriginal } = await import("@/lib/discord/rest");
+      await editInteractionOriginal(interaction.application_id, interaction.token, {
+        content: r.ok ? `등록했어요 → <#${r.channelId}>` : r.error,
+        allowed_mentions: { parse: [] },
+      });
+    })(),
+  );
+  return { type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE, data: { flags: MessageFlags.EPHEMERAL } };
+}
+
+/** 계정 글의 게임 셀렉트 — 고른 게임의 하이픽셀 스탯으로 패널을 바꾼다 */
+export async function handleAccountTab(shopSlug: string, listingId: string, tab: string | undefined) {
+  const { loadListing, fetchHypixelDetail, listingPanel, LISTING_TABS } = await import("@/lib/discord/account-listing");
+  const listing = await loadListing(listingId);
+  if (!listing) return errorPanel("이 판매 글 정보를 찾지 못했어요.");
+  const t = LISTING_TABS.find((x) => x.id === tab)?.id ?? "bedwars";
+  const hy = await fetchHypixelDetail(listing.uuid);
+  return { type: InteractionResponseType.UPDATE_MESSAGE, data: listingPanel(shopSlug, listing, hy, t) };
+}
+
+/** /서버상황 — 관리자 온라인 여부 패널을 이 채널에 올린다 (관리자 전용) */
+export async function handleServerStatusCommand(
+  shopSlug: string,
+  roles: string[],
+  permissions: string | undefined,
+  channelId: string | undefined,
+  guildId: string | undefined,
+  targetUserId?: string | null,
+) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return errorPanel("상점을 찾을 수 없어요.");
+  if (!isDiscordAdmin(getShopSettings(shop.id), roles, permissions)) {
+    return errorPanel("이 패널은 관리자만 올릴 수 있어요.", "권한 없음");
+  }
+  if (!channelId) return errorPanel("채널에서 다시 써 주세요.");
+  const { postServerStatusPanel, pollAndRefresh } = await import("@/lib/discord/server-status");
+  const posted = await postServerStatusPanel(shop.id, channelId, targetUserId);
+  if (!posted.ok) return errorPanel("패널을 올리지 못했어요. 봇이 이 채널에 글을 쓸 수 있는지 확인해 주세요.");
+  if (guildId) scheduleDiscordBackground(pollAndRefresh(shop.id, guildId).catch(() => null));
+  return plainEphemeral("관리자 상황 패널을 올렸어요. 3분마다 자동으로 갱신돼요.");
+}
+
+/** /추천인 — 누구나 쓸 수 있고, 채널에 모두가 볼 수 있는 안내 패널(이미지 포함)이 올라간다. 코드는 버튼을 누른 본인에게만 보인다 */
+export function handleReferralCommand(shopSlug: string) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return errorPanel("상점을 찾을 수 없어요.");
+  const panel = v2Public([
+    container(
+      [
+        mediaGallery([`${appOrigin()}/brand/referral-3d.gif`]),
+        textDisplay("### 친구를 초대하고 보상 받기"),
+        textDisplay("친구가 내 코드로 가입하면, 그 친구가 결제할 때마다 **결제액의 일부**가 내 포인트로 들어와요."),
+        actionRow(button({ customId: cid(shop.slug, "ref_mine"), label: "내 추천인 코드 보기" })),
+      ],
+      0xa855f7,
+    ),
+  ]);
+  return { ...panel, data: { ...panel.data, allowed_mentions: { parse: [] } } };
+}
+
+/** 내 추천인 코드 — 버튼을 누른 본인에게만 보인다 */
+export function handleReferralMine(shopSlug: string, discordId: string) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return errorPanel("상점을 찾을 수 없어요.");
+  const linked = requireLinkedUser(shop, discordId);
+  if ("error" in linked) return linked.error;
+  const summary = getReferralSummary(shop.id, linked.user.id);
+  if (!summary?.code) return errorPanel("추천인 코드를 만들지 못했어요. 잠시 후 다시 눌러 주세요.");
+  scheduleDiscordBackground(persistAsync());
+  const link = shopUrl(shop.slug, `/dashboard?tab=account&ref=${encodeURIComponent(summary.code)}`);
+  return v2Ephemeral([
+    container(
+      [
+        mediaGallery([`${appOrigin()}/brand/referral-3d.gif`]),
+        textDisplay("### 내 추천인 코드"),
+        textDisplay(`# \`${summary.code}\``),
+        separator(true, 1),
         textDisplay(
           [
-            `하루에 한번 열 수 있어요. 최대 **${RANDOM_BOX_MAX.toLocaleString("ko-KR")}포인트**가 드랍되니 행운을 빌어요!`,
-            "",
-            "연속출석 **7일, 30일, 90일**에는 특별한 선물이 기다리고 있어요!",
-            "",
-            `-# 확률 ${randomBoxOddsLine()}`,
-            "-# 상점 계정과 연동한 회원만 열 수 있어요.",
+            `친구 결제액의 **${summary.ratePercent}%**가 포인트로 들어와요`,
+            `-# 초대 ${summary.invitedCount.toLocaleString("ko-KR")}명 · 받은 보상 ${formatKRW(summary.earned)}`,
           ].join("\n"),
         ),
-        separator(true, 1),
-        textDisplay(`### 최근 7일 최고 당첨 TOP 3\n${topLines}`),
-        actionRow(button({ customId: cid(shop.slug, "rbox_open"), label: "박스 열기" })),
-      ]),
-    ]);
-  return { ...panel, data: { ...panel.data, allowed_mentions: { parse: [] } } };
+        actionRow(button({ label: "초대 링크 열기", url: link, style: ButtonStyle.LINK })),
+      ],
+      0xa855f7,
+    ),
+  ]);
 }
 
 function randomBoxResultKids(discordId: string, amount: number) {
@@ -435,7 +611,12 @@ function randomBoxResultKids(discordId: string, amount: number) {
   ];
 }
 
-export async function handleRandomBoxOpen(shopSlug: string, discordId: string, channelId?: string) {
+export async function handleRandomBoxOpen(
+  shopSlug: string,
+  discordId: string,
+  channelId?: string,
+  panelMessageId?: string,
+) {
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점을 찾을 수 없어요.");
   const linked = requireLinkedUser(shop, discordId);
@@ -447,32 +628,15 @@ export async function handleRandomBoxOpen(shopSlug: string, discordId: string, c
   if (result.already) {
     return v2Ephemeral([
       container([
-        textDisplay(`## 오늘은 이미 열었어요\n오늘 결과: **${result.amount > 0 ? formatKRW(result.amount) : "꽝"}**`),
-        textDisplay("-# 내일 0시(한국 시간)에 다시 열 수 있어요"),
+        textDisplay(`## 오늘은 이미 캤어요\n오늘 결과: **${result.amount > 0 ? formatKRW(result.amount) : "꽝"}**`),
+        textDisplay("-# 내일 0시(한국 시간)에 다시 캘 수 있어요"),
       ]),
     ]);
   }
 
+  refreshRandomBoxPanel(shop.id, shop.slug, channelId, panelMessageId);
   const balanceLine = `-# 현재 잔액 ${formatKRW(result.balance)}`;
-  if (channelId) {
-    const posted = await postChannelMessage(
-      channelId,
-      {
-        flags: MessageFlags.IS_COMPONENTS_V2,
-        components: [container(randomBoxResultKids(discordId, result.amount))],
-        allowed_mentions: { parse: [] },
-      },
-      shop.id,
-    ).catch(() => null);
-    if (posted?.ok) {
-      return v2Ephemeral([
-        container([
-          textDisplay(result.amount > 0 ? `**${formatKRW(result.amount)}** 이 잔액에 충전됐어요.` : "이번엔 꽝이에요."),
-          textDisplay(balanceLine),
-        ]),
-      ]);
-    }
-  }
+  // 결과는 연 사람에게만 보인다 (채널에 공개로 올리지 않음). 기록은 랜덤박스 로그 채널에 따로 남는다
   return v2Ephemeral([container([...randomBoxResultKids(discordId, result.amount), textDisplay(balanceLine)])]);
 }
 
@@ -561,7 +725,7 @@ async function handleCatalogCategory(shopSlug: string, category: string, mode: "
     const productText = products
       .map(
         (p) =>
-          `**${p.name}**\n가격: ${p.price.toLocaleString()}원 | 재고: ${p.availableCount}개`,
+          `**${escapeMd(p.name)}**\n가격: ${p.price.toLocaleString()}원 | 재고: ${p.availableCount}개`,
       )
       .join("\n\n")
       .slice(0, 3900);
@@ -674,163 +838,46 @@ export function handleInfo(shopSlug: string, discordId: string) {
   });
 }
 
+/** 구매는 웹에서만 — 디스코드에서는 상품 정보와 웹 구매 링크만 보여준다 */
+function webOnlyBuyPanel(shopSlug: string, product: { name: string; slug: string; price: number; availableCount: number } | null) {
+  const href = product ? shopUrl(shopSlug, `/product/${product.slug}`) : shopUrl(shopSlug, "/dashboard?tab=products");
+  const lines = product
+    ? [
+        `### ${product.name}`,
+        `가격 **${product.price.toLocaleString("ko-KR")}원** · ${product.availableCount > 0 ? `재고 ${product.availableCount.toLocaleString("ko-KR")}개` : "품절"}`,
+      ]
+    : [];
+  return v2Ephemeral([
+    container([
+      textDisplay("## 구매는 웹사이트에서 할 수 있어요"),
+      separator(true, 1),
+      ...(lines.length ? [textDisplay(lines.join("\n"))] : []),
+      textDisplay("-# 결제·지급 안전을 위해 디스코드에서는 구매를 받지 않아요. 아래 버튼으로 바로 이동해 주세요."),
+      actionRow(button({ label: "웹에서 구매하기", url: href, style: ButtonStyle.LINK })),
+    ]),
+  ]);
+}
+
 export function handleBuySelect(shopSlug: string, discordId: string, productId: string) {
+  void discordId;
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점 없음");
-  const linked = requireLinkedUser(shop, discordId);
-  if ("error" in linked) return linked.error;
-  const product = listProducts(shop.id).find((p) => p.id === productId);
-  if (!product) return errorPanel("제품을 찾을 수 없습니다.");
-  if (product.availableCount <= 0) {
-    return errorPanel("재고가 없습니다.", "구매 불가");
-  }
-
-  return showModal({
-    customId: cid(shopSlug, "buy_modal", productId),
-    title: `${product.name} 구매`.slice(0, 45),
-    inputs: [
-      textInput({
-        customId: "quantity",
-        label: "구매할 수량",
-        placeholder: `가격: ${product.price.toLocaleString()}원 | 재고: ${product.availableCount}개 | 보유금액: ${linked.user.points.toLocaleString()}원`,
-        required: true,
-        minLength: 1,
-        maxLength: 5,
-        value: "1",
-      }),
-    ],
-  });
+  const product = listProducts(shop.id).find((p) => p.id === productId) ?? null;
+  return webOnlyBuyPanel(shopSlug, product);
 }
 
 export async function handleBuyConfirm(
   shopSlug: string,
   discordId: string,
   productId: string,
-  quantity = 1,
+  _quantity = 1,
 ) {
+  void discordId;
+  void _quantity;
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점 없음");
-  const linked = requireLinkedUser(shop, discordId);
-  if ("error" in linked) return linked.error;
-
-  const product = listProducts(shop.id).find((p) => p.id === productId);
-  if (!product) return errorPanel("제품을 찾을 수 없습니다.");
-
-  const qty = Math.floor(quantity);
-  if (!Number.isFinite(qty) || qty < 1) {
-    return errorPanel("올바른 수량(1 이상의 숫자)을 입력해주세요.");
-  }
-  if (qty > 20) return errorPanel("한 번에 20개까지 구매할 수 있어요.");
-
-  if (!product.mfaProduct && product.availableCount < qty) {
-    return fieldEmbed({
-      title: "재고 부족",
-      fields: [
-        { name: "요청 수량", value: `${qty}개`, fence: false },
-        { name: "남은 재고", value: `${product.availableCount}개`, fence: false },
-      ],
-    });
-  }
-
-  const need = (quoteUnitPrice(shop.id, linked.user.id, productId) ?? product.price) * qty;
-  if (linked.user.points < need) {
-    return fieldEmbed({
-      title: "잔액 부족",
-      fields: [
-        { name: "필요 금액", value: `${need.toLocaleString()}원`, fence: false },
-        { name: "보유 금액", value: `${linked.user.points.toLocaleString()}원`, fence: false },
-        {
-          name: "부족 금액",
-          value: `${(need - linked.user.points).toLocaleString()}원`,
-          fence: false,
-        },
-      ],
-    });
-  }
-
-  const result = await purchaseWithPointsSmart(shop.id, linked.user.id, productId, {
-    quantity: qty,
-    suppressDiscordNotify: true,
-    buyerDiscordId: linked.user.discordId || discordId,
-  });
-  if (!result.ok) {
-    if (result.error === "포인트 부족") {
-      return fieldEmbed({
-        title: "잔액 부족",
-        fields: [
-          { name: "필요 금액", value: `${need.toLocaleString()}원`, fence: false },
-          { name: "보유 금액", value: `${linked.user.points.toLocaleString()}원`, fence: false },
-        ],
-      });
-    }
-    if (result.error === "품절" || result.error.startsWith("재고")) {
-      return errorPanel(result.error, "구매 불가");
-    }
-    return errorPanel(result.error);
-  }
-  await persistAsync();
-
-  const refreshed = getUserById(linked.user.id);
-  const totalAmount = result.orders.reduce((s, o) => s + o.amount, 0);
-  const codes = result.orders.map((o) => o.dispensedCode).filter(Boolean).join("\n");
-  const productName = product.name;
-  const mfaLinks = result.links ?? [];
-  const remainingStock = product.mfaProduct
-    ? Math.max(0, getProductById(productId)?.mfaStock ?? 0)
-    : Math.max(0, product.availableCount - qty);
-
-  let dmSent = false;
-  if (linked.user.discordId || discordId) {
-    const dm = await sendDiscordDm(
-      linked.user.discordId || discordId,
-      {
-        flags: MessageFlags.IS_COMPONENTS_V2,
-        components: [
-          container([
-            textDisplay("## 구매 완료"),
-            separator(true, 1),
-            textDisplay(`**제품**\n${productName}`),
-            textDisplay(`**수량**\n${qty}개`),
-            textDisplay(`**총 가격**\n${totalAmount.toLocaleString()}원`),
-            separator(true, 1),
-            textDisplay(`**상품 정보**\n\`\`\`\n${(codes || "-").slice(0, 900)}\n\`\`\``),
-            ...(mfaLinks.length
-              ? [textDisplay("-# 아래 버튼을 눌러 16자리 코드를 입력하면 계정 정보를 확인할 수 있어요.")]
-              : []),
-            separator(true, 2),
-            actionRow(
-              ...mfaLinks.slice(0, 4).map((l) => button({ label: l.label, url: l.url, style: ButtonStyle.LINK })),
-              button({
-                customId: cid(shopSlug, "rev_write", productId),
-                label: "후기 작성",
-                style: ButtonStyle.SECONDARY,
-              }),
-            ),
-          ]),
-        ],
-      },
-      shop.id,
-    );
-    dmSent = dm.ok;
-  }
-
-  return fieldEmbed({
-    title: "구매 완료",
-    fields: [
-      { name: "제품", value: productName, fence: false },
-      { name: "수량", value: `${qty}개`, fence: false },
-      { name: "총 가격", value: `${totalAmount.toLocaleString()}원`, fence: false },
-      { name: "남은 잔액", value: `${(refreshed?.points ?? 0).toLocaleString()}원`, fence: false },
-      {
-        name: "상품 정보",
-        value: dmSent
-          ? "DM(개인 메시지)으로 전송되었습니다. 후기도 같이 남겨주세요!"
-          : `\`\`\`\n${(codes || "-").slice(0, 900)}\n\`\`\``,
-        fence: false,
-      },
-      { name: "남은 재고", value: `${remainingStock}개`, fence: false },
-    ],
-  });
+  // 예전에 띄운 수량 모달이 남아 있어도 디스코드에서는 구매하지 않는다
+  return webOnlyBuyPanel(shopSlug, listProducts(shop.id).find((p) => p.id === productId) ?? null);
 }
 
 export function handleCouponModal(shopSlug: string) {
@@ -859,7 +906,7 @@ export async function handleCouponSubmit(shopSlug: string, discordId: string, co
   if (!result.ok) return plainEphemeral(`쿠폰을 쓸 수 없어요 · ${result.error}`);
   await persistAsync();
   return plainEphemeral(
-    `🎟️ 쿠폰 사용 완료! 자판기 잔액 **${formatKRW(result.amount)}** 충전\n-# 현재 잔액 ${formatKRW(result.balance)}`,
+    `${plainEmoji("does_ticket")} 쿠폰 사용 완료! 자판기 잔액 **${formatKRW(result.amount)}** 충전\n-# 현재 잔액 ${formatKRW(result.balance)}`,
   );
 }
 
@@ -1272,7 +1319,7 @@ export function handleSettingsPanel(shopSlug: string, roles: string[], permissio
         }),
         button({
           customId: cid(shopSlug, "set_bbox"),
-          label: "랜덤박스",
+          label: "다이아 캐기",
           style: ButtonStyle.PRIMARY,
         }),
       ),
@@ -1357,7 +1404,7 @@ export async function handleSetLogChannel(
         : kind === "rlog"
           ? "후기"
           : kind === "bbox"
-            ? "랜덤박스"
+            ? "다이아 캐기"
             : "입고";
   return plainEphemeral(`${label} 로그 채널을 <#${channelId}> 로 설정했어요.`);
 }
@@ -1459,6 +1506,7 @@ export async function handleStockCommand(
   if (!shop) return plainEphemeral("상점 없음");
   await refreshMfaStockIfStale(shop.id);
   const { buildStockPanel, refreshStockBoard } = await import("@/lib/discord/stock-board");
+  await (await import("@/lib/discord/app-emojis")).ensureAppEmojis(shop.id);
   if (!channelId) return v2Ephemeral(buildStockPanel(shop.id, "view").components);
 
   const settings = getShopSettings(shop.id);
@@ -1486,6 +1534,7 @@ export async function handleStockView(shopSlug: string, update: boolean) {
   if (!shop) return plainEphemeral("상점 없음");
   await refreshMfaStockIfStale(shop.id);
   const { buildStockPanel } = await import("@/lib/discord/stock-board");
+  await (await import("@/lib/discord/app-emojis")).ensureAppEmojis(shop.id);
   const { components } = buildStockPanel(shop.id, "view");
   return update ? v2Update(components) : v2Ephemeral(components);
 }

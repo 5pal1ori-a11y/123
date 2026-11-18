@@ -36,6 +36,7 @@ const LOG_KEYS = [
   "discordRestockLogChannelId",
   "discordRandomBoxLogChannelId",
   "discordStockChannelId",
+  "discordLeaderboardChannelId",
 ] as const;
 type LogKey = (typeof LOG_KEYS)[number];
 
@@ -136,8 +137,17 @@ export async function POST(request: Request) {
     const stockChanged =
       patch.discordStockChannelId !== undefined && patch.discordStockChannelId !== settings.discordStockChannelId;
     if (stockChanged) patch.discordStockMessageId = null;
+    const rankChanged =
+      patch.discordLeaderboardChannelId !== undefined &&
+      patch.discordLeaderboardChannelId !== settings.discordLeaderboardChannelId;
+    if (rankChanged) patch.discordLeaderboardMessageId = null;
     updateShopSettings(shop.id, patch);
     await persistAsync();
+    if (rankChanged && patch.discordLeaderboardChannelId) {
+      void import("@/lib/discord/leaderboard-board").then(({ refreshLeaderboardBoard }) =>
+        refreshLeaderboardBoard(shop.id).catch(() => null),
+      );
+    }
     if (stockChanged && patch.discordStockChannelId) {
       void import("@/lib/discord/stock-board").then(({ refreshStockBoard }) =>
         refreshStockBoard(shop.id).catch(() => null),

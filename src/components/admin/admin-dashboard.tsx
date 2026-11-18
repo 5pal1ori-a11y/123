@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  Crown,
   Bell,
   Bot,
   Bug,
@@ -22,6 +23,9 @@ import {
   MessageSquare,
   MessagesSquare,
   Package,
+  Gem,
+  Shirt,
+  Dices,
   PanelLeftClose,
   RefreshCw,
   ScrollText,
@@ -59,6 +63,14 @@ import { AdminBannersPanel } from "./admin-banners-panel";
 import { AdminNotificationsPanel, AdminStaffPanel } from "./admin-staff-panel";
 import { AdminTiersPanel } from "./admin-tiers-panel";
 import { AdminUsersPanel } from "./admin-users-panel";
+import { AdminMcProductsPanel } from "./admin-mc-products-panel";
+import { AdminResalePanel } from "./admin-resale-panel";
+import { AdminApiKeysCard } from "./admin-api-keys-card";
+import { AdminChecklockCard } from "./admin-checklock-card";
+import { AdminBackupCard } from "./admin-backup-card";
+import { AdminPremiumPanel } from "./admin-premium-panel";
+import { AdminCapeProductsPanel } from "./admin-cape-products-panel";
+import { AdminGachaPanel } from "./admin-gacha-panel";
 import { AdminNoticesPanel } from "./admin-notices-panel";
 import { AdminReviewsPanel } from "./admin-reviews-panel";
 import { AdminBugsPanel } from "./admin-bugs-panel";
@@ -107,6 +119,10 @@ type Tab =
   | "billing"
   | "bot"
   | "products"
+  | "mcProducts"
+  | "premium"
+  | "capeProducts"
+  | "gacha"
   | "events"
   | "world"
   | "chat"
@@ -200,6 +216,10 @@ const NAV: { id: Tab; label: string; icon: typeof Store }[] = [
   { id: "main", label: "개요", icon: LayoutDashboard },
   { id: "orders", label: "주문", icon: ClipboardList },
   { id: "products", label: "상품", icon: Package },
+  { id: "mcProducts", label: "마크 상품", icon: Gem },
+  { id: "capeProducts", label: "망토 상품", icon: Shirt },
+  { id: "premium", label: "프리미엄 플랜", icon: Crown },
+  { id: "gacha", label: "랜덤뽑기", icon: Dices },
   { id: "billing", label: "결제 · 충전", icon: Wallet },
   { id: "users", label: "고객", icon: Users },
   { id: "inquiries", label: "문의", icon: MessageSquare },
@@ -221,7 +241,7 @@ const NAV: { id: Tab; label: string; icon: typeof Store }[] = [
 ];
 
 const NAV_GROUPS: { label: string; ids: Tab[] }[] = [
-  { label: "판매", ids: ["main", "orders", "products", "billing"] },
+  { label: "판매", ids: ["main", "orders", "products", "mcProducts", "capeProducts", "premium", "gacha", "billing"] },
   { label: "고객", ids: ["users", "inquiries", "tiers", "reviews"] },
   { label: "성장", ids: ["coupons", "events", "world", "chat"] },
   { label: "마케팅", ids: ["banners"] },
@@ -239,6 +259,9 @@ const NAV_BY_ID = Object.fromEntries(NAV.map((item) => [item.id, item])) as Reco
 const TAB_PERM: Partial<Record<Tab, StaffPermission | "owner">> = {
   orders: "orders",
   products: "products",
+  mcProducts: "products",
+  capeProducts: "products",
+  gacha: "billing",
   billing: "billing",
   users: "users",
   inquiries: "inquiries",
@@ -260,13 +283,20 @@ const TAB_PERM: Partial<Record<Tab, StaffPermission | "owner">> = {
 };
 
 async function postAction(shopSlug: string, body: Record<string, unknown>) {
-  const res = await fetch("/api/admin", {
-    method: "POST",
-    credentials: "include",
-    headers: shopHeaders(shopSlug),
-    body: JSON.stringify(body),
-  });
-  return res;
+  // 응답이 오지 않으면 '저장 중' 에서 멈추지 않도록 25초 뒤 끊는다
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 25_000);
+  try {
+    return await fetch("/api/admin", {
+      method: "POST",
+      credentials: "include",
+      headers: shopHeaders(shopSlug),
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
@@ -456,7 +486,19 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
 
   async function runAction(body: Record<string, unknown>, successMsg: string) {
     setSaving(true);
-    const res = await postAction(shopSlug, body);
+    let res: Response;
+    try {
+      res = await postAction(shopSlug, body);
+    } catch (err) {
+      setSaving(false);
+      pushToast(
+        err instanceof DOMException && err.name === "AbortError"
+          ? "서버 응답이 없어요. 잠시 후 다시 저장해 주세요."
+          : "네트워크 오류로 저장하지 못했어요. 다시 시도해 주세요.",
+        "error",
+      );
+      return false;
+    }
     let failMsg = "실패";
     if (!res.ok) {
       try {
@@ -935,8 +977,15 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
           <header className="admin-topbar sticky top-0 z-10 flex h-12 shrink-0 items-center gap-3 border-b px-4 sm:px-5">
             <button
               type="button"
-              className="admin-icon-btn lg:hidden"
-              onClick={() => setNavOpen(true)}
+              className="admin-icon-btn"
+              onClick={() => {
+                // PC 에서는 사이드바를 접고 펴고, 모바일에서는 메뉴를 연다
+                if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+                  setCollapsed((v) => !v);
+                } else {
+                  setNavOpen(true);
+                }
+              }}
               aria-label="메뉴 열기"
             >
               <Menu className="size-5" />
@@ -1204,6 +1253,37 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
             />
           )}
 
+          {tab === "mcProducts" && <AdminChecklockCard shopSlug={shopSlug} onMessage={pushToast} />}
+          {tab === "mcProducts" && <AdminApiKeysCard shopSlug={shopSlug} onMessage={pushToast} />}
+
+          {tab === "mcProducts" && <AdminResalePanel shopSlug={shopSlug} onReload={load} onMessage={pushToast} />}
+
+          {tab === "mcProducts" && (
+            <AdminMcProductsPanel
+              shopSlug={shopSlug}
+              products={data.products}
+              categories={data.categories}
+              onReload={load}
+              onMessage={pushToast}
+              onDeleteProduct={(productId, name) =>
+                void removeItem("상품 삭제", `${name}을(를) 삭제할까요?`, { action: "product-delete", productId }, "상품 삭제됨")
+              }
+            />
+          )}
+
+          {tab === "premium" && <AdminPremiumPanel shopSlug={shopSlug} onMessage={pushToast} />}
+
+          {tab === "gacha" && <AdminGachaPanel shopSlug={shopSlug} onMessage={pushToast} />}
+
+          {tab === "capeProducts" && (
+            <AdminCapeProductsPanel
+              shopSlug={shopSlug}
+              products={data.products}
+              onReload={load}
+              onMessage={pushToast}
+            />
+          )}
+
           {tab === "events" && (
             <AdminEventsPanel
               shopSlug={shopSlug}
@@ -1294,6 +1374,7 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
             <AdminStaffPanel users={data.users} onOpenUsers={() => setTab("users")} />
           )}
 
+          {tab === "logs" && <AdminBackupCard shopSlug={shopSlug} onMessage={pushToast} />}
           {tab === "logs" && <AdminLogsPanel shopSlug={shopSlug} />}
 
           {tab === "world" && <AdminWorldPanel shopSlug={shopSlug} onMessage={pushToast} />}
@@ -1321,6 +1402,7 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
 
           {tab === "users" && (
             <AdminUsersPanel
+              shopSlug={shopSlug}
               users={data.users}
               tiers={data.tiers}
               subAdminCount={subAdminCount}

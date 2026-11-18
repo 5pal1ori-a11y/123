@@ -3,16 +3,18 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Copy, Loader2, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Check, Copy, Loader2, MessageSquarePlus, ShoppingBag } from "lucide-react";
 import type { ProductWithStock } from "@/lib/types";
 import { formatKRW } from "@/lib/utils";
+import { productDiscountPercent } from "@/lib/pricing";
 import { shopHeaders } from "@/lib/shop-client";
 import { shopPath, useShopBase } from "@/lib/shop-nav";
 import { useShopUser } from "@/components/shop/user-context";
 import { UserAuthPanel } from "@/components/shop/user-auth-panel";
 import { TERMS_REQUIRED_MESSAGE, TermsConsent } from "@/components/shop/terms-consent";
+import { placeholderFor } from "@/lib/buyer-input";
 
-type OrderPayload = { dispensedCode: string | null; orderUuid?: string };
+type OrderPayload = { id?: string; dispensedCode: string | null; orderUuid?: string };
 
 export function CheckoutClient({
   product,
@@ -33,10 +35,42 @@ export function CheckoutClient({
   const [error, setError] = useState<string | null>(null);
   const [codes, setCodes] = useState<string[]>([]);
   const [done, setDone] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewBody, setReviewBody] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewDone, setReviewDone] = useState(false);
+
+  async function submitReview() {
+    if (!orderId) return;
+    setReviewBusy(true);
+    setReviewError(null);
+    try {
+      const res = await fetch("/api/user/review", {
+        method: "POST",
+        credentials: "include",
+        headers: { ...shopHeaders(shopSlug), "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, body: reviewBody.trim() }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "후기를 등록하지 못했어요.");
+      setReviewDone(true);
+      setReviewOpen(false);
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : "후기를 등록하지 못했어요.");
+    } finally {
+      setReviewBusy(false);
+    }
+  }
   const [copied, setCopied] = useState(false);
   const [agree, setAgree] = useState(false);
+  /** 서버부스트 → 서버 초대 링크, 유튜브 프리미엄 → 이메일 처럼 구매할 때 받는 정보 */
+  const [extra, setExtra] = useState("");
+  const needExtra = Boolean(product.buyerInput);
+  const extraMissing = needExtra && !extra.trim();
 
-  const discount = Math.max(0, Math.min(99, eventDiscountPercent));
+  const discount = Math.max(0, Math.min(90, eventDiscountPercent + productDiscountPercent(product)));
   const unit = discount > 0 ? Math.round(product.price * (1 - discount / 100)) : product.price;
   const total = unit * qty;
   const soldOut = product.stockStatus === "sold_out" || product.availableCount < qty;
@@ -58,13 +92,18 @@ export function CheckoutClient({
       setError(TERMS_REQUIRED_MESSAGE);
       return;
     }
+    if (extraMissing) {
+      setError(`${product.buyerInput!.label}을(를) 넣어 주세요.`);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
+      const buyerInputs = needExtra ? { [product.id]: extra.trim() } : undefined;
       const body =
         qty === 1
-          ? { productId: product.id, agreeTerms: true }
-          : { items: [{ productId: product.id, quantity: qty }], agreeTerms: true };
+          ? { productId: product.id, agreeTerms: true, buyerInputs }
+          : { items: [{ productId: product.id, quantity: qty }], agreeTerms: true, buyerInputs };
 
       const res = await fetch("/api/purchase/points", {
         method: "POST",
@@ -91,6 +130,7 @@ export function CheckoutClient({
         .map((o) => o.dispensedCode)
         .filter((c): c is string => Boolean(c?.trim()));
       setCodes(got.length > 0 ? got : orders.map((o) => o.orderUuid ?? "주문 완료").filter(Boolean));
+      setOrderId(orders.find((o) => o.id)?.id ?? null);
       setDone(true);
       await refresh();
     } catch (err) {
@@ -109,6 +149,10 @@ export function CheckoutClient({
       setError(TERMS_REQUIRED_MESSAGE);
       return;
     }
+    if (extraMissing) {
+      setError(`${product.buyerInput!.label}을(를) 넣어 주세요.`);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -122,6 +166,7 @@ export function CheckoutClient({
           paymentMethod: "transfer",
           quantity: qty,
           agreeTerms: true,
+          buyerInputs: needExtra ? { [product.id]: extra.trim() } : undefined,
         }),
       });
       const created = await createRes.json();
@@ -184,6 +229,51 @@ export function CheckoutClient({
             >
               쇼핑 계속하기
             </Link>
+            {orderId ? (
+              reviewDone ? (
+                <p className="rounded-2xl border border-emerald-400/25 bg-emerald-400/10 py-3 text-sm font-semibold text-emerald-300">
+                  후기를 등록했어요. 감사합니다!
+                </p>
+              ) : reviewOpen ? (
+                <div className="space-y-2 rounded-2xl border border-white/15 p-3 text-left">
+                  <textarea
+                    value={reviewBody}
+                    onChange={(e) => setReviewBody(e.target.value.slice(0, 500))}
+                    rows={3}
+                    autoFocus
+                    placeholder="제품에 대한 솔직한 후기를 남겨주세요. (5자 이상)"
+                    className="w-full resize-y rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-white/25"
+                  />
+                  {reviewError ? <p className="text-xs text-red-400">{reviewError}</p> : null}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={reviewBusy || reviewBody.trim().length < 5}
+                      onClick={() => void submitReview()}
+                      className="flex-1 rounded-xl bg-white py-2.5 text-sm font-semibold text-black disabled:opacity-40"
+                    >
+                      {reviewBusy ? "등록 중…" : "후기 등록"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReviewOpen(false)}
+                      className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-neutral-400"
+                    >
+                      취소
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setReviewOpen(true)}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-white/15 py-3 text-sm text-neutral-300"
+                >
+                  <MessageSquarePlus className="size-4" />
+                  후기 바로 작성하기
+                </button>
+              )
+            ) : null}
           </div>
         </div>
       </div>
@@ -246,10 +336,27 @@ export function CheckoutClient({
               재고가 부족해요. 수량을 줄이거나 다른 상품을 선택해 주세요.
             </p>
           ) : null}
+          {product.buyerInput ? (
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold text-white">
+                {product.buyerInput.label} <span className="text-red-300">*</span>
+              </span>
+              <input
+                value={extra}
+                onChange={(e) => setExtra(e.target.value)}
+                type={product.buyerInput.kind === "email" ? "email" : product.buyerInput.kind === "url" ? "url" : "text"}
+                inputMode={product.buyerInput.kind === "email" ? "email" : product.buyerInput.kind === "url" ? "url" : "text"}
+                placeholder={placeholderFor(product.buyerInput)}
+                maxLength={300}
+                className="h-12 w-full rounded-xl border border-white/15 bg-black/30 px-4 text-[15px] text-white outline-none focus:border-white/40"
+              />
+              <span className="block text-xs text-neutral-400">구매 후 이 정보로 처리해 드려요. 정확하게 적어 주세요.</span>
+            </label>
+          ) : null}
           <TermsConsent checked={agree} onChange={(v) => { setAgree(v); if (v) setError(null); }} className="text-neutral-200" />
           <button
             type="button"
-            disabled={busy || soldOut || !agree || user.points < total}
+            disabled={busy || soldOut || !agree || extraMissing || user.points < total}
             onClick={() => void payWithPoints()}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-sm font-bold text-black disabled:opacity-40"
           >

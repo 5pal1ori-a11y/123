@@ -7,6 +7,7 @@ import type {
   LoginHistoryEntry,
   MonthlyReportRow,
   PointCharge,
+  ShopReview,
   ShopSettings,
   UserNotification,
   WishlistItem,
@@ -129,6 +130,48 @@ export function notifyRestockWatchers(
   }
   if (watchers.length) save();
   return watchers.length;
+}
+
+export function pushUserNotification(
+  shopId: string,
+  userId: string,
+  type: UserNotification["type"],
+  title: string,
+  body: string,
+  productId: string | null = null,
+) {
+  store().userNotifications.unshift({
+    id: randomUUID(),
+    shopId,
+    userId,
+    type,
+    title,
+    body,
+    productId,
+    read: false,
+    createdAt: new Date().toISOString(),
+  });
+  save();
+}
+
+export function pushAdminNotification(
+  shopId: string,
+  type: AdminNotification["type"],
+  title: string,
+  body: string,
+  meta?: Record<string, unknown>,
+) {
+  store().adminNotifications.unshift({
+    id: randomUUID(),
+    shopId,
+    type,
+    title,
+    body,
+    read: false,
+    createdAt: new Date().toISOString(),
+    ...(meta ? { meta } : {}),
+  });
+  save();
 }
 
 export function listUserNotifications(shopId: string, userId: string, unreadOnly = false) {
@@ -597,4 +640,22 @@ export function getProductSalesCounts(shopId: string) {
     counts.set(pid, (counts.get(pid) ?? 0) + 1);
   }
   return counts;
+}
+
+/** 상점 후기 평균 별점 + 총 판매 수 (마크계정 카드 상단/하단 표시용) */
+export function getShopListingSummary(shopId: string) {
+  const s = store();
+  let sum = 0;
+  let count = 0;
+  for (const r of (Array.isArray(s.reviews) ? s.reviews : []) as ShopReview[]) {
+    if (r.shopId !== shopId || !r.approved) continue;
+    if (!Number.isFinite(r.rating) || r.rating <= 0) continue;
+    sum += r.rating;
+    count += 1;
+  }
+  let sold = 0;
+  for (const o of s.orders) {
+    if (o.shopId === shopId && o.status === "dispensed") sold += 1;
+  }
+  return { rating: count ? Math.round((sum / count) * 10) / 10 : null, reviewCount: count, sold };
 }

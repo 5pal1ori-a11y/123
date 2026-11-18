@@ -69,6 +69,8 @@ export type DiscordInteraction = {
     permissions?: string;
   };
   user?: { id: string; username: string; global_name?: string | null };
+  /** 버튼·셀렉트를 누른 그 메시지 (컴포넌트 상호작용일 때만) */
+  message?: { id: string; channel_id?: string };
   data?: {
     id?: string;
     name?: string;
@@ -156,6 +158,12 @@ export function actionRow(...components: unknown[]) {
   return { type: ComponentType.ACTION_ROW, components };
 }
 
+/** "<a:이름:ID>" 같은 커스텀 이모지면 id 를, 아니면 일반 이모지 이름을 넘긴다 */
+function parseEmoji(v: string) {
+  const m = /^<(a?):(\w+):(\d+)>$/.exec(v.trim());
+  return m ? { id: m[3], name: m[2], animated: m[1] === "a" } : { name: v };
+}
+
 /** DOES 봇 버튼은 링크를 빼고 모두 secondary(회색) 하나로 통일한다 — style 은 LINK 여부만 본다 */
 export function button(opts: {
   customId?: string;
@@ -174,7 +182,7 @@ export function button(opts: {
     ...(isLink
       ? { url: (opts.url ?? "").slice(0, 512) }
       : { custom_id: (opts.customId ?? "btn").slice(0, 100) }),
-    ...(opts.emoji ? { emoji: { name: opts.emoji } } : {}),
+    ...(opts.emoji ? { emoji: parseEmoji(opts.emoji) } : {}),
   };
 }
 
@@ -256,6 +264,11 @@ export function v2Update(components: unknown[]) {
 
 export function plainEphemeral(content: string) {
   return v2Ephemeral([textDisplay(content.slice(0, 4000))]);
+}
+
+/** 상품 이름 등에 든 * _ ~ ` | 가 디스코드에서 굵게·기울임으로 읽히지 않게 (예: 가린 닉네임 Vi***3) */
+export function escapeMd(text: string) {
+  return String(text ?? "").replace(/([\\*_~`|>])/g, "\\$1");
 }
 
 /** Triple-backtick fence for Discord values */

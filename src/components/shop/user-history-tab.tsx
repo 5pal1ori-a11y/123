@@ -63,10 +63,13 @@ function ReviewForm({ shopSlug, orderId, onDone }: { shopSlug: string; orderId: 
         headers: { ...shopHeaders(shopSlug), "Content-Type": "application/json" },
         body: JSON.stringify({ orderId, body }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; rewarded?: number };
       if (!res.ok) throw new Error(data.error || "후기를 등록하지 못했어요.");
       setOpen(false);
       setBody("");
+      if (data.rewarded) {
+        try { window.dispatchEvent(new CustomEvent("does-toast", { detail: `후기 감사합니다! ${data.rewarded}P 지급됐어요` })); } catch { /* noop */ }
+      }
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "후기를 등록하지 못했어요.");

@@ -1,58 +1,37 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
-import {
-  badRequest,
-  forbidden,
-  isShop,
-  isShopAdmin,
-  isShopOwnerAdmin,
-  requireShop,
-  serverError,
-  unauthorized,
-} from "@/lib/api";
-import {
-  exportShopBackup,
-  importShopBackup,
-  initStore,
-  persistAsync,
-} from "@/lib/store";
+import { assertSameOrigin, isShop, isShopAdmin, requireShop, serverError, unauthorized } from "@/lib/api";
+import { initStore } from "@/lib/store";
+import { getBackupIndex, getBackupRaw, runBackup } from "@/lib/backup";
 
+export const dynamic = "force-dynamic";
+
+/** 백업 목록 (관리자) · ?key= 로 특정 백업 다운로드 */
 export async function GET(request: Request) {
   await initStore();
   const shop = requireShop(request);
   if (!isShop(shop)) return shop;
   if (!isShopAdmin(request, shop)) return unauthorized();
-  if (!isShopOwnerAdmin(request, shop)) return forbidden("소유자만 백업할 수 있어요.");
-
-  const backup = exportShopBackup(shop.id);
-  if (!backup) return NextResponse.json({ error: "백업 실패" }, { status: 500 });
-  return NextResponse.json(backup);
+  const key = new URL(request.url).searchParams.get("key");
+  if (key) {
+    const raw = await getBackupRaw(key);
+    if (!raw) return new Response("not found", { status: 404 });
+    return new Response(raw, {
+      headers: { "content-type": "application/json", "content-disposition": `attachment; filename="${key.replace(/[^a-z0-9]/gi, "_")}.json"`, "cache-control": "no-store" },
+    });
+  }
+  return NextResponse.json({ backups: await getBackupIndex() }, { headers: { "cache-control": "no-store" } });
 }
 
-const importSchema = z.object({
-  products: z.array(z.any()).optional(),
-  categories: z.array(z.any()).optional(),
-  notices: z.array(z.any()).optional(),
-  events: z.array(z.any()).optional(),
-  tiers: z.array(z.any()).optional(),
-  coupons: z.array(z.any()).optional(),
-  inventories: z.array(z.any()).optional(),
-});
-
+/** 지금 백업 (관리자) */
 export async function POST(request: Request) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
   await initStore();
   const shop = requireShop(request);
   if (!isShop(shop)) return shop;
-  if (!isShopOwnerAdmin(request, shop)) return forbidden("소유자만 복원할 수 있어요.");
-
+  if (!isShopAdmin(request, shop)) return unauthorized();
   try {
-    const json = await request.json();
-    const parsed = importSchema.safeParse(json);
-    if (!parsed.success) return badRequest("백업 형식이 올바르지 않아요.");
-    const result = importShopBackup(shop.id, parsed.data);
-    if (!result.ok) return badRequest(result.error);
-    await persistAsync();
-    return NextResponse.json(result);
+    return NextResponse.json(await runBackup(true));
   } catch (err) {
     return serverError(err);
   }

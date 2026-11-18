@@ -18,6 +18,13 @@ const NAV = [
 export function PlatformHeader({ brandOnly = false }: { brandOnly?: boolean } = {}) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  // doesmc.xyz(DOES 상점 주소)에서는 플랫폼 소개 메뉴·상점 등록이 없으므로 상점 가기만 보여 준다
+  const [shopHost, setShopHost] = useState(false);
+  useEffect(() => {
+    setShopHost(/(^|\.)doesmc\.xyz$/i.test(location.hostname));
+  }, []);
+  const ctaHref = shopHost ? "/dashboard" : "/activate";
+  const ctaLabel = shopHost ? "상점 가기" : "상점 등록";
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -61,7 +68,7 @@ export function PlatformHeader({ brandOnly = false }: { brandOnly?: boolean } = 
         {brandOnly ? null : (
           <>
             <nav className="hidden items-center gap-8 text-sm text-neutral-400 md:flex" aria-label="주요 메뉴">
-              {NAV.map((link) => (
+              {(shopHost ? [] : NAV).map((link) => (
                 <Link key={link.href} href={link.href} className="nav-link transition hover:text-white">
                   {link.label}
                 </Link>
@@ -76,14 +83,14 @@ export function PlatformHeader({ brandOnly = false }: { brandOnly?: boolean } = 
                 공지
               </Link>
               <Link
-                href="/activate"
+                href={ctaHref}
                 className="landing-btn vx-btn-press px-3 py-1.5 text-[11px] sm:px-4 sm:py-2 sm:text-xs"
               >
-                상점 등록
+                {ctaLabel}
               </Link>
               <button
                 type="button"
-                className="flex size-10 items-center justify-center rounded-xl md:hidden"
+                className={`${shopHost ? "hidden" : "flex"} size-10 items-center justify-center rounded-xl md:hidden`}
                 aria-expanded={open}
                 aria-label={open ? "메뉴 닫기" : "메뉴 열기"}
                 onClick={() => setOpen((v) => !v)}
@@ -154,11 +161,11 @@ export function PlatformHeader({ brandOnly = false }: { brandOnly?: boolean } = 
               </motion.div>
               <motion.div {...staggerItem}>
                 <Link
-                  href="/activate"
+                  href={ctaHref}
                   onClick={() => setOpen(false)}
                   className="landing-btn vx-btn-press mt-3 w-full"
                 >
-                  상점 등록
+                  {ctaLabel}
                 </Link>
               </motion.div>
             </motion.nav>

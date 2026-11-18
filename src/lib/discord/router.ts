@@ -7,6 +7,8 @@ import {
   parseCid,
   plainEphemeral,
   type DiscordInteraction,
+  v2Ephemeral,
+  v2Update,
 } from "@/lib/discord/components";
 import {
   findShopByGuildIdLoose,
@@ -48,6 +50,11 @@ import {
   handleVendingCommand,
   handleRandomBoxCommand,
   handleRandomBoxOpen,
+  handleAccountRegisterCommand,
+  handleAccountTab,
+  handleReferralCommand,
+  handleServerStatusCommand,
+  handleReferralMine,
   handleProductAutocomplete,
   handleStockBoardAdd,
   handleStockBoardRemove,
@@ -100,6 +107,8 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
   if (interaction.type === InteractionType.PING) {
     return { type: InteractionResponseType.PONG };
   }
+  // 직접 그린 봇 이모지 ID 를 준비 (처음 한 번만 KV 를 읽고, 이후에는 메모리)
+  await (await import("@/lib/discord/app-emojis")).ensureAppEmojis();
 
   const actor = actorFromInteraction(interaction);
   if (!actor) return plainEphemeral("사용자를 확인할 수 없어요.");
@@ -126,7 +135,7 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
     const name = interaction.data?.name;
     const perms = interaction.member?.permissions;
-    const verifyNames = new Set(["등록", "인증", "복구", "인증복구", "통계", "차단추가", "차단해제"]);
+    const verifyNames = new Set(["등록", "인증", "인증하기", "인증설정", "복구", "인증복구", "통계", "차단추가", "차단해제"]);
     if (name && verifyNames.has(name)) {
       const { handleVerifyBotInteraction } = await import("@/lib/verify-bot/router");
       return handleVerifyBotInteraction(interaction);
@@ -136,6 +145,15 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       if (!islandShop) return plainEphemeral("이 Discord 서버에 연결된 상점이 없어요.");
       const { handleIslandCommand } = await import("@/lib/discord/island-command");
       return handleIslandCommand(islandShop, interaction, actor.id);
+    }
+    // 숫자 맞추기는 이 봇이 직접 처리한다 (시작 · 정답 발표 이미지)
+    if (name === "숫자맞추기" || name === "맞추기") {
+      const gameShop = resolveShop(interaction);
+      if (!gameShop) return plainEphemeral("이 Discord 서버에 연결된 상점이 없어요.");
+      const ng = await import("@/lib/discord/number-guess");
+      return name === "숫자맞추기"
+        ? ng.handleNumberGuessStart(gameShop, interaction, actor)
+        : ng.handleNumberGuess(gameShop, interaction, actor);
     }
     if (isDoesCommunityCommand(name)) {
       return forwardToDoesBot(interaction);
@@ -174,6 +192,10 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       );
     }
 
+    if (await import("@/lib/discord/blacklist").then((m) => m.isDiscordBlacklisted(shop.id, actor.id)).catch(() => false)) {
+      return plainEphemeral("블랙리스트에 등록된 계정이에요. 이용할 수 없어요.");
+    }
+
     const settings = getShopSettings(shop.id);
     const allowWhenDisabled =
       name === "개인봇설정" ||
@@ -197,8 +219,90 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       );
       return handleVendingCommand(shop.slug, actor.id);
     }
-    if (name === "랜덤박스") {
-      return handleRandomBoxCommand(shop.slug, actor.roles, perms);
+    if (name === "환영설정") {
+      const o = (n: string) => {
+        const v = interaction.data?.options?.find((x) => x.name === n)?.value;
+        return typeof v === "string" ? v : undefined;
+      };
+      const ch = o("채널");
+      if (!ch) return plainEphemeral("채널을 골라 주세요.");
+      const { handleWelcomeSetup } = await import("@/lib/discord/welcome");
+      return handleWelcomeSetup(shop.slug, actor.roles, perms, {
+        channelId: ch,
+        verifyChannelId: o("인증채널"),
+        rulesChannelId: o("규칙채널"),
+        shopChannelId: o("구매채널"),
+        ticketChannelId: o("문의채널"),
+        siteUrl: o("웹사이트"),
+        userId: actor.id,
+        guildId: interaction.guild_id,
+      });
+    }
+    if (name === "내정보") {
+      const r = await import("@/lib/discord/rank-image").then((m) => m.profileImageUrl(shop.id, actor.id)).catch(() => null);
+      if (!r) return plainEphemeral("지금은 정보를 불러오지 못했어요. 잠시 뒤 다시 해 주세요.");
+      const { container, mediaGallery, textDisplay, actionRow, button, ButtonStyle } = await import("@/lib/discord/components");
+      const { shopUrl } = await import("@/lib/domain");
+      return v2Ephemeral([
+        container([
+          mediaGallery([r.url]),
+          textDisplay(r.linked ? "-# 나만 보이는 카드예요" : "-# 사이트 계정과 디스코드가 연동되지 않아 구매 정보가 비어 있어요 · 사이트 › 내 정보에서 Discord 연동을 해 주세요"),
+          actionRow(button({ label: "사이트에서 보기", url: shopUrl(shop.slug, "/dashboard"), style: ButtonStyle.LINK })),
+        ]),
+      ]);
+    }
+    if (name === "문의대기") {
+      const { handleTicketQueueCommand } = await import("@/lib/discord/ticket-queue");
+      return handleTicketQueueCommand(shop.slug, actor.roles, perms, interaction.channel_id, interaction.guild_id);
+    }
+    if (name === "템플릿") {
+      const o = (n: string) => {
+        const v = interaction.data?.options?.find((x) => x.name === n)?.value;
+        return typeof v === "string" ? v : undefined;
+      };
+      const { handleTemplateCommand } = await import("@/lib/discord/template-panels");
+      return handleTemplateCommand(shop.slug, actor.roles, perms, { kind: o("종류"), link1: o("링크1"), link2: o("링크2"), channelId: interaction.channel_id });
+    }
+    if (name === "재고요청") {
+      const ch = interaction.data?.options?.find((o) => o.name === "받을채널")?.value;
+      const { handleStockRequestCommand } = await import("@/lib/discord/stock-request");
+      return handleStockRequestCommand(shop.slug, actor.roles, perms, typeof ch === "string" ? ch : null);
+    }
+    if (name === "초대이벤트" || name === "초대랭킹" || name === "초대로그") {
+      const inv = await import("@/lib/discord/invites");
+      if (name === "초대이벤트") return inv.handleInviteEventCommand(shop, actor, perms, interaction.channel_id);
+      if (name === "초대랭킹") return inv.handleInviteRankCommand(shop, actor, perms, interaction.channel_id, interaction.guild_id);
+      const ch = interaction.data?.options?.find((o) => o.name === "채널")?.value;
+      return inv.handleInviteLogCommand(shop, actor, perms, typeof ch === "string" ? ch : null);
+    }
+    if (name === "뽑기로그") {
+      const ch = interaction.data?.options?.find((o) => o.name === "채널")?.value;
+      const { handleGachaLogCommand } = await import("@/lib/discord/gacha");
+      return handleGachaLogCommand(shop, actor, perms, typeof ch === "string" ? ch : null);
+    }
+    if (name === "랜덤뽑기") {
+      const { handleGachaCommand } = await import("@/lib/discord/gacha");
+      return handleGachaCommand(shop, actor, perms, interaction.channel_id);
+    }
+    if (name === "다이아채굴" || name === "랜덤박스") {
+      return handleRandomBoxCommand(shop.slug, actor.roles, perms, interaction.channel_id);
+    }
+    if (name === "서버상황") {
+      const target = interaction.data?.options?.find((o) => o.name === "대상")?.value;
+      return handleServerStatusCommand(
+        shop.slug,
+        actor.roles,
+        perms,
+        interaction.channel_id,
+        interaction.guild_id,
+        typeof target === "string" ? target : null,
+      );
+    }
+    if (name === "계정등록") {
+      return handleAccountRegisterCommand(shop.slug, interaction, actor.roles, perms);
+    }
+    if (name === "추천인") {
+      return handleReferralCommand(shop.slug);
     }
     if (name === "웹패널") {
       return handleWebPanelCommand(shop.slug, actor.roles, perms);
@@ -304,6 +408,33 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         permissions: perms,
       });
     }
+    if (name === "태그이벤트") {
+      const { handleGiveawayCreate } = await import("@/lib/discord/giveaway");
+      return handleGiveawayCreate(shop, interaction, actor, {
+        prize: String(optionValue(interaction, "경품") ?? ""),
+        winners: Number(optionValue(interaction, "당첨자수") ?? 1),
+        hours: Number(optionValue(interaction, "시간") ?? 1),
+        description: String(optionValue(interaction, "내용") ?? ""),
+        channelId: String(optionValue(interaction, "채널") ?? interaction.channel_id ?? ""),
+        requireTag: true,
+      });
+    }
+    if (name === "태그현황") {
+      const { isDiscordAdmin } = await import("@/lib/discord/handlers");
+      if (!isDiscordAdmin(getShopSettings(shop.id), actor.roles, perms)) return plainEphemeral("관리자만 쓸 수 있어요.");
+      const { scanServerTag, getServerTagDb } = await import("@/lib/discord/server-tag");
+      const before = await getServerTagDb(shop.id);
+      const r = await scanServerTag(shop.id, true).catch(() => null);
+      const db = await getServerTagDb(shop.id);
+      return plainEphemeral(
+        [
+          `## 서버 태그 현황`,
+          `태그 착용자 **${db.total.toLocaleString("ko-KR")}명**${db.tag ? ` · 태그 **${db.tag}**` : ""}`,
+          `-# 전체 ${db.scanned.toLocaleString("ko-KR")}명 검사 · 1시간마다 자동 집계${r && "skipped" in r && r.skipped ? "" : ` · 방금 ${(db.total - before.total >= 0 ? "+" : "")}${db.total - before.total}명`}`,
+          db.total === 0 ? "-# 0명이면 디스코드 개발자 포털에서 봇의 **Server Members Intent** 가 켜져 있는지 확인해 주세요." : "",
+        ].filter(Boolean).join("\n"),
+      );
+    }
     if (name === "이벤트생성") {
       const { handleGiveawayCreate } = await import("@/lib/discord/giveaway");
       return handleGiveawayCreate(shop, interaction, actor, {
@@ -394,6 +525,11 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       return handleBuyConfirm(shop.slug, actor.id, productId, Math.floor(quantity));
     }
 
+    if (parsed.action === "sr_modal") {
+      const { handleStockRequestModal } = await import("@/lib/discord/stock-request");
+      return handleStockRequestModal(shop.slug, actor.id, interaction);
+    }
+
     if (parsed.action === "coupon_modal") {
       return handleCouponSubmit(shop.slug, actor.id, modalFieldValue(interaction, "code"));
     }
@@ -428,6 +564,9 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
 
     const shop = resolveShopBySlugLoose(parsed.shopSlug);
     if (!shop) return plainEphemeral("상점 없음");
+    if (await import("@/lib/discord/blacklist").then((m) => m.isDiscordBlacklisted(shop.id, actor.id)).catch(() => false)) {
+      return plainEphemeral("블랙리스트에 등록된 계정이에요. 이용할 수 없어요.");
+    }
     const settings = getShopSettings(shop.id);
     const action = parsed.action;
     const allowDisabledAction =
@@ -478,6 +617,15 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const { handleGiveawayJoin } = await import("@/lib/discord/giveaway");
       return handleGiveawayJoin(shop, payload, actor.id);
     }
+    if (action === "stock_cat" || action === "stock_pg") {
+      // 카테고리 버튼(고정판) → 나만 보이는 창 / ◀ ▶ (그 창) → 그 자리에서 넘김
+      const { buildStockImagePanel } = await import("@/lib/discord/stock-board");
+      // 고정 재고판(나만 보기 아님)에서 누르면 재고판 자체가 넘어간다
+      const onBoard = Boolean(interaction.message?.id) && interaction.message?.id === getShopSettings(shop.id).discordStockMessageId;
+      const panel = await buildStockImagePanel(shop.id, onBoard ? "board" : "view", Number(payload) || 0);
+      if (panel) return action === "stock_pg" ? v2Update(panel.components) : v2Ephemeral(panel.components);
+      return handleStockView(shop.slug, action === "stock_pg");
+    }
     if (action === "stock_view") return handleStockView(shop.slug, false);
     if (action === "stock_refresh") return handleStockView(shop.slug, true);
     if (action === "emb_pick") {
@@ -491,7 +639,35 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       if (!channelId) return plainEphemeral("채널을 선택해 주세요.");
       return handleEmbedChannel(embedCtx(interaction, shop.slug, actor), channelId);
     }
-    if (action === "rbox_open") return handleRandomBoxOpen(shop.slug, actor.id, interaction.channel_id);
+    if (action === "vf_click") {
+      const { handleVerifyButton } = await import("@/lib/verify-bot/router");
+      return handleVerifyButton(interaction);
+    }
+    if (action === "inv_create" || action === "inv_mine") {
+      const inv = await import("@/lib/discord/invites");
+      return action === "inv_create" ? inv.handleInviteCreate(shop, interaction, actor.id) : inv.handleInviteMine(interaction, actor.id);
+    }
+    if (action === "gacha_draw") {
+      const { handleGachaDraw } = await import("@/lib/discord/gacha");
+      return handleGachaDraw(shop, actor.id);
+    }
+    if (action === "tq_mine") {
+      const { handleTicketQueueMine } = await import("@/lib/discord/ticket-queue");
+      return handleTicketQueueMine(interaction.guild_id, actor.id);
+    }
+    if (action === "sr_pick") {
+      const { handleStockRequestPick } = await import("@/lib/discord/stock-request");
+      return handleStockRequestPick(shop.slug, actor.id, values[0]);
+    }
+    if (action === "sr_custom") {
+      const { handleStockRequestCustomModal } = await import("@/lib/discord/stock-request");
+      return handleStockRequestCustomModal(shop.slug);
+    }
+    if (action === "ref_mine") return handleReferralMine(shop.slug, actor.id);
+    if (action === "acct_tab") return handleAccountTab(shop.slug, payload, interaction.data?.values?.[0]);
+    if (action === "rbox_open") {
+      return handleRandomBoxOpen(shop.slug, actor.id, interaction.channel_id, interaction.message?.id);
+    }
     if (action === "menu_notices") return handleNotices(shop.slug);
     if (action === "menu_products") return handleProductsList(shop.slug, "browse");
     if (action === "menu_buy") {

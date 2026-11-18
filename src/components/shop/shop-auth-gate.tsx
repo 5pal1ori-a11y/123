@@ -7,11 +7,12 @@ import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useShopUser } from "@/components/shop/user-context";
 import { UserAuthPanel } from "@/components/shop/user-auth-panel";
+import { LoginRequiredNotice } from "@/components/shop/login-required-notice";
 import { VendixLogo } from "@/components/ui/vendix-logo";
 import type { SubscriptionStatus } from "@/lib/types";
 import { formatPlanLabel } from "@/lib/plans";
 import { formatDate } from "@/lib/utils";
-import { guestAllowedPath, isGuestMode, isLandingPath } from "@/lib/guest-mode";
+import { guestAllowedPath, isGuestMode, isLandingPath, publicBrowsePath } from "@/lib/guest-mode";
 import type { LicensePlan } from "@/lib/types";
 
 export function ShopAuthGate({
@@ -82,7 +83,7 @@ export function ShopAuthGate({
     );
   }
 
-  if (!user && guest && guestAllowedPath(pathname)) {
+  if (!user && ((guest && guestAllowedPath(pathname)) || publicBrowsePath(pathname))) {
     return <>{children}</>;
   }
 
@@ -118,7 +119,7 @@ export function ShopAuthGate({
                 transition={{ delay: 0.22, duration: 0.45 }}
                 className="mt-3 hidden max-w-sm text-sm leading-relaxed text-neutral-400 sm:mt-4 sm:block"
               >
-                로그인하면 상점 이용이 열려요. 로그인 없이 게스트로 월드를 둘러볼 수도 있어요.
+                구매·충전은 Discord 로그인이 필요해요. 로그인 없이 게스트로 상점을 둘러볼 수도 있어요.
               </motion.p>
               {subscription === "active" && (
                 <p className="mt-2 font-[family-name:var(--font-jetbrains)] text-[11px] text-neutral-400 sm:mt-3">
@@ -146,6 +147,7 @@ export function ShopAuthGate({
                   유예 기간 · {formatDate(graceUntil)}까지 연장 시 부활
                 </div>
               )}
+              <LoginRequiredNotice className="mb-5 text-white" />
               <UserAuthPanel shopSlug={shopSlug} />
             </motion.div>
           </div>

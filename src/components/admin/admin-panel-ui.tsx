@@ -10,19 +10,20 @@ export type StatItem = {
 };
 
 export function PanelStats({ items }: { items: StatItem[] }) {
+  // 폰에서도 한 줄(3개) · 두 줄(4개)로 작게 모아 보여 준다
   const cols =
     items.length <= 2
-      ? "sm:grid-cols-2"
+      ? "grid-cols-2"
       : items.length === 3
-        ? "sm:grid-cols-3 lg:grid-cols-3"
-        : "sm:grid-cols-2 lg:grid-cols-4";
+        ? "grid-cols-3"
+        : "grid-cols-2 lg:grid-cols-4";
   return (
-    <div className={`grid gap-3 ${cols}`}>
+    <div className={`grid gap-2 sm:gap-3 ${cols}`}>
       {items.map((s) => (
-        <div key={s.label} className="admin-bento flex flex-col justify-center px-5 py-4">
-          <p className="text-xs text-neutral-500">{s.label}</p>
+        <div key={s.label} className="admin-bento flex min-w-0 flex-col justify-center px-3 py-3 sm:px-5 sm:py-4">
+          <p className="truncate text-[11px] text-neutral-500 sm:text-xs">{s.label}</p>
           <p
-            className={`mt-1 text-2xl font-bold tracking-tight ${
+            className={`mt-1 truncate text-lg font-bold tracking-tight sm:text-2xl ${
               s.warn ? "text-orange-400" : "text-white"
             }`}
           >

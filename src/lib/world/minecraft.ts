@@ -32,16 +32,10 @@ export function isValidIgn(ign: string) {
   return /^[A-Za-z0-9_]{3,16}$/.test(ign);
 }
 
-async function hypixelKey() {
-  try {
-    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
-    const { env } = await getCloudflareContext({ async: true });
-    const key = (env as { HYPIXEL_API_KEY?: string }).HYPIXEL_API_KEY?.trim();
-    if (key) return key;
-  } catch {
-    /* local */
-  }
-  return process.env.HYPIXEL_API_KEY?.trim() || "";
+/** 관리자 대시보드에서 넣은 키가 먼저, 없으면 HYPIXEL_API_KEY 환경변수 */
+export async function hypixelKey() {
+  const { getApiKey } = await import("@/lib/api-keys");
+  return getApiKey("hypixel");
 }
 
 export async function hypixelConfigured() {

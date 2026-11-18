@@ -159,7 +159,11 @@ export async function DELETE(request: Request) {
     if (!chargeId) return badRequest("chargeId required");
 
     const result = cancelUserPointCharge(chargeId, shop.id, session.user.id);
-    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+    if (!result.ok) {
+      // 취소 대신 바로 충전된 경우에도 저장해야 한다
+      await persistAsync();
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
     await persistAsync();
     return NextResponse.json({ charge: result.charge });
   } catch (err) {

@@ -125,6 +125,42 @@ export type ShopSettings = {
   discordRandomBoxLogChannelId: string | null;
   discordStockChannelId: string | null;
   discordStockMessageId: string | null;
+  /** /계정등록 — 채널을 만들 카테고리와 기본 접두사 */
+  accountCategoryId?: string | null;
+  accountPrefix?: string | null;
+  /** /서버상황 — 온라인 여부를 지켜볼 디스코드 사용자 ID, 올라가 있는 패널들, 마지막 상태 */
+  serverStatusUserId?: string | null;
+  /** /재고요청 — 손님 요청을 받을 채널 */
+  stockRequestChannelId?: string | null;
+  /** /환영설정 — 새 멤버 환영 패널 */
+  welcome?: {
+    channelId: string;
+    verifyChannelId?: string | null;
+    rulesChannelId?: string | null;
+    shopChannelId?: string | null;
+    ticketChannelId?: string | null;
+    siteUrl?: string | null;
+  } | null;
+  /** /랜덤뽑기 — 한 번 가격(원)과 상품 · 확률(가중치). points 가 있으면 그만큼 잔액으로 바로 지급 */
+  gacha?: {
+    price: number;
+    prizes: { id: string; label: string; weight: number; points: number }[];
+  } | null;
+  /** /초대로그 — 누가 누구를 초대했는지 올리는 채널 */
+  inviteLogChannelId?: string | null;
+  /** /초대랭킹 판들 — 1시간마다 고쳐 쓴다 */
+  inviteRankPanels?: { channelId: string; messageId: string; guildId: string }[];
+  /** /뽑기로그 — 누가 무엇을 뽑았는지 올리는 채널 */
+  gachaLogChannelId?: string | null;
+  /** /랜덤박스 패널들 — 10분마다 TOP 3 를 고쳐 쓴다 */
+  randomBoxPanels?: { channelId: string; messageId: string }[];
+  /** /문의대기 — 3분마다 고쳐 쓰는 문의 대기 현황 패널들 */
+  ticketQueuePanels?: { channelId: string; messageId: string; guildId: string }[];
+  serverStatusPanels?: { channelId: string; messageId: string }[];
+  serverStatusLast?: { status: "online" | "idle" | "dnd" | "offline"; since: string } | null;
+  /** 실시간 구매 랭킹(집계판) 채널 · 고쳐 쓰는 메시지 */
+  discordLeaderboardChannelId?: string | null;
+  discordLeaderboardMessageId?: string | null;
   spendRoles: SpendRoleRule[];
   discordAdminRoleId: string | null;
   /** 상점 전용 Discord Application (Pro+) */
@@ -431,6 +467,8 @@ export type ShopUser = {
   isSubAdmin: boolean;
   /** 스태프 권한 (isSubAdmin일 때). 비어 있으면 전체 허용(레거시) */
   staffPermissions: StaffPermission[];
+  /** 프리미엄 플랜 (BASIC PASS · DOES PASS+) — 라이선스 키로 30일씩 켠다 */
+  premium?: { plan: "basic" | "plus"; startedAt: string; expiresAt: string; lastPointsAt: string | null } | null;
   /** 제재 */
   banned: boolean;
   banReason: string | null;
@@ -500,7 +538,12 @@ export type PointCharge = {
   /** 유저가 받은 충전 안내 응답 — 자동충전 시 완료로 수정 (15분 유효) */
   discordApplicationId: string | null;
   discordInteractionToken: string | null;
+  /** 신청보다 먼저 들어와 있던 입금으로 승인된 경우, 그 입금 시각 */
+  earlyDepositAt?: string | null;
 };
+
+/** 상품 종류: 기타상품 / 마인크래프트 계정 */
+export type ProductKind = "general" | "mc_account" | "mc_cape";
 
 export type Product = {
   id: string;
@@ -533,6 +576,30 @@ export type Product = {
   /** MFA MARKET 재고 캐시 */
   mfaStock?: number | null;
   mfaStockAt?: string | null;
+  /** 상품 자체 할인율 % (0~90, 없으면 0) — 목록에 원가 취소선 + 할인가로 표시 */
+  discountPercent?: number | null;
+  /** 상품 종류 (기본: 기타상품) */
+  productKind?: ProductKind;
+  /** 마크계정상품: 계정 닉네임 (관리자 전용 — 공개 목록에서는 제거됨) */
+  /** 구매할 때 손님에게 받는 정보 (서버 초대 링크 · 이메일 등). 없으면 받지 않음 */
+  buyerInput?: { kind: "url" | "email" | "text"; label: string } | null;
+  /** 마크계정상품: 관리자가 직접 지정한 망토 종류 목록 (없으면 닉네임으로 자동 감지) */
+  mcCapes?: string[] | null;
+  /** 망토상품: 망토 종류 (예: aurora) */
+  capeType?: string | null;
+  mcNickname?: string | null;
+  /** 마크계정상품: 공개용 마스킹 닉네임 (예: BO*******5) */
+  mcMaskedName?: string | null;
+  /** 마크계정상품: true 면 공개 목록에 닉네임을 가리지 않고 그대로 보여 준다 (대리판매 신청자가 선택) */
+  mcShowName?: boolean;
+  /** 마크계정상품: true 면 개별 카드 대신 「MFA 계정」 묶음 카드 안에 들어가고, 상세에서 계정을 골라 산다 */
+  mcGroup?: boolean;
+  /** 마크계정상품: 관리자가 체크한 밴 여부 (null/없음 = 표시 안 함) */
+  mcStatus?: { hypixelBanned?: boolean | null; hypixelReason?: string | null; donutBanned?: boolean | null } | null;
+  /** 대리판매로 올라온 상품 — 신청 id · 판매자(디스코드/회원) · 정산 정보 */
+  resale?: { requestId: string; sellerUserId: string | null; sellerDiscordId: string | null; feePercent: number; payout: number } | null;
+  /** 마크계정상품: 닉네임이 바뀌면 달라지는 짧은 값 — 스킨·망토 이미지 캐시를 새로 받게 한다 */
+  mcVersion?: string | null;
   createdAt: string;
 };
 
@@ -579,6 +646,8 @@ export type Order = {
   accessToken: string | null;
   createdAt: string;
   paidAt: string | null;
+  /** 구매할 때 손님이 넣은 정보 (상품의 buyerInput) */
+  buyerInput?: { label: string; value: string } | null;
 };
 
 export type SystemLog = {
@@ -618,6 +687,7 @@ export type PublicUser = Pick<
   | "minecraftUuid"
   | "minecraftName"
   | "minecraftManual"
+  | "premium"
 >;
 
 export type WishlistItem = {
@@ -635,7 +705,7 @@ export type UserNotification = {
   id: string;
   shopId: string;
   userId: string;
-  type: "restock" | "tier_upgrade" | "welcome";
+  type: "restock" | "tier_upgrade" | "welcome" | "resale" | "premium";
   title: string;
   body: string;
   productId: string | null;
@@ -671,7 +741,7 @@ export type AuthSession = {
 export type AdminNotification = {
   id: string;
   shopId: string;
-  type: "low_stock" | "license_expiry" | "sales_digest";
+  type: "low_stock" | "license_expiry" | "sales_digest" | "resale_request" | "premium_request" | "checklock";
   title: string;
   body: string;
   read: boolean;

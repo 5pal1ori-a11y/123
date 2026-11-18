@@ -13,9 +13,10 @@ const DISCORD_ERRORS: Record<string, string> = {
   disabled: "이 상점은 지금 Discord 로그인을 쓰지 않아요.",
   config: "Discord 로그인이 아직 설정되지 않았어요.",
   state: "로그인 시간이 지났어요. 다시 시도해 주세요.",
+  dupip: "같은 IP에서 이미 다른 디스코드 계정이 인증돼 있어서 로그인이 막혔어요. 관리자에게 문의해 주세요.",
 };
 
-export function UserAuthPanel({ shopSlug }: { shopSlug: string }) {
+export function UserAuthPanel({ shopSlug, hideGuest = false }: { shopSlug: string; hideGuest?: boolean }) {
   // 관리자가 켠 로그인 방법 중 서버 설정(OAuth 키)까지 된 것만 버튼을 보여준다
   const [methods, setMethods] = useState<Methods | null>(null);
   const [redirecting, setRedirecting] = useState<"microsoft" | "discord" | null>(null);
@@ -65,7 +66,7 @@ export function UserAuthPanel({ shopSlug }: { shopSlug: string }) {
 
   function enterAsGuest() {
     setGuestMode(shopSlug, true);
-    window.location.href = "/main";
+    window.location.href = "/dashboard?tab=products";
   }
 
   const none = methods !== null && !methods.microsoft && !methods.discord;
@@ -117,6 +118,8 @@ export function UserAuthPanel({ shopSlug }: { shopSlug: string }) {
         <p className="text-center text-[11px] text-red-400">지금은 로그인할 수 있는 방법이 없어요. 관리자에게 문의해 주세요.</p>
       ) : null}
 
+      {hideGuest ? null : (
+      <>
       <div className="flex items-center gap-3 text-[11px] text-neutral-600">
         <span className="h-px flex-1 bg-white/10" />
         또는
@@ -131,8 +134,10 @@ export function UserAuthPanel({ shopSlug }: { shopSlug: string }) {
         게스트로 둘러보기
       </button>
       <p className="text-center text-[11px] leading-relaxed text-neutral-500">
-        게스트는 월드 구경만 할 수 있어요. 구매·충전·출석 보상은 로그인이 필요해요.
+        게스트는 상점과 월드를 둘러볼 수 있어요. 구매·충전·출석 보상은 로그인이 필요해요.
       </p>
+      </>
+      )}
     </div>
   );
 }

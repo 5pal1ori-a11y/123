@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { doesForwardKey } from "@/lib/discord/does-forward";
-import { checkinGif, gambleGif, raffleGif, type RafflePrize } from "@/lib/gif/cute-scenes";
+import { serveBrandAsset } from "@/lib/brand-asset";
+import { checkinGif, gambleGif, raffleGif, type RafflePrize } from "@/lib/gif/night-scenes";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -8,10 +9,20 @@ export const runtime = "nodejs";
 /** DOES 봇 결과 GIF — 봇이 DOES_FORWARD_KEY 로 서명한 주소만 그려 준다 */
 const MAX_AMOUNT = 1_000_000_000;
 /** 그림이 바뀌면 봇과 함께 앞에 새 버전을 넣는다 — 디스코드가 주소별로 이미지를 오래 캐시함 */
-const SIG_VERSIONS = ["gif3", "gif2", "gif"] as const;
+const SIG_VERSIONS = ["gif4", "gif3", "gif2", "gif"] as const;
 
 function notFound() {
   return new Response("not found", { status: 404 });
+}
+
+function hqName(payload: string) {
+  let m = /^(checkin|jackpot)-\d{1,7}$/.exec(payload);
+  if (m) return m[1] === "jackpot" ? "3d-checkin-jackpot.gif" : "3d-checkin.gif";
+  m = /^gamble-(w|l)-\d{1,10}$/.exec(payload);
+  if (m) return m[1] === "w" ? "3d-gamble-win.gif" : "3d-gamble-lose.gif";
+  m = /^raffle-(nitro|mc|charge|none)$/.exec(payload);
+  if (m) return `3d2-raffle-${m[1]}.gif`;
+  return null;
 }
 
 function render(payload: string): Uint8Array | null {
@@ -39,12 +50,18 @@ export async function GET(_request: Request, ctx: { params: Promise<{ file: stri
     return expected.length === given.length && timingSafeEqual(expected, given);
   });
   if (!signed) return notFound();
+  // 고화질로 미리 만든 그림 (금액은 디스코드 메시지 글자로 보인다)
+  const hq = hqName(m[1]!);
+  if (hq) {
+    const res = await serveBrandAsset(hq);
+    if (res) return res;
+  }
   const bytes = render(m[1]!);
   if (!bytes) return notFound();
   return new Response(new Blob([bytes as Uint8Array<ArrayBuffer>]), {
     headers: {
       "content-type": "image/gif",
-      "cache-control": "public, max-age=31536000, immutable",
+      "cache-control": "public, max-age=3600",
     },
   });
 }

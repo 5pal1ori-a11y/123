@@ -96,6 +96,40 @@ async function getAiBinding(): Promise<AiBinding | null> {
   }
 }
 
+/** Claude API 키 (Cloudflare Secret ANTHROPIC_API_KEY). 없으면 Workers AI 로 답한다 */
+async function getAnthropicKey() {
+  try {
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+    const { env } = await getCloudflareContext({ async: true });
+    const e = env as Record<string, string | undefined>;
+    return { key: (e.ANTHROPIC_API_KEY ?? "").trim(), model: (e.CLAUDE_MODEL ?? "").trim() || "claude-sonnet-5-5" };
+  } catch {
+    return { key: (process.env.ANTHROPIC_API_KEY ?? "").trim(), model: process.env.CLAUDE_MODEL?.trim() || "claude-sonnet-5-5" };
+  }
+}
+
+async function askClaude(system: string, user: string): Promise<string | null> {
+  const { key, model } = await getAnthropicKey();
+  if (!key.startsWith("sk-ant-")) return null;
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model, max_tokens: 600, temperature: 0.4, system, messages: [{ role: "user", content: user }] }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) {
+      console.log("claude reply failed", res.status);
+      return null;
+    }
+    const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+    return data.content?.filter((c) => c.type === "text").map((c) => c.text ?? "").join("").trim() || null;
+  } catch (err) {
+    console.log("claude reply error", String(err));
+    return null;
+  }
+}
+
 function expandTokens(query: string) {
   const cleaned = query
     .toLowerCase()
@@ -289,14 +323,29 @@ function needsWebSearch(query: string, hits: ReturnType<typeof searchShopKnowled
   return false;
 }
 
-function systemPrompt(shopName: string) {
-  return `당신은 ${shopName}(DOES)에서 일하는 안내 AI입니다. 채팅 상대처럼 자연스럽게 한국어로 답하세요.
+const SHOP_FACTS = `상점 기본 사실 (이 내용과 다른 답은 하지 마세요):
+- 구매는 웹사이트에서만 합니다. 디스코드에서는 구매할 수 없고, 상품을 고르면 웹 구매 링크가 나옵니다.
+- 상점 구경(상품 목록·상세)은 로그인 없이 되고, 구매·충전·출석·마이페이지는 Discord 로그인이 필요합니다.
+- 결제는 포인트로 합니다. 먼저 충전한 뒤 구매합니다. 문화상품권 자동충전은 현재 일시 중단 상태입니다 (계좌이체 등 다른 방법 안내).
+- 마인크래프트 계정 상품은 '마인크래프트 계정' 탭에서 보고, 상세에서 스킨·망토·하이픽셀 정보를 볼 수 있습니다. 구매 후 24시간 안에 비밀번호·복구 이메일 등 보안 정보를 바꾸라고 안내하세요.
+- 출석체크는 하루 한 번, 랜덤박스도 하루 한 번입니다. 둘 다 계정 연동이 필요합니다.
+- 추천인 코드는 /추천인 패널의 버튼으로 내 코드를 볼 수 있고, 친구가 결제하면 일부가 포인트로 들어옵니다.`;
 
-규칙:
-- 사람에게 하는 말만 쓰세요. 함수명, web_search, search_shop, JSON, 코드블록, 도구 호출은 절대 쓰지 마세요.
-- 검색 자료는 참고용입니다. 상점 정보(재고, 가격, 충전, 인증)는 자료를 우선하고, 그 외 일반 질문은 아는 대로 도와주세요.
-- 사용자가 정정하면 바로 맞추고, "HTML이 아니다"처럼 의미 없는 부정만 반복하지 마세요.
-- 같은 인사·면책을 반복하지 마세요. 짧고 또렷하게, 필요할 때만 한 가지를 되물으세요.`;
+function systemPrompt(shopName: string) {
+  return `당신은 ${shopName}(DOES)에서 일하는 안내 담당입니다. 사람 직원처럼 자연스럽고 정확하게 한국어로 답하세요.
+
+${SHOP_FACTS}
+
+답변 방식:
+- 첫 줄에 질문에 대한 답부터 말하세요. 인사말·"문의해 주셔서 감사합니다" 같은 군더더기는 쓰지 마세요.
+- 보통 2~4문장, 단계가 필요하면 번호로 짧게. 어려운 말은 쉬운 말로.
+- 가격·재고·할인·확률 같은 숫자는 아래 '검색 자료'와 '판매 상품'에 있는 것만 말하세요. 자료에 없으면 지어내지 말고 "정확한 건 확인이 필요해요"라고 하세요.
+- 질문이 애매하면 되물을 것을 딱 한 가지만 물으세요 (여러 개를 한꺼번에 묻지 마세요).
+- 환불, 결제·충전이 반영되지 않음, 계정 정보 오류, 제재·차단, 개인정보 문제는 직접 처리하지 말고 "관리자가 확인해야 해요"라고 말한 뒤 필요한 정보(주문 번호나 입금자명·금액·시간, 스크린샷)를 한 번에 정리해서 요청하세요.
+- 사용자가 화났거나 불편해 보이면 먼저 한 문장으로 공감하고 해결책을 말하세요.
+- 사용자가 정정하면 바로 맞추세요. 같은 말을 반복하지 마세요.
+- 함수명, web_search, search_shop, JSON, 코드블록, 도구 호출은 절대 쓰지 마세요. 사람에게 하는 말만 쓰세요.
+- 상점과 무관한 일반 질문은 아는 범위에서 짧게 도와주되, 확실하지 않으면 모른다고 하세요.`;
 }
 
 function fallbackReply(shopName: string, hits: ReturnType<typeof searchShopKnowledge>, query: string, web: string) {
@@ -347,7 +396,6 @@ export async function generateShopInquiryReply(input: {
     .join("\n\n");
 
   const fallback = () => fallbackReply(shopName, hits, query, web);
-  if (!ai) return fallback();
 
   const userBlob = `최근 대화:
 ${thread || "(없음)"}
@@ -359,6 +407,14 @@ ${notes}
 
 검색 자료는 참고입니다. 구매자에게 사람처럼 바로 답하세요. 도구 호출 문장은 쓰지 마세요.`;
 
+  // Claude 키가 있으면 Claude 로 먼저 답한다 (실패하면 아래 Workers AI 로)
+  const claude = await askClaude(systemPrompt(shopName), userBlob);
+  if (claude) {
+    const text = sanitizeAnswer(claude);
+    if (text && text.length >= 8 && !looksLikeToolDump(text)) return text;
+  }
+  if (!ai) return fallback();
+
   for (const model of [CHAT_MODEL, FAST_MODEL]) {
     try {
       const raw = extractText(
@@ -367,8 +423,8 @@ ${notes}
             { role: "system", content: systemPrompt(shopName) },
             { role: "user", content: userBlob },
           ],
-          max_tokens: 700,
-          temperature: 0.72,
+          max_tokens: 600,
+          temperature: 0.45,
         }),
       );
       const text = sanitizeAnswer(raw);

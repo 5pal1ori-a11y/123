@@ -11,13 +11,15 @@ import {
   textDisplay,
   thumbnail,
 } from "@/lib/discord/components";
+import { escapeMd } from "@/lib/discord/components";
+import { appEmoji } from "@/lib/discord/app-emojis";
 import { discordRest, postChannelMessage } from "@/lib/discord/rest";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
 import { shopUrl } from "@/lib/domain";
 import { randomBoxGifUrl } from "@/lib/random-box-gif";
 import { getShopById, getShopSettings, MFA_SHOP_SLUG } from "@/lib/store";
 
-const DOES_PURCHASE_BANNER = "https://doesmc.xyz/brand/does-purchase-banner.jpg";
+const DOES_PURCHASE_BANNER = "https://doesmc.xyz/brand/purchase-3d.gif";
 import { formatKRW } from "@/lib/utils";
 
 export type DiscordLogKind =
@@ -85,7 +87,7 @@ function scheduleLog(shopId: string, kind: DiscordLogKind, kids: unknown[], extr
   return task;
 }
 
-/** 버튼자판기 ## 구매 로그 */
+/** 버튼자판기 ## 구매 로그 — 이미지 워커가 있으면 이미지 한 장 (구매자 · 상품 그림 · 금액 · 누적 판매) */
 export function postPurchaseLog(
   shopId: string,
   input: {
@@ -94,18 +96,35 @@ export function postPurchaseLog(
     quantity: number;
     /** 이 제품의 누적 판매 개수 (이번 구매 포함) */
     totalSold: number;
+    orderUuid?: string;
   },
 ) {
-  const kids: unknown[] = [];
-  if (getShopById(shopId)?.slug === MFA_SHOP_SLUG) kids.push(mediaGallery([DOES_PURCHASE_BANNER]));
-  kids.push(
-    textDisplay("## 구매 로그"),
-    separator(true, 1),
-    textDisplay(`${input.buyerMention} 님 **${input.productName}** **${input.quantity}개** 구매 감사드립니다!`),
-    separator(true, 1),
-    textDisplay(`누적판매 **${input.totalSold.toLocaleString("ko-KR")}개**  ·  <t:${Math.floor(Date.now() / 1000)}:f>`),
-  );
-  return scheduleLog(shopId, "purchase", kids);
+  const textKids = () => {
+    const kids: unknown[] = [];
+    if (getShopById(shopId)?.slug === MFA_SHOP_SLUG) kids.push(mediaGallery([DOES_PURCHASE_BANNER]));
+    kids.push(
+      textDisplay("## 구매 로그"),
+      separator(true, 1),
+      textDisplay(`${input.buyerMention} 님 **${escapeMd(input.productName)}** **${input.quantity}개** 구매 감사드립니다!`),
+      separator(true, 1),
+      textDisplay(`누적판매 **${input.totalSold.toLocaleString("ko-KR")}개**  ·  <t:${Math.floor(Date.now() / 1000)}:f>`),
+    );
+    return kids;
+  };
+  const task = (async () => {
+    const url = input.orderUuid
+      ? await import("@/lib/discord/rank-image").then((m) => m.purchaseLogImageUrl(shopId, input.orderUuid!)).catch(() => null)
+      : null;
+    const kids = url
+      ? [mediaGallery([url]), textDisplay(`-# ${input.buyerMention} 님 구매 감사드립니다 · <t:${Math.floor(Date.now() / 1000)}:f>`)]
+      : textKids();
+    return postV2Log(shopId, "purchase", kids);
+  })().catch((err) => {
+    console.error("[discord-log] failed", "purchase", err);
+    return { ok: false as const, status: 0, json: null };
+  });
+  scheduleDiscordBackground(task);
+  return task;
 }
 
 export function postRandomBoxLog(
@@ -127,7 +146,7 @@ export function postRandomBoxLog(
     textDisplay(input.jackpot ? "## 랜덤박스 잭팟" : "## 랜덤박스"),
     separator(true, 1),
     textDisplay(`**당첨자**\n${input.mention} (${input.name})`),
-    textDisplay(`**금액**\n${input.jackpot ? `🎰 ${amount}` : amount}`),
+    textDisplay(`**금액**\n${input.jackpot ? `${appEmoji("does_jackpot")} ${amount}` : amount}`),
     ...(input.already ? [textDisplay("-# 오늘은 이미 열어 본 상자예요.")] : []),
     separator(true, 1),
     textDisplay(`-# ${ts}`),
@@ -149,10 +168,19 @@ export function postReviewLog(
     authorDiscordId: string | null;
     productName: string;
     body: string;
+    reviewId?: string;
   },
 ) {
-  const head = `## 후기 감사합니다\n**${input.productName}**`;
+  const head = `## 후기 감사합니다\n**${escapeMd(input.productName)}**`;
   const task = (async () => {
+    // 이미지 한 장 (후기 내용 · 별점 · 작성자 · 구매 상품)
+    const slug = getShopById(shopId)?.slug;
+    if (input.reviewId && slug && (await import("@/lib/discord/rank-image").then((m) => m.hasRankImage()).catch(() => false))) {
+      return postV2Log(shopId, "review", [
+        mediaGallery([`https://doesmc.xyz/api/discord/rank-image/${slug}-review-${input.reviewId}.png`]),
+        textDisplay(`-# ${input.authorMention} 님 후기 감사합니다 · <t:${Math.floor(Date.now() / 1000)}:f>`),
+      ]);
+    }
     const avatar = input.authorDiscordId ? await discordAvatarUrl(shopId, input.authorDiscordId) : null;
     return postV2Log(shopId, "review", [
       avatar ? sectionText({ text: head, accessory: thumbnail(avatar) }) : textDisplay(head),
@@ -180,16 +208,30 @@ export function postChargeCompleteLog(
     depositorName: string;
     amount: number;
     balance: number;
+    chargeId?: string;
   },
 ) {
-  return scheduleLog(shopId, "charge_complete", [
-    textDisplay("## 충전 완료"),
-    separator(true, 1),
-    textDisplay(`**사용자**\n${input.userMention} (${input.userName})`),
-    textDisplay(`**입금자명**\n${input.depositorName}`),
-    textDisplay(`**충전 금액**\n${input.amount.toLocaleString()}원`),
-    textDisplay(`**현재 잔액**\n${input.balance.toLocaleString()}원`),
-  ]);
+  const task = (async () => {
+    const url = input.chargeId
+      ? await import("@/lib/discord/rank-image").then((m) => m.chargeLogImageUrl(shopId, input.chargeId!, input.balance)).catch(() => null)
+      : null;
+    const kids = url
+      ? [mediaGallery([url]), textDisplay(`-# ${input.userMention} 님 충전이 완료됐어요 · <t:${Math.floor(Date.now() / 1000)}:f>`)]
+      : [
+          textDisplay("## 충전 완료"),
+          separator(true, 1),
+          textDisplay(`**사용자**\n${input.userMention} (${input.userName})`),
+          textDisplay(`**입금자명**\n${input.depositorName}`),
+          textDisplay(`**충전 금액**\n${input.amount.toLocaleString()}원`),
+          textDisplay(`**현재 잔액**\n${input.balance.toLocaleString()}원`),
+        ];
+    return postV2Log(shopId, "charge_complete", kids);
+  })().catch((err) => {
+    console.error("[discord-log] failed", "charge_complete", err);
+    return { ok: false as const, status: 0, json: null };
+  });
+  scheduleDiscordBackground(task);
+  return task;
 }
 
 /** ## 입고 알림 — /입고알림 으로 정한 채널에, 정한 역할을 멘션해서 보낸다 */
@@ -197,6 +239,7 @@ export function postRestockLog(
   shopId: string,
   input: {
     productName: string;
+    productId?: string;
     addedCount: number;
     newTotal: number;
     price?: number;
@@ -206,12 +249,32 @@ export function postRestockLog(
   const slug = getShopById(shopId)?.slug ?? "shop";
   const roleId = settings.discordRestockRoleId;
   const count = (n: number) => `${n.toLocaleString("ko-KR")}개`;
+  // 상품 그림 · 입고 수량 · 현재 재고 이미지 (상품을 알면)
+  const image =
+    input.productId && /^[A-Za-z0-9_]{4,40}$/.test(input.productId)
+      ? `https://doesmc.xyz/api/discord/rank-image/${slug}-restock-${input.productId}-${Math.max(0, input.addedCount)}-${Math.max(0, input.newTotal)}.png`
+      : null;
+  if (image) {
+    return scheduleLog(
+      shopId,
+      "restock",
+      [
+        mediaGallery([image]),
+        textDisplay(`**${escapeMd(input.productName)}** 상품이 입고되었어요 · <t:${Math.floor(Date.now() / 1000)}:R>`),
+        actionRow(
+          button({ label: "재고현황", customId: cid(slug, "stock_view") }),
+          button({ label: "바로 구매하기", url: shopUrl(slug, "/dashboard"), style: ButtonStyle.LINK }),
+        ),
+      ],
+      roleId ? { before: [textDisplay(`<@&${roleId}>`)], mentionRoles: [roleId] } : undefined,
+    );
+  }
   return scheduleLog(
     shopId,
     "restock",
     [
       textDisplay("## 입고 알림"),
-      textDisplay(`**${input.productName}** 상품이 입고되었어요.`),
+      textDisplay(`**${escapeMd(input.productName)}** 상품이 입고되었어요.`),
       separator(true, 1),
       textDisplay(
         [

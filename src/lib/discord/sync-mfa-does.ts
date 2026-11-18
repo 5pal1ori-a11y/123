@@ -24,7 +24,7 @@ export function doesCommandSet() {
 }
 
 // v2: 전역 등록으로 바꾸면서 한 번 다시 등록되게 키를 바꿨다
-const HASH_KEY = "does:cmd-hash:v2";
+const HASH_KEY = "does:cmd-hash:v3";
 
 /** 명령 정의가 마지막 등록 때와 다를 때만 다시 등록한다 (cron·첫 상호작용에서 호출) */
 export async function syncDoesCommandsIfChanged() {
@@ -80,12 +80,14 @@ export async function syncMfaDoesDiscord(guildId = MFA_DISCORD_GUILD_ID) {
   // 전역: 상점 · DOES · 커뮤니티 명령 (봇이 들어간 모든 서버에 보임)
   // 서버 전용: 인증 봇 명령 (서버마다 따로 쓰므로) — 같은 명령이 두 번 뜨지 않게 나눈다
   const globalSet = [...VENDIX_DISCORD_COMMANDS, ...DOES_BOT_COMMANDS, ...DOES_COMMUNITY_COMMANDS];
+  // MFA(DOES) 서버에는 길드 명령으로도 올려 즉시 뜨게 한다 (글로벌은 최대 1시간 걸림, 길드 명령이 우선)
+  const guildSet = [...VERIFY_DISCORD_COMMANDS, ...DOES_BOT_COMMANDS, ...DOES_COMMUNITY_COMMANDS];
   const creds = getDiscordCredentials(shop.id);
   const appId = creds.applicationId || DOES_APPLICATION_ID;
 
   const [doesReg, guildReg, vendixClear] = await Promise.all([
     putCommands(`/applications/${appId}/commands`, globalSet, creds.botToken),
-    registerGuildCommands(guildId, [...VERIFY_DISCORD_COMMANDS], { shopId: shop.id }),
+    registerGuildCommands(guildId, guildSet, { shopId: shop.id }),
     registerGuildCommands(guildId, []),
   ]);
 

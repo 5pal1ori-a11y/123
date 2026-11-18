@@ -7,18 +7,18 @@
  * 사용법 (둘 중 하나):
  *   1) 웹훅
  *      DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..." \
- *      DOES_INVITE_URL="https://discord.gg/xxxx" node scripts/send-does-promo.mjs
+ *      node scripts/send-does-promo.mjs
  *
  *   2) 봇 토큰 + 채널
  *      DISCORD_BOT_TOKEN="..." DISCORD_CHANNEL_ID="123..." \
- *      DOES_INVITE_URL="https://discord.gg/xxxx" node scripts/send-does-promo.mjs
+ *      node scripts/send-does-promo.mjs
  *
  *   --dry  : 전송하지 않고 payload JSON만 출력
  */
 
 const SITE_URL = process.env.DOES_SITE_URL || "https://doesmc.xyz";
 const BANNER_URL = process.env.DOES_BANNER_URL || "https://doesmc.xyz/brand/does-banner.png";
-const INVITE_URL = process.env.DOES_INVITE_URL || "";
+const INVITE_URL = process.env.DOES_INVITE_URL || "https://discord.gg/doesmc";
 
 const IS_COMPONENTS_V2 = 1 << 15;
 const C = { ACTION_ROW: 1, BUTTON: 2, TEXT: 10, MEDIA_GALLERY: 12, SEPARATOR: 14, CONTAINER: 17 };

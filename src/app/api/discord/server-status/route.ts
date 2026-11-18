@@ -88,7 +88,7 @@ export async function POST(request: Request) {
   }
   if (parsed.data.op === "linkcard") {
     const { postLinkCard } = await import("@/lib/discord/link-card");
-    return NextResponse.json(await postLinkCard(shop.id, parsed.data.channelId, settings.discordInviteUrl ?? null).catch((err) => ({ error: String(err) })));
+    return NextResponse.json(await postLinkCard(shop.id, parsed.data.channelId, settings.discordInviteUrl ?? null, parsed.data.messageId).catch((err) => ({ error: String(err) })));
   }
   if (parsed.data.op === "prefix") {
     // DOES Auto: 채팅 ! 명령어

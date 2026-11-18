@@ -5,7 +5,7 @@
  */
 import { actionRow, button, ButtonStyle, container, mediaGallery, MessageFlags, separator, textDisplay } from "@/lib/discord/components";
 import { appEmoji } from "@/lib/discord/app-emojis";
-import { postChannelMessage } from "@/lib/discord/rest";
+import { discordRest, postChannelMessage } from "@/lib/discord/rest";
 import { shopUrl } from "@/lib/domain";
 import { getShopById, getShopSettings, getStoreForRead } from "@/lib/store";
 import { kvGetJson, kvPutJson } from "@/lib/world/kv";
@@ -24,7 +24,7 @@ function stats(shopId: string) {
   return { sold, buyers, reviews: reviews.length, avg };
 }
 
-export async function postLinkCard(shopId: string, channelId: string, inviteUrl?: string | null) {
+export async function postLinkCard(shopId: string, channelId: string, inviteUrl?: string | null, messageId?: string | null) {
   const cdKey = `linkcard:cd:${channelId}`;
   if (await kvGetJson<number>(cdKey)) return { skipped: true as const };
   await kvPutJson(cdKey, Date.now(), 60);
@@ -51,11 +51,15 @@ export async function postLinkCard(shopId: string, channelId: string, inviteUrl?
     ),
   ];
   const buttons = [
-    ...(inviteUrl ? [button({ label: "디스코드에서 구매", url: inviteUrl, style: ButtonStyle.LINK })] : []),
-    button({ label: "웹사이트에서 구경하기", url: shopUrl(shop.slug, "/dashboard"), style: ButtonStyle.LINK }),
+    button({ label: "웹사이트에서 구매하기", url: shopUrl(shop.slug, "/dashboard"), style: ButtonStyle.LINK }),
+    ...(inviteUrl ? [button({ label: "디스코드 들어가기", url: inviteUrl, style: ButtonStyle.LINK })] : []),
   ];
   kids.push(separator(true, 1), actionRow(...buttons));
   void settings;
   const r = await postChannelMessage(channelId, { flags: MessageFlags.IS_COMPONENTS_V2, components: [container(kids, 0x6366f1)], allowed_mentions: { parse: [] as string[] } }, shopId);
+  // 디스코드가 자동으로 붙이는 링크 미리보기(네이티브 임베드)를 숨겨 V2 카드만 남긴다 (봇에 메시지 관리 권한 필요)
+  if (messageId) {
+    await discordRest("PATCH", `/channels/${channelId}/messages/${messageId}`, { flags: 4 }, shopId).catch(() => null);
+  }
   return { ok: r.ok };
 }

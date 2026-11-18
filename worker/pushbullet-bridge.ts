@@ -12,6 +12,9 @@ type PushPayload = {
   application_name?: string;
   notification_id?: string;
   notifications?: { title?: string; body?: string }[];
+  /** Pushbullet 종단간 암호화를 켜면 내용 대신 이 두 값만 온다 */
+  encrypted?: boolean;
+  ciphertext?: string;
 };
 
 const STREAM = "https://stream.pushbullet.com/websocket/";
@@ -147,6 +150,13 @@ export class PushbulletBridge extends DurableObject<Env> {
     this.diag.counts[kind] = (this.diag.counts[kind] ?? 0) + 1;
     if (msg.type !== "push" || !msg.push) return;
     const push = msg.push;
+    if (push.encrypted) {
+      // 종단간 암호화: 내용을 읽을 수 없어 입금 처리를 못 한다 → 원인을 바로 알 수 있게 남긴다
+      this.lastPush = { at: Date.now(), type: "encrypted", app: "", deposit: false, forwarded: null };
+      await this.ctx.storage.put("lastPush", this.lastPush);
+      console.log("pushbullet push encrypted", this.config?.slug, "— Pushbullet 종단간 암호화를 끄거나 비밀번호가 필요합니다");
+      return;
+    }
     // 진단: 어떤 알림이 왔는지 (앱·종류만, 내용은 남기지 않음)
     console.log("pushbullet push", this.config?.slug, push.type, push.package_name ?? push.application_name ?? "-");
     const items: PushPayload[] =

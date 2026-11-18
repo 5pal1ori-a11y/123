@@ -253,6 +253,13 @@ export class StatusWatch extends DurableObject<Env> {
         );
         return;
       }
+      // 사이트 링크를 올리면 봇이 상점 카드를 띄운다
+      if (/\b(doesmc\.xyz|vendix\.team)\b/i.test(d.content ?? "") && this.config && d.guild_id === this.config.guildId && d.author?.id && !d.author.bot && d.id && d.channel_id) {
+        this.ctx.waitUntil(
+          this.post({ op: "linkcard", guildId: d.guild_id, channelId: d.channel_id, messageId: d.id, userId: d.author.id }),
+        );
+        return;
+      }
       // 숫자만 보낸 메시지만 넘긴다 (숫자 맞추기)
       const m = /^\s*(\d{1,9})\s*$/.exec(d.content ?? "");
       if (m && this.config && d.guild_id === this.config.guildId && d.author?.id && !d.author.bot && d.id && d.channel_id) {

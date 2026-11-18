@@ -20,6 +20,7 @@ const bodySchema = z.discriminatedUnion("op", [
     guess: z.number().int().min(0).max(999_999_999),
   }),
   z.object({ op: z.literal("member_remove"), userId: snowflake, guildId: snowflake }),
+  z.object({ op: z.literal("linkcard"), guildId: snowflake, channelId: snowflake, messageId: snowflake, userId: snowflake }),
   z.object({
     op: z.literal("prefix"),
     guildId: snowflake,
@@ -84,6 +85,10 @@ export async function POST(request: Request) {
     const { handleNumberGuessMessage } = await import("@/lib/discord/number-guess");
     const d = parsed.data;
     return NextResponse.json(await handleNumberGuessMessage(shop, d.channelId, d.messageId, d.userId, d.guess));
+  }
+  if (parsed.data.op === "linkcard") {
+    const { postLinkCard } = await import("@/lib/discord/link-card");
+    return NextResponse.json(await postLinkCard(shop.id, parsed.data.channelId, settings.discordInviteUrl ?? null).catch((err) => ({ error: String(err) })));
   }
   if (parsed.data.op === "prefix") {
     // DOES Auto: 채팅 ! 명령어

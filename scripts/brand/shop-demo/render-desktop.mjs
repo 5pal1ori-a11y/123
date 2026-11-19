@@ -30,7 +30,9 @@ const SEGS = [
   { cap: 4, from: M.product, to: M.buy, speed: 1 },
   { cap: 5, from: M.buy, to: M.pay, speed: 1 },
   { cap: 6, from: M.pay, to: M.done, speed: 1 },
-  { cap: 7, from: M.done, to: M.end, speed: 1 },
+  { cap: 7, from: M.done, to: M.check, speed: 1 },
+  { cap: 8, from: M.check, to: M.account, speed: 1 },
+  { cap: 9, from: M.account, to: M.end, speed: 1 },
 ];
 let acc = 0;
 for (const s of SEGS) {
@@ -41,7 +43,7 @@ for (const s of SEGS) {
 const finishAt = acc;
 const total = acc + FINISH;
 const caps = [];
-for (let i = 0; i <= 7; i++) {
+for (let i = 0; i <= 9; i++) {
   const ss = SEGS.filter((s) => s.cap === i);
   caps.push(ss.length ? { start: ss[0].start, end: ss.at(-1).end } : { start: finishAt, end: total });
 }
@@ -93,7 +95,11 @@ const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, de
 await page.goto(pathToFileURL(path.join(here, "stage-desktop.html")).href);
 await page.evaluate(() => window.ready);
 // 결제 화면(바로구매 누른 뒤 1초)부터 확대 · 구매 완료 1.2초 뒤 DM 알림
-const info = { caps, taps, finishAt, total, zoom: { start: outAt(M.buy + 1.2) ?? 0, scale: 1.9, x: 768, y: 8 }, dmAt: (outAt(M.done) ?? finishAt) + 1.2 };
+const info = { caps, taps, finishAt, total, zooms: [
+  { start: outAt(M.buy + 1.2) ?? 0, end: outAt(M.check) ?? 0, scale: 1.9, x: 768, y: 8 },
+  { start: outAt(M.check + 0.4) ?? 0, end: outAt(M.account) ?? 0, scale: 1.45, x: 768, y: 300 },
+  { start: outAt(M.account + 0.1) ?? 0, end: total + 1, scale: 1.14, x: 768, y: 470 },
+], dmAt: (outAt(M.done) ?? finishAt) + 1.2 };
 const n = Math.round(total * FPS);
 console.log(`total ${total.toFixed(1)}s · ${n} frames`);
 
@@ -123,4 +129,19 @@ for (let f = 0; f < n; f++) {
 ff.stdin.end();
 await new Promise((r, j) => ff.on("close", (c) => (c === 0 ? r() : j(new Error(`ffmpeg ${c}`)))));
 await browser.close();
+
+// 배경음악 — 영상 길이에 맞춰 합성해서 AAC 로 넣는다 (--no-music 이면 건너뜀)
+if (!process.argv.includes("--no-music")) {
+  const { execFileSync } = await import("node:child_process");
+  const { mkdtempSync, copyFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(path.join(tmpdir(), "shop-demo-bgm-"));
+  const wav = path.join(dir, "bgm.wav");
+  execFileSync("python3", [path.join(here, "../music/make-bgm.py"), String(total), wav, "--bpm", "104"], { stdio: "inherit" });
+  const tmpOut = path.join(dir, "out.mp4");
+  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", out, "-i", wav, "-map", "0:v", "-map", "1:a", "-c:v", "copy",
+    "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest", "-movflags", "+faststart", tmpOut]);
+  copyFileSync(tmpOut, out);
+  rmSync(dir, { recursive: true, force: true });
+}
 console.log(`saved ${out}`);

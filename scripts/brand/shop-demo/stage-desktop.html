@@ -83,9 +83,11 @@
     { no: "STEP 05", title: "상품 상세", desc: "가격 · 망토 · 서버 기록까지 꼼꼼하게" },
     { no: "STEP 06", title: "바로구매", desc: "Discord 로그인 하나로 바로 주문" },
     { no: "STEP 07", title: "포인트 결제", desc: "약관 동의하고 클릭 한 번" },
-    { no: "STEP 08", title: "<span class=grad>즉시 수령</span>", desc: "결제하자마자 코드 발급 · DM 으로도 와요" },
+    { no: "STEP 08", title: "<span class=grad>즉시 수령</span>", desc: "결제하자마자 16자리 코드 발급 · DM 으로도 와요" },
+    { no: "STEP 09", title: "코드 입력", desc: "계정 확인 페이지에 16자리 코드 입력" },
+    { no: "STEP 10", title: "<span class=grad>계정 정보 확인</span>", desc: "닉네임 · 이메일 · 비밀번호 바로 확인" },
   ];
-  const URLS = ["doesmc.xyz", "doesmc.xyz/main", "doesmc.xyz/dashboard?tab=products", "doesmc.xyz/dashboard?tab=products", "doesmc.xyz/product/mc-mwkj0pkd5qzy", "doesmc.xyz/checkout?product=mc-mwkj0pkd5qzy", "doesmc.xyz/checkout?product=mc-mwkj0pkd5qzy", "doesmc.xyz/checkout?product=mc-mwkj0pkd5qzy"];
+  const URLS = ["doesmc.xyz", "doesmc.xyz/main", "doesmc.xyz/dashboard?tab=products", "doesmc.xyz/dashboard?tab=products", "doesmc.xyz/product/mc-mwkj0pkd5qzy", "doesmc.xyz/checkout?product=mc-mwkj0pkd5qzy", "doesmc.xyz/checkout?product=mc-mwkj0pkd5qzy", "doesmc.xyz/checkout?product=mc-mwkj0pkd5qzy", "doesmc.xyz/check", "doesmc.xyz/check"];
   CAPS.forEach((c) => {
     const d = document.createElement("div");
     d.className = "cap";
@@ -140,16 +142,20 @@
     });
     $("url").textContent = URLS[cur];
 
-    // 결제 화면은 PC 에서 작아서 확대해 보여 준다
-    const z = info.zoom ? easeIO(seg(t, info.zoom.start, info.zoom.start + .8)) : 0;
-    const zs = 1 + (info.zoom ? info.zoom.scale - 1 : 0) * z;
+    // 작은 화면(결제 · 코드 확인)은 확대해서 보여 준다 — 구간마다 들어가며 확대, 나가며 원래대로
+    let zs = 1, ox = 768, oy = 432;
+    for (const zz of info.zooms || []) {
+      const k = easeIO(seg(t, zz.start, zz.start + .7)) * (1 - easeIO(seg(t, zz.end - .5, zz.end)));
+      if (k > 0) { zs = 1 + (zz.scale - 1) * k; ox = zz.x; oy = zz.y; }
+    }
     for (const el of [img, img2]) {
-      el.style.transformOrigin = info.zoom ? `${info.zoom.x}px ${info.zoom.y}px` : "50% 50%";
+      el.style.transformOrigin = `${ox}px ${oy}px`;
       el.style.transform = `scale(${zs})`;
     }
     const mp = back(seg(t, info.dmAt, info.dmAt + .6));
     $("dm").style.transform = `translateX(${(1 - mp) * 520}px)`;
-    $("dm").style.opacity = clamp(mp) * (1 - seg(t, info.total - .8, info.total));
+    $("dm").style.opacity = clamp(mp) * (1 - easeIO(seg(t, info.dmAt + 3.2, info.dmAt + 3.8)));
+    $("dm").style.transform += ` translateY(${-30 * easeIO(seg(t, info.dmAt + 3.2, info.dmAt + 3.8))}px)`;
     $("fade").style.opacity = 1 - ease(seg(t, 0, .5)) + easeIO(seg(t, info.total - .6, info.total));
   };
   window.ready = document.fonts.ready;

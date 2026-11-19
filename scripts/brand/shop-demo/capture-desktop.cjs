@@ -6,6 +6,7 @@
  * 구매 장면은 실제 결제 없이 보여 주려고, 이 녹화 브라우저 안에서만
  * 로그인 확인(/api/auth/user/me)과 포인트 결제(/api/purchase/points) 응답을 데모 값으로 바꾼다.
  * 서버에는 결제 요청이 가지 않는다.
+ * 코드 확인(/check)도 같은 방식으로 데모 계정 정보(assets/demo-skin.png 스킨)를 돌려준다.
  */
 const { chromium } = require("playwright");
 const fs = require("fs");
@@ -58,12 +59,46 @@ const CURSOR = () => {
       ? route.fulfill({ json: { user: { ...DEMO_USER, points: demoPoints } } })
       : route.fulfill({ json: { ok: true } }),
   );
+  // 녹화 환경에서 CDN 이 막혀 있으면 VENDOR_DIR 에 받아 둔 같은 버전 파일로 대신 준다
+  //   (npm pack lucide@0.460.0 skinview3d@3.1.0 후 풀어 둔 폴더)
+  const VENDOR = process.env.VENDOR_DIR;
+  if (VENDOR) {
+    const serve = (pattern, file) =>
+      ctx.route(pattern, (route) => route.fulfill({ body: fs.readFileSync(path.join(VENDOR, file)), contentType: "application/javascript", headers: { "access-control-allow-origin": "*" } }));
+    await serve("https://unpkg.com/lucide@0.460.0/**", "lucide-0.460.0/package/dist/umd/lucide.min.js");
+    await serve("https://cdn.jsdelivr.net/npm/skinview3d@3.1.0/**", "skinview3d-3.1.0/package/bundles/skinview3d.bundle.js");
+  }
+
+  // 코드 확인 페이지: 데모 계정 정보 · 스킨 · 얼굴 이미지
+  await ctx.route("**/check/api/redeem", async (route) => {
+    await new Promise((r) => setTimeout(r, 500));
+    return route.fulfill({
+      json: {
+        order: 1042,
+        account: {
+          nickname: "DOES_Demo",
+          uuid: "d0e5d0e5a1b24c3d9e8f7a6b5c4d3e2f",
+          product: "마인크래프트 계정 · 일반",
+          email: "demo.account@does.example",
+          password: "Demo-Pass-2026!",
+          memo: "시연 영상용 예시 계정이에요",
+        },
+        profile: { uuid: "d0e5d0e5a1b24c3d9e8f7a6b5c4d3e2f", skin: "/demo-skin.png", model: "default" },
+      },
+    });
+  });
+  await ctx.route("**/check/demo-skin.png", (route) =>
+    route.fulfill({ body: fs.readFileSync(path.join(__dirname, "assets/demo-skin.png")), contentType: "image/png", headers: { "access-control-allow-origin": "*" } }),
+  );
+  await ctx.route("https://mc-heads.net/**", (route) =>
+    route.fulfill({ body: fs.readFileSync(path.join(__dirname, "assets/demo-avatar.png")), contentType: "image/png", headers: { "access-control-allow-origin": "*" } }),
+  );
   await ctx.route("**/api/purchase/points", async (route) => {
     const body = route.request().postDataJSON() || {};
     demoPoints -= 12900;
     await new Promise((r) => setTimeout(r, 700));
     return route.fulfill({
-      json: { order: { id: "ord_demo", orderUuid: "DEMO-ORDER", productId: body.productId, dispensedCode: "DOES-7K2Q-X9M4-TB8R" } },
+      json: { order: { id: "ord_demo", orderUuid: "DEMO-ORDER", productId: body.productId, dispensedCode: "D3ES-7K2Q-X9M4-TB8R" } },
     });
   });
   const p = await ctx.newPage();
@@ -233,7 +268,35 @@ const CURSOR = () => {
   await wait(600);
   mark("done");
   await glide(768, 380, 700);
-  await wait(2600);
+  await wait(2200);
+
+  // 8. 코드 확인 페이지에서 16자리 코드 입력
+  mark("check");
+  await load(() => p.goto("https://doesmc.xyz/check", { waitUntil: "networkidle", timeout: 60000 }).catch(() => {}));
+  await p.mouse.move(mx, my);
+  await wait(900);
+  const codeInput = p.locator("input").first();
+  await clickEl(codeInput);
+  await wait(300);
+  for (const ch of "D3ES7K2QX9M4TB8R") {
+    await p.keyboard.type(ch);
+    await wait(85);
+  }
+  // 16자리가 차면 자동으로 확인한다
+  await load(() => p.locator("#result-view").waitFor({ state: "visible", timeout: 15000 }).catch(() => {}));
+
+  // 9. 계정 정보
+  mark("account");
+  await wait(1600);
+  const show = p.getByRole("button", { name: /보기/ }).first();
+  await clickEl(show);
+  await wait(1500);
+  const copyAll = p.locator("#copy-all");
+  if (await copyAll.count()) {
+    await glide(...(await copyAll.boundingBox().then((b) => (b ? [b.x + b.width / 2, b.y + b.height / 2] : [768, 600])).catch(() => [768, 600])), 700);
+    await wait(500);
+  }
+  await wait(1800);
   mark("end");
   await cdp.send("Page.stopScreencast");
   await wait(300);

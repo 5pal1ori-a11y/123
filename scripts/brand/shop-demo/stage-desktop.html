@@ -66,6 +66,7 @@
       <div id="addr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.4" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span id="url">doesmc.xyz</span></div></div>
     <div id="view">
       <img id="screen" alt="" />
+      <img id="screen2" alt="" style="position:absolute;inset:0;width:1536px;height:864px;opacity:0" />
       <div id="shade"></div>
       <div id="dm"><div class="av"><svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><path d="M19.6 5.3A16.6 16.6 0 0 0 15.5 4l-.5 1a15.3 15.3 0 0 0-6 0l-.5-1a16.6 16.6 0 0 0-4.1 1.3C1.8 9.2 1.1 13 1.4 16.7a16.8 16.8 0 0 0 5 2.5l1.1-1.7a10.8 10.8 0 0 1-1.7-.8l.4-.3a11.9 11.9 0 0 0 11.6 0l.4.3c-.5.3-1.1.6-1.7.8l1.1 1.7a16.7 16.7 0 0 0 5-2.5c.4-4.3-.7-8-3-11.4zM8.5 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2zm7 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2z"/></svg></div>
         <div><b>DOES</b><span>구매하신 계정 코드가 도착했어요</span></div></div>
@@ -110,6 +111,16 @@
       img.dataset.src = src;
       await img.decode().catch(() => {});
     }
+    // 장면이 바뀔 때 이전 화면을 살짝 겹쳐 부드럽게 넘긴다
+    const img2 = $("screen2");
+    if (info.fade && info.fade.src) {
+      if (img2.dataset.src !== info.fade.src) {
+        img2.src = info.fade.src;
+        img2.dataset.src = info.fade.src;
+        await img2.decode().catch(() => {});
+      }
+      img2.style.opacity = info.fade.alpha;
+    } else img2.style.opacity = 0;
     const win = back(seg(t, 0, .9));
     $("win").style.transform = `translateY(${(1 - win) * 80}px) scale(${(.96 + .04 * win) * .955})`;
 
@@ -132,8 +143,10 @@
     // 결제 화면은 PC 에서 작아서 확대해 보여 준다
     const z = info.zoom ? easeIO(seg(t, info.zoom.start, info.zoom.start + .8)) : 0;
     const zs = 1 + (info.zoom ? info.zoom.scale - 1 : 0) * z;
-    img.style.transformOrigin = info.zoom ? `${info.zoom.x}px ${info.zoom.y}px` : "50% 50%";
-    img.style.transform = `scale(${zs})`;
+    for (const el of [img, img2]) {
+      el.style.transformOrigin = info.zoom ? `${info.zoom.x}px ${info.zoom.y}px` : "50% 50%";
+      el.style.transform = `scale(${zs})`;
+    }
     const mp = back(seg(t, info.dmAt, info.dmAt + .6));
     $("dm").style.transform = `translateX(${(1 - mp) * 520}px)`;
     $("dm").style.opacity = clamp(mp) * (1 - seg(t, info.total - .8, info.total));

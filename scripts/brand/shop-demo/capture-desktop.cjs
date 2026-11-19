@@ -75,18 +75,28 @@ const CURSOR = () => {
   // 녹화 중에는 마우스 이동 한 번이 느려서, 실제 시각 대신 "의도한 시각"(vt)으로 프레임 시각을 매긴다
   let vt = 0;
   const adv = (ms) => (vt += ms);
+  // 기다리는 중 · 페이지 불러오는 중에는 실제 흐른 시간만큼 vt 를 이어서 흘려보낸다
+  // (끝날 때 한꺼번에 더하면 그사이 프레임이 같은 시각에 몰려 영상이 뚝뚝 끊긴다)
+  let flowStart = null;
+  let flowCap = Infinity;
+  const nowVt = () => (flowStart === null ? vt : vt + Math.min(flowCap, Date.now() - flowStart));
+  const flow = async (fn, cap = Infinity) => {
+    flowStart = Date.now();
+    flowCap = cap;
+    try { await fn(); } finally { vt += Math.min(cap, Date.now() - flowStart); flowStart = null; }
+  };
   let mx = 768, my = 600;
   cdp.on("Page.screencastFrame", (f) => {
     const file = `f${String(n++).padStart(5, "0")}.jpg`;
     fs.writeFileSync(path.join(out, "frames", file), Buffer.from(f.data, "base64"));
-    frames.push({ t: Math.round(vt), file });
+    frames.push({ t: Math.round(nowVt()), file });
     cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {});
   });
-  const mark = (name) => marks.push({ name, t: Math.round(vt) });
-  const wait = async (ms) => { await p.waitForTimeout(ms); adv(ms); };
+  const mark = (name) => marks.push({ name, t: Math.round(nowVt()) });
+  const wait = (ms) => flow(() => p.waitForTimeout(ms));
   const sleep = (ms) => p.waitForTimeout(ms);
   /** 페이지 불러오기: 걸린 시간만큼(최대 1.2초)만 영상 시각에 더한다 */
-  const load = async (fn) => { const s0 = Date.now(); await fn(); adv(Math.min(1200, Date.now() - s0)); };
+  const load = (fn) => flow(fn, 1200);
   /** 부드럽게 마우스 이동 */
   const glide = async (x, y, ms = 650) => {
     const steps = Math.max(8, Math.round(ms / 33));

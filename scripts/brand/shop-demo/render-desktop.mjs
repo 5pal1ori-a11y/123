@@ -51,6 +51,31 @@ const outAt = (src) => {
 };
 const taps = [];
 
+function frameAtSrc(srcSec) {
+  const src = srcSec * 1000;
+  let lo = 0, hi = frames.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (frames[mid].t <= src) lo = mid;
+    else hi = mid - 1;
+  }
+  return pathToFileURL(path.join(capDir, "frames", frames[lo].file)).href;
+}
+
+/** 원본이 끊기는 곳(구간 시작이 앞 구간 끝과 다름)에서 0.35초 동안 앞 화면을 겹친다 */
+const FADE = 0.35;
+function fadeAt(t) {
+  for (let i = 1; i < SEGS.length; i++) {
+    const s = SEGS[i], prev = SEGS[i - 1];
+    if (Math.abs(s.from - prev.to) < 0.02) continue;
+    if (t >= s.start && t < s.start + FADE) {
+      const k = (t - s.start) / FADE;
+      return { src: frameAtSrc(prev.to), alpha: 1 - k * k * (3 - 2 * k) };
+    }
+  }
+  return null;
+}
+
 function srcFrame(t) {
   const s = SEGS.find((x) => t >= x.start && t < x.end) ?? SEGS.at(-1);
   const src = Math.min(s.to, s.from + (t - s.start) * s.speed) * 1000;
@@ -75,7 +100,7 @@ console.log(`total ${total.toFixed(1)}s · ${n} frames`);
 // PREVIEW="3,12,30" 이면 그 시각들만 PNG 로 저장하고 끝낸다
 if (process.env.PREVIEW) {
   for (const t of process.env.PREVIEW.split(",").map(Number)) {
-    await page.evaluate(([t, src, info]) => window.renderAt(t, src, info), [t, srcFrame(Math.min(t, finishAt - 0.001)), info]);
+    await page.evaluate(([t, src, info]) => window.renderAt(t, src, info), [t, srcFrame(Math.min(t, finishAt - 0.001)), { ...info, fade: fadeAt(t) }]);
     await page.screenshot({ path: path.join(process.env.PREVIEW_DIR || ".", `preview_${t}.png`) });
   }
   await browser.close();
@@ -90,7 +115,7 @@ const ff = spawn(
 );
 for (let f = 0; f < n; f++) {
   const t = f / FPS;
-  await page.evaluate(([t, src, info]) => window.renderAt(t, src, info), [t, srcFrame(Math.min(t, finishAt - 0.001)), info]);
+  await page.evaluate(([t, src, info]) => window.renderAt(t, src, info), [t, srcFrame(Math.min(t, finishAt - 0.001)), { ...info, fade: fadeAt(t) }]);
   const png = await page.screenshot({ type: "png" });
   if (!ff.stdin.write(png)) await new Promise((r) => ff.stdin.once("drain", r));
   if (f % 150 === 0) process.stdout.write(`frame ${f}/${n}\n`);

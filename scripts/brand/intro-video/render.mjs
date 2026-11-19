@@ -2,7 +2,7 @@
 /**
  * DOES 소개 영상 렌더러 — intro.html 을 프레임마다 그려 MP4 로 만든다.
  *
- *   node scripts/brand/intro-video/render.mjs [출력.mp4] [--sold 100 --buyers 50 --reviews 32 --avg 5]
+ *   node scripts/brand/intro-video/render.mjs [출력.mp4] [--html intro60.html] [--sold 100 --buyers 50 --reviews 32 --avg 5]
  *
  * 필요: playwright(chromium), ffmpeg
  */
@@ -25,7 +25,7 @@ const qs = new URLSearchParams({ sold: opt("sold", 100), buyers: opt("buyers", 5
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-await page.goto(`${pathToFileURL(path.join(here, "intro.html")).href}?${qs}`);
+await page.goto(`${pathToFileURL(path.join(here, opt("html", "intro.html"))).href}?${qs}`);
 await page.evaluate(() => document.fonts.ready);
 await page.waitForTimeout(300);
 const duration = await page.evaluate(() => window.DURATION);

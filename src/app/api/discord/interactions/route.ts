@@ -131,6 +131,10 @@ function needsSyncModalResponse(interaction: DiscordInteraction) {
     action === "px_reg" ||
     action === "px_ok" ||
     action === "px_no" ||
+    // 코인대행 구매 · 송금 · 거절 → 입력 창(모달)
+    action === "cn_buy" ||
+    action === "cn_send" ||
+    action === "cn_rej" ||
     action === "chg_custom" ||
     action === "menu_charge" ||
     action === "menu_coupon" ||
@@ -167,6 +171,11 @@ const UPDATE_IN_PLACE = new Set([
   // 프록시 승인·거절 모달 → 관리자 채널의 신청 카드를 그 자리에서 결과로 바꾼다
   "px_okm",
   "px_nom",
+  // 코인대행: 견적 확정·취소 → 견적 메시지를, 송금·거절 모달 → 관리자 카드를 그 자리에서 바꾼다
+  "cn_ok",
+  "cn_cancel",
+  "cn_sendm",
+  "cn_rejm",
   "emb_modal",
   "emb_send",
   "emb_back",

@@ -3138,6 +3138,25 @@ export function addUserPoints(shopId: string, userId: string, points: number, re
   return user;
 }
 
+/** 포인트를 빼거나(음수) 돌려준다(양수) — 잔액이 모자라면 실패. 코인대행 등에서 쓴다 */
+export function changeUserPoints(
+  shopId: string,
+  userId: string,
+  delta: number,
+  action: string,
+  meta: Record<string, unknown>,
+): { ok: true; balance: number } | { ok: false; error: string; balance?: number } {
+  const store = getStore();
+  const user = store.users.find((u) => u.id === userId && u.shopId === shopId);
+  if (!user) return { ok: false, error: "회원을 찾을 수 없어요." };
+  const d = Math.trunc(delta);
+  if (d < 0 && user.points < -d) return { ok: false, error: "포인트가 부족해요.", balance: user.points };
+  user.points += d;
+  pushLog(user.email, action, meta, shopId);
+  persist(store);
+  return { ok: true, balance: user.points };
+}
+
 export function resolveUserTier(shopId: string, user: ShopUser): ShopTier | null {
   const tiers = getStore()
     .tiers.filter((t) => t.shopId === shopId)

@@ -136,6 +136,10 @@ export type ShopSettings = {
   proxyAdminChannelId?: string | null;
   /** /프록시등록 — 숫자를 다시 그릴 패널 위치 */
   proxyPanel?: { channelId: string; messageId: string } | null;
+  /** /코인대행 — 주문 승인 카드를 올릴 관리자 채널 */
+  coinAdminChannelId?: string | null;
+  /** /코인대행 — 숫자를 다시 그릴 패널 위치 */
+  coinPanel?: { channelId: string; messageId: string } | null;
   /** /환영설정 — 새 멤버 환영 패널 */
   welcome?: {
     channelId: string;

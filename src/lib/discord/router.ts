@@ -268,6 +268,11 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const { handleProxyCommand } = await import("@/lib/discord/proxy-sale");
       return handleProxyCommand(shop.slug, actor.roles, perms, interaction.channel_id, typeof ch === "string" ? ch : null);
     }
+    if (name === "코인대행") {
+      const ch = interaction.data?.options?.find((o) => o.name === "승인채널")?.value;
+      const { handleCoinCommand } = await import("@/lib/discord/coin-trade");
+      return handleCoinCommand(shop.slug, actor.roles, perms, interaction.channel_id, typeof ch === "string" ? ch : null);
+    }
     if (name === "재고요청") {
       const ch = interaction.data?.options?.find((o) => o.name === "받을채널")?.value;
       const { handleStockRequestCommand } = await import("@/lib/discord/stock-request");
@@ -538,6 +543,14 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       return px.handleProxyRejectSubmit(shop.slug, parsed.payload, actor.id, actor.roles, modalPerms, interaction);
     }
 
+    if (parsed.action === "cn_modal" || parsed.action === "cn_sendm" || parsed.action === "cn_rejm") {
+      const cn = await import("@/lib/discord/coin-trade");
+      const modalPerms = interaction.member?.permissions;
+      if (parsed.action === "cn_modal") return cn.handleCoinBuySubmit(shop.slug, actor.id, parsed.payload, interaction);
+      if (parsed.action === "cn_sendm") return cn.handleCoinSendSubmit(shop.slug, parsed.payload, actor.id, actor.roles, modalPerms, interaction);
+      return cn.handleCoinRejectSubmit(shop.slug, parsed.payload, actor.id, actor.roles, modalPerms, interaction);
+    }
+
     if (parsed.action === "sr_modal") {
       const { handleStockRequestModal } = await import("@/lib/discord/stock-request");
       return handleStockRequestModal(shop.slug, actor.id, interaction);
@@ -676,6 +689,15 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const u = interaction.member?.user ?? interaction.user;
       const avatar = u?.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128` : null;
       return px.handleProxyMine(shop.slug, { id: actor.id, name: u?.global_name || actor.username, avatar });
+    }
+    if (action === "cn_buy" || action === "cn_ok" || action === "cn_cancel" || action === "cn_mine" || action === "cn_send" || action === "cn_rej") {
+      const cn = await import("@/lib/discord/coin-trade");
+      if (action === "cn_buy") return cn.handleCoinBuyButton(shop.slug, payload);
+      if (action === "cn_ok") return cn.handleCoinConfirm(shop.slug, actor.id, payload);
+      if (action === "cn_cancel") return cn.handleCoinCancel(shop.slug, actor.id, payload);
+      if (action === "cn_send") return cn.handleCoinSendButton(shop.slug, payload, actor.roles, perms);
+      if (action === "cn_rej") return cn.handleCoinRejectButton(shop.slug, payload, actor.roles, perms);
+      return cn.handleCoinMine(shop.slug, actor.id);
     }
     if (action === "sr_pick") {
       const { handleStockRequestPick } = await import("@/lib/discord/stock-request");

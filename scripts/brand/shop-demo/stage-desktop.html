@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>DOES Shop Demo (PC)</title>
+<style>
+  @font-face { font-family: "P"; src: url("../../../public/fonts/Pretendard-Medium.otf"); font-weight: 500; }
+  @font-face { font-family: "P"; src: url("../../../public/fonts/Pretendard-Bold.otf"); font-weight: 700; }
+  @font-face { font-family: "P"; src: url("../../../public/fonts/Pretendard-Black.otf"); font-weight: 900; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #05060d; }
+  body { font-family: "P", sans-serif; color: #fff; }
+  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden;
+    background: radial-gradient(ellipse 70% 70% at 50% 55%, #141a3a 0%, #080a16 62%, #04050a 100%); }
+  .glow { position: absolute; border-radius: 50%; filter: blur(100px); }
+  #g1 { width: 900px; height: 900px; background: rgba(99,102,241,.34); }
+  #g2 { width: 700px; height: 700px; background: rgba(20,184,166,.20); }
+
+  /* 위쪽 설명 */
+  #top { position: absolute; left: 0; right: 0; top: 0; height: 150px; }
+  #brand { position: absolute; left: 72px; top: 50px; display: flex; align-items: center; gap: 14px; font-weight: 900; font-size: 34px; }
+  #brand img { width: 46px; height: 46px; }
+  .cap { position: absolute; left: 330px; top: 30px; right: 72px; height: 100px; display: flex; align-items: center; gap: 30px; opacity: 0; }
+  .cap .no { flex: 0 0 auto; font-weight: 900; font-size: 22px; letter-spacing: 4px; color: #a5b4fc; padding: 10px 18px; border-radius: 999px; background: rgba(129,140,248,.12); border: 2px solid rgba(129,140,248,.35); }
+  .cap h2 { margin: 0; flex: 0 0 auto; font-weight: 900; font-size: 58px; letter-spacing: -2px; }
+  .cap p { margin: 0; font-weight: 700; font-size: 30px; color: #c7d2fe; }
+  .grad { background: linear-gradient(90deg, #a5b4fc, #c084fc 50%, #67e8f9); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #steps { position: absolute; right: 72px; top: 70px; display: flex; gap: 8px; }
+  #steps i { width: 36px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.14); }
+
+  /* 브라우저 창 */
+  #win { position: absolute; left: 192px; top: 158px; transform-origin: 50% 0; width: 1536px; border-radius: 22px; overflow: hidden;
+    background: #11131f; box-shadow: 0 50px 120px rgba(0,0,0,.6), 0 0 0 2px rgba(255,255,255,.08); }
+  #bar { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 18px; background: linear-gradient(180deg, #1c1f30, #151826); border-bottom: 1px solid rgba(255,255,255,.06); }
+  #bar .d { width: 13px; height: 13px; border-radius: 50%; }
+  #addr { margin-left: 22px; flex: 0 0 560px; height: 28px; border-radius: 9px; background: rgba(255,255,255,.06); display: flex; align-items: center; gap: 10px; padding: 0 14px;
+    font-weight: 500; font-size: 15px; color: #cbd5e1; }
+  #addr svg { flex: 0 0 auto; }
+  #view { position: relative; width: 1536px; height: 864px; overflow: hidden; background: #000; }
+  #screen { position: absolute; inset: 0; width: 1536px; height: 864px; }
+  #shade { position: absolute; inset: 0; background: rgba(4,6,14,0); }
+  #done { position: absolute; left: 50%; top: 50%; width: 560px; margin-left: -280px; padding: 44px 40px 40px; border-radius: 34px; text-align: center; box-sizing: border-box;
+    background: rgba(14,18,36,.94); border: 2px solid rgba(74,222,128,.5); box-shadow: 0 30px 90px rgba(0,0,0,.6), 0 0 70px rgba(74,222,128,.2); }
+  #done .ok { width: 96px; height: 96px; margin: 0 auto 20px; border-radius: 50%; background: #22c55e; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 46px rgba(34,197,94,.6); }
+  #done b { display: block; font-weight: 900; font-size: 46px; letter-spacing: -1px; }
+  #done span { display: block; margin-top: 12px; font-weight: 500; font-size: 24px; color: #94a3b8; }
+  #done .code { margin-top: 24px; font-weight: 900; font-size: 30px; letter-spacing: 3px; color: #bbf7d0; padding: 16px 0; border-radius: 18px; background: rgba(34,197,94,.12); border: 1px solid rgba(74,222,128,.35); }
+  #dm { position: absolute; right: 26px; top: 26px; width: 440px; display: flex; gap: 16px; align-items: center; padding: 18px 20px; border-radius: 22px; box-sizing: border-box;
+    background: rgba(30,33,52,.96); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 20px 50px rgba(0,0,0,.5); }
+  #dm .av { flex: 0 0 54px; height: 54px; border-radius: 50%; background: #5865f2; display: flex; align-items: center; justify-content: center; }
+  #dm b { display: block; font-weight: 900; font-size: 20px; }
+  #dm span { display: block; margin-top: 4px; font-weight: 500; font-size: 17px; color: #cbd5e1; }
+  #fade { position: absolute; inset: 0; background: #04050a; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="glow" id="g1"></div>
+  <div class="glow" id="g2"></div>
+  <div id="top">
+    <div id="brand"><img src="../../../public/does-mark.png" alt="" />DOES</div>
+    <div id="caps"></div>
+    <div id="steps"></div>
+  </div>
+  <div id="win">
+    <div id="bar"><i class="d" style="background:#ff5f57"></i><i class="d" style="background:#febc2e"></i><i class="d" style="background:#28c840"></i>
+      <div id="addr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.4" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span id="url">doesmc.xyz</span></div></div>
+    <div id="view">
+      <img id="screen" alt="" />
+      <div id="shade"></div>
+      <div id="done"><div class="ok"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></div>
+        <b>구매 완료!</b><span>16자리 코드로 바로 받아요</span><div class="code">DOES-7K2Q-X9M4-TB8R</div></div>
+      <div id="dm"><div class="av"><svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><path d="M19.6 5.3A16.6 16.6 0 0 0 15.5 4l-.5 1a15.3 15.3 0 0 0-6 0l-.5-1a16.6 16.6 0 0 0-4.1 1.3C1.8 9.2 1.1 13 1.4 16.7a16.8 16.8 0 0 0 5 2.5l1.1-1.7a10.8 10.8 0 0 1-1.7-.8l.4-.3a11.9 11.9 0 0 0 11.6 0l.4.3c-.5.3-1.1.6-1.7.8l1.1 1.7a16.7 16.7 0 0 0 5-2.5c.4-4.3-.7-8-3-11.4zM8.5 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2zm7 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2z"/></svg></div>
+        <div><b>DOES</b><span>구매하신 계정 코드가 도착했어요</span></div></div>
+    </div>
+  </div>
+  <div id="fade"></div>
+</div>
+<script>
+  const CAPS = [
+    { no: "STEP 01", title: "DOES 홈", desc: "설치 없이 브라우저에서 바로 시작" },
+    { no: "STEP 02", title: "웹마크", desc: "브라우저로 들어가는 <span class=grad>DOES 마인크래프트 월드</span>" },
+    { no: "STEP 03", title: "상점 둘러보기", desc: "클릭 한 번으로 계정 · 망토 · 기타상품" },
+    { no: "STEP 04", title: "쭉 넘겨 보기", desc: "스크롤하며 마음에 드는 계정 찾기" },
+    { no: "STEP 05", title: "상품 상세", desc: "가격 · 망토 · 서버 기록까지 꼼꼼하게" },
+    { no: "STEP 06", title: "바로구매", desc: "Discord 로그인 한 번이면 바로 결제" },
+    { no: "STEP 07", title: "<span class=grad>즉시 수령</span>", desc: "결제하면 16자리 코드가 DM 으로 바로" },
+  ];
+  const URLS = ["doesmc.xyz", "doesmc.xyz/main", "doesmc.xyz/dashboard?tab=products", "doesmc.xyz/dashboard?tab=products", "doesmc.xyz/product/mc-mwkj0pkd5qzy", "doesmc.xyz/checkout", "doesmc.xyz/checkout"];
+  CAPS.forEach((c) => {
+    const d = document.createElement("div");
+    d.className = "cap";
+    d.innerHTML = `<div class="no">${c.no}</div><h2>${c.title}</h2><p>${c.desc}</p>`;
+    document.getElementById("caps").appendChild(d);
+    document.getElementById("steps").appendChild(document.createElement("i"));
+  });
+
+  const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+  const ease = (x) => 1 - Math.pow(1 - clamp(x), 3);
+  const easeIO = (x) => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+  const back = (x) => { x = clamp(x); const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+  const seg = (t, a, b) => clamp((t - a) / (b - a));
+  const $ = (id) => document.getElementById(id);
+
+  window.renderAt = async function (t, src, info) {
+    $("g1").style.transform = `translate(${300 + Math.sin(t * .3) * 160}px, ${100 + Math.cos(t * .25) * 80}px)`;
+    $("g2").style.transform = `translate(${1100 + Math.cos(t * .22) * 160}px, ${400 + Math.sin(t * .28) * 90}px)`;
+
+    const img = $("screen");
+    if (src && img.dataset.src !== src) {
+      img.src = src;
+      img.dataset.src = src;
+      await img.decode().catch(() => {});
+    }
+    const win = back(seg(t, 0, .9));
+    $("win").style.transform = `translateY(${(1 - win) * 80}px) scale(${(.96 + .04 * win) * .955})`;
+
+    let cur = 0;
+    [...document.querySelectorAll(".cap")].forEach((el, i) => {
+      const c = info.caps[i];
+      if (t >= c.start) cur = i;
+      const vin = ease(seg(t, c.start, c.start + .45));
+      const vout = i === info.caps.length - 1 ? 1 : 1 - easeIO(seg(t, c.end - .3, c.end));
+      el.style.opacity = Math.min(vin, vout);
+      el.style.transform = `translateY(${(1 - vin) * 26}px)`;
+    });
+    [...$("steps").children].forEach((d, i) => {
+      const c = info.caps[i];
+      d.style.background = t >= c.start ? "linear-gradient(90deg,#6366f1,#a855f7)" : "rgba(255,255,255,.14)";
+      d.style.width = t >= c.start && t < c.end ? "60px" : "36px";
+    });
+    $("url").textContent = URLS[cur];
+
+    const fa = info.finishAt;
+    $("shade").style.background = `rgba(4,6,14,${.6 * ease(seg(t, fa, fa + .5))})`;
+    const dp = back(seg(t, fa + .3, fa + .9));
+    $("done").style.transform = `translateY(-50%) scale(${.7 + .3 * dp})`;
+    $("done").style.opacity = clamp(dp);
+    const mp = back(seg(t, fa + 1.6, fa + 2.2));
+    $("dm").style.transform = `translateX(${(1 - mp) * 520}px)`;
+    $("dm").style.opacity = clamp(mp);
+
+    $("fade").style.opacity = 1 - ease(seg(t, 0, .5)) + easeIO(seg(t, info.total - .6, info.total));
+  };
+  window.ready = document.fonts.ready;
+</script>
+</body>
+</html>

@@ -109,7 +109,9 @@ export async function GET(request: Request, ctx: { params: Promise<{ file: strin
   if (!m) return new Response("not found", { status: 404 });
   const shop = getShopBySlug(m[1]);
   if (!shop) return new Response("not found", { status: 404 });
-  const res = await renderRankImage(shop.id, m[2] ?? null).catch(() => null);
+  // 판 이미지는 주소(해시)가 내용과 함께 바뀌므로 KV 에 보관한 그림을 그대로 줘도 된다
+  const { cachedPng } = await import("@/lib/discord/rank-image");
+  const res = await cachedPng(file, () => renderRankImage(shop.id, m[2] ?? null), 86400).catch(() => null);
   if (!res) return new Response("unavailable", { status: 502 });
   return new Response(res.body, { headers: { "content-type": "image/png", "cache-control": "public, max-age=3600, s-maxage=3600" } });
 }

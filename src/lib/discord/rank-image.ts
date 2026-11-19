@@ -530,7 +530,7 @@ async function postRender(d: unknown) {
  * (처음 그리는 데 몇 초 걸리면 디스코드가 기다리다 "Image failed to load" 로 남기는 일이 있었다)
  */
 const PNG_TTL = 7 * 86400;
-export async function cachedPng(key: string, render: () => Promise<Response | null>) {
+export async function cachedPng(key: string, render: () => Promise<Response | null>, ttl = PNG_TTL) {
   const { getKvBinding } = await import("@/lib/db-persist");
   const kv = (await getKvBinding().catch(() => null)) as {
     get(k: string, type: "arrayBuffer"): Promise<ArrayBuffer | null>;
@@ -545,7 +545,7 @@ export async function cachedPng(key: string, render: () => Promise<Response | nu
   if (!res) return null;
   const buf = await res.arrayBuffer();
   if (!buf.byteLength) return null;
-  if (kv) await kv.put(k, buf, { expirationTtl: PNG_TTL }).catch(() => {});
+  if (kv) await kv.put(k, buf, { expirationTtl: ttl }).catch(() => {});
   return new Response(buf, { headers: { "content-type": "image/png" } });
 }
 
@@ -754,7 +754,19 @@ export async function rankImageUrl(shopId: string) {
   const shop = getShopById(shopId);
   if (!shop) return null;
   const d = await rankImageData(shopId);
-  return `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-${await hashOf(d)}.png`;
+  const file = `${shop.slug}-${await hashOf(d)}.png`;
+  return (await warmPng(file, () => renderRankImage(shopId, null))) ? `https://doesmc.xyz/api/discord/rank-image/${file}` : null;
+}
+
+/**
+ * 판 이미지는 그리는 데 10~30초 걸려서, 디스코드가 직접 가져가면 기다리다 깨진 이미지로 남는다.
+ * 메시지를 고치기 전에 미리 그려 KV 에 넣고, 실패하면 null (글자판으로 대신 올라간다).
+ */
+async function warmPng(file: string, render: () => Promise<Response | null>) {
+  return Promise.race([
+    cachedPng(file, render, 86400).then(Boolean).catch(() => false),
+    new Promise<boolean>((r) => setTimeout(() => r(false), 45_000)),
+  ]);
 }
 
 /** 초대 랭킹판에 넣을 이미지 주소 */
@@ -763,7 +775,8 @@ export async function inviteRankImageUrl(shopId: string, guildId: string) {
   const shop = getShopById(shopId);
   if (!shop) return null;
   const d = await inviteImageData(shopId, guildId);
-  return `https://doesmc.xyz/api/discord/rank-image/${shop.slug}-inv-${guildId}-${await hashOf(d)}.png`;
+  const file = `${shop.slug}-inv-${guildId}-${await hashOf(d)}.png`;
+  return (await warmPng(file, () => renderRankImage(shopId, guildId))) ? `https://doesmc.xyz/api/discord/rank-image/${file}` : null;
 }
 
 /** 문의 대기 현황 이미지 주소 — 분 단위로 내용이 바뀌므로 해시에 시각은 넣지 않는다 */

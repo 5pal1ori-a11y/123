@@ -525,6 +525,34 @@ async function postRender(d: unknown) {
   return res.ok ? res : null;
 }
 
+/**
+ * 그린 PNG 를 KV 에 7일 보관한다 — 디스코드가 이미지를 가져갈 때 다시 그리지 않고 바로 준다.
+ * (처음 그리는 데 몇 초 걸리면 디스코드가 기다리다 "Image failed to load" 로 남기는 일이 있었다)
+ */
+const PNG_TTL = 7 * 86400;
+export async function cachedPng(key: string, render: () => Promise<Response | null>) {
+  const { getKvBinding } = await import("@/lib/db-persist");
+  const kv = (await getKvBinding().catch(() => null)) as {
+    get(k: string, type: "arrayBuffer"): Promise<ArrayBuffer | null>;
+    put(k: string, v: ArrayBuffer, o?: { expirationTtl?: number }): Promise<void>;
+  } | null;
+  const k = `img:v1:${key}`;
+  if (kv) {
+    const hit = await kv.get(k, "arrayBuffer").catch(() => null);
+    if (hit && hit.byteLength > 0) return new Response(hit, { headers: { "content-type": "image/png" } });
+  }
+  const res = await render().catch(() => null);
+  if (!res) return null;
+  const buf = await res.arrayBuffer();
+  if (!buf.byteLength) return null;
+  if (kv) await kv.put(k, buf, { expirationTtl: PNG_TTL }).catch(() => {});
+  return new Response(buf, { headers: { "content-type": "image/png" } });
+}
+
+export function restockImageFile(slug: string, productId: string, added: number, total: number) {
+  return `${slug}-restock-${productId}-${Math.max(0, added)}-${Math.max(0, total)}.png`;
+}
+
 /** 재입고 알림 이미지 */
 export async function renderRestockImage(productId: string, added: number, total: number) {
   const { product, img, imgKind } = await productImg(productId);

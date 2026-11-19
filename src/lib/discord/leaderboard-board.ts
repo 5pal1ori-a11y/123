@@ -16,7 +16,8 @@ type Row = { key: string; label: string; amount: number; count: number; discordI
 /** 회원별 누적 구매금액 (지급 완료 · 결제 완료 · 지급 대기) */
 export function purchaseRanking(shopId: string) {
   const store = getStoreForRead();
-  const users = new Map(store.users.filter((u) => u.shopId === shopId).map((u) => [u.id, u]));
+  const excluded = new Set(getShopSettings(shopId).rankingExcludedDiscordIds ?? []);
+  const users = new Map(store.users.filter((u) => u.shopId === shopId && !(u.discordId && excluded.has(u.discordId))).map((u) => [u.id, u]));
   const rows = new Map<string, Row>();
   for (const o of store.orders) {
     if (o.shopId !== shopId || !o.userId || !COUNTED.has(o.status)) continue;

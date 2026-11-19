@@ -268,6 +268,11 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const { handleProxyCommand } = await import("@/lib/discord/proxy-sale");
       return handleProxyCommand(shop.slug, actor.roles, perms, interaction.channel_id, typeof ch === "string" ? ch : null);
     }
+    if (name === "랭킹관리") {
+      const { handleRankingAdmin } = await import("@/lib/discord/ranking-admin");
+      const user = optionValue(interaction, "유저");
+      return handleRankingAdmin(shop.slug, actor.roles, perms, String(optionValue(interaction, "동작") ?? "list"), user ? String(user) : null);
+    }
     if (name === "코인대행") {
       const ch = interaction.data?.options?.find((o) => o.name === "승인채널")?.value;
       const { handleCoinCommand } = await import("@/lib/discord/coin-trade");

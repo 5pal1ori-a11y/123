@@ -303,30 +303,7 @@ export function postRestockLog(
   const slug = getShopById(shopId)?.slug ?? "shop";
   const roleId = settings.discordRestockRoleId;
   const count = (n: number) => `${n.toLocaleString("ko-KR")}개`;
-  // 상품 그림 · 입고 수량 · 현재 재고 이미지 (상품을 알면)
-  const image =
-    input.productId && /^[A-Za-z0-9_]{4,40}$/.test(input.productId)
-      ? `https://doesmc.xyz/api/discord/rank-image/${slug}-restock-${input.productId}-${Math.max(0, input.addedCount)}-${Math.max(0, input.newTotal)}.png`
-      : null;
-  if (image) {
-    return scheduleLog(
-      shopId,
-      "restock",
-      [
-        mediaGallery([image]),
-        textDisplay(`**${escapeMd(input.productName)}** 상품이 입고되었어요 · <t:${Math.floor(Date.now() / 1000)}:R>`),
-        actionRow(
-          button({ label: "재고현황", customId: cid(slug, "stock_view") }),
-          button({ label: "바로 구매하기", url: shopUrl(slug, "/dashboard"), style: ButtonStyle.LINK }),
-        ),
-      ],
-      roleId ? { before: [textDisplay(`<@&${roleId}>`)], mentionRoles: [roleId] } : undefined,
-    );
-  }
-  return scheduleLog(
-    shopId,
-    "restock",
-    [
+  const textKids = [
       textDisplay("## 입고 알림"),
       textDisplay(`**${escapeMd(input.productName)}** 상품이 입고되었어요.`),
       separator(true, 1),
@@ -343,9 +320,38 @@ export function postRestockLog(
         button({ label: "재고현황", customId: cid(slug, "stock_view") }),
         button({ label: "바로 구매하기", url: shopUrl(slug, "/dashboard"), style: ButtonStyle.LINK }),
       ),
-    ],
-    roleId ? { before: [textDisplay(`<@&${roleId}>`)], mentionRoles: [roleId] } : undefined,
-  );
+  ];
+  const extras = roleId ? { before: [textDisplay(`<@&${roleId}>`)], mentionRoles: [roleId] } : undefined;
+  // 상품 그림 · 입고 수량 · 현재 재고 이미지 (상품을 알면) — 올리기 전에 미리 그려 KV 에 넣어 둔다.
+  // 그리지 못하면 깨진 이미지 대신 글 카드로 올린다.
+  const productId = input.productId && /^[A-Za-z0-9_]{4,40}$/.test(input.productId) ? input.productId : null;
+  if (productId) {
+    const task = (async () => {
+      const { cachedPng, renderRestockImage, restockImageFile } = await import("@/lib/discord/rank-image");
+      const file = restockImageFile(slug, productId, input.addedCount, input.newTotal);
+      const ready = await Promise.race([
+        cachedPng(file, () => renderRestockImage(productId, Math.max(0, input.addedCount), Math.max(0, input.newTotal))).then(Boolean).catch(() => false),
+        new Promise<boolean>((r) => setTimeout(() => r(false), 20_000)),
+      ]);
+      const kids = ready
+        ? [
+            mediaGallery([`https://doesmc.xyz/api/discord/rank-image/${file}`]),
+            textDisplay(`**${escapeMd(input.productName)}** 상품이 입고되었어요 · <t:${Math.floor(Date.now() / 1000)}:R>`),
+            actionRow(
+              button({ label: "재고현황", customId: cid(slug, "stock_view") }),
+              button({ label: "바로 구매하기", url: shopUrl(slug, "/dashboard"), style: ButtonStyle.LINK }),
+            ),
+          ]
+        : textKids;
+      return postV2Log(shopId, "restock", kids, extras);
+    })().catch((err) => {
+      console.error("[discord-log] failed", "restock", err);
+      return { ok: false as const, status: 0, json: null };
+    });
+    scheduleDiscordBackground(task);
+    return task;
+  }
+  return scheduleLog(shopId, "restock", textKids, extras);
 }
 
 /** 수동 충전 로그는 admin-commands에서 직접 전송 — 여기선 일반 관리 로그 */

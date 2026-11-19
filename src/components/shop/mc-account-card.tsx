@@ -205,10 +205,13 @@ export function McAccountCard({
               alt=""
               loading="lazy"
               referrerPolicy="no-referrer"
-              className="h-full w-full object-contain object-bottom"
+              className="h-full w-full object-contain object-bottom transition-[filter] duration-300"
               style={{
                 imageRendering: "pixelated",
-                ...(soldOut ? { filter: "grayscale(1) brightness(0.55)" } : null),
+                // 스킨 윤곽선(흰 테두리) + 바깥 광선 — 어두운 카드에서 스킨이 또렷하게 떠 보이게
+                filter: soldOut
+                  ? "grayscale(1) brightness(0.55)"
+                  : "drop-shadow(0 0 0.6px rgba(255,255,255,0.95)) drop-shadow(0 0 0.6px rgba(255,255,255,0.9)) drop-shadow(0 0 7px rgba(165,180,252,0.55)) drop-shadow(0 0 18px rgba(129,140,248,0.35))",
               }}
               onError={() => setSkinFailed(true)}
             />

@@ -2022,6 +2022,30 @@ var BotState = class extends DurableObject {
     }
     return { ok: true, changed: true, users: Object.keys(next).length };
   }
+  // vendix /랭킹관리 — 리더보드에서 사람 빼기 · 다시 넣기 · 목록
+  async setDealHidden(guildId, userId, hidden) {
+    const settings = this.getGuildSettings(guildId);
+    const set = new Set(settings.hiddenDealUsers ?? []);
+    if (userId) {
+      if (hidden) set.add(userId);
+      else {
+        set.delete(userId);
+        const u = this.getUser(userId);
+        u.dealHidden = false;
+      }
+      settings.hiddenDealUsers = [...set];
+      this.markDirty();
+      try {
+        await refreshLeaderboard(this, guildId);
+      } catch (err) {
+        console.error("hidden leaderboard:", err);
+      } finally {
+        await this.flush();
+      }
+    }
+    const toggled = Object.entries(this.data.users ?? {}).filter(([, u]) => u && u.dealHidden).map(([id]) => id);
+    return { ok: true, hidden: [...new Set([...set, ...toggled])] };
+  }
   // ---------- 이벤트 종료 예약 (Durable Object 알람) ----------
   async scheduleEvents() {
     const pending = Object.values(this.data.events).filter((e) => !e.ended).map((e) => e.endsAt);
@@ -2257,6 +2281,17 @@ var index_default = {
       }
       const state3 = env.BOT_STATE.getByName("main");
       return Response.json(await state3.setShopTotals(body.guildId, body.totals));
+    }
+    if (request.method === "POST" && url.pathname === "/internal/hidden") {
+      if (!env.DOES_FORWARD_KEY || request.headers.get("x-does-forward") !== env.DOES_FORWARD_KEY) {
+        return new Response("forbidden", { status: 403 });
+      }
+      const body = await request.json().catch(() => null);
+      if (!body || typeof body.guildId !== "string" || !/^\d{15,22}$/.test(body.guildId) || (body.userId != null && !/^\d{15,22}$/.test(String(body.userId)))) {
+        return new Response("bad request", { status: 400 });
+      }
+      const state4 = env.BOT_STATE.getByName("main");
+      return Response.json(await state4.setDealHidden(body.guildId, body.userId ? String(body.userId) : null, Boolean(body.hidden)));
     }
     if (request.method === "POST" && url.pathname === "/internal") {
       if (!env.DOES_FORWARD_KEY || request.headers.get("x-does-forward") !== env.DOES_FORWARD_KEY) {

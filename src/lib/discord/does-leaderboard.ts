@@ -7,8 +7,9 @@ const COUNTED = new Set(["dispensed", "paid", "awaiting_fulfillment"]);
 /** 디스코드 ID 별 누적 구매금액 (원) */
 export function doesPurchaseTotals(shopId: string) {
   const store = getStoreForRead();
+  const excluded = new Set(getShopSettings(shopId).rankingExcludedDiscordIds ?? []);
   const discordOf = new Map<string, string>();
-  for (const u of store.users) if (u.shopId === shopId && u.discordId) discordOf.set(u.id, u.discordId);
+  for (const u of store.users) if (u.shopId === shopId && u.discordId && !excluded.has(u.discordId)) discordOf.set(u.id, u.discordId);
   const totals: Record<string, number> = {};
   for (const o of store.orders) {
     if (o.shopId !== shopId || !o.userId || !COUNTED.has(o.status)) continue;

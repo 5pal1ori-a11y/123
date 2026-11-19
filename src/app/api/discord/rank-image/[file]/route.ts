@@ -21,8 +21,8 @@ export async function GET(request: Request, ctx: { params: Promise<{ file: strin
   }
   const rs = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-restock-([A-Za-z0-9_]{4,40})-(\d{1,7})-(\d{1,7})\.png$/.exec(file);
   if (rs) {
-    const { renderRestockImage } = await import("@/lib/discord/rank-image");
-    return img(await renderRestockImage(rs[2], Number(rs[3]), Number(rs[4])).catch(() => null));
+    const { cachedPng, renderRestockImage } = await import("@/lib/discord/rank-image");
+    return img(await cachedPng(file, () => renderRestockImage(rs[2], Number(rs[3]), Number(rs[4]))).catch(() => null));
   }
   const rc = /^([a-z0-9]+(?:-[a-z0-9]+)*?)-receipt-([A-Za-z0-9_-]{6,64})\.png$/.exec(file);
   if (rc) {

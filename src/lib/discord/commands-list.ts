@@ -281,6 +281,25 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "랭킹관리",
+    description: "구매 랭킹 · 리더보드에서 사람을 빼거나 다시 넣습니다 (관리자)",
+    type: 1,
+    options: [
+      {
+        name: "동작",
+        description: "제외 · 복구 · 목록",
+        type: 3,
+        required: true,
+        choices: [
+          { name: "제외 (랭킹에서 빼기)", value: "hide" },
+          { name: "복구 (다시 넣기)", value: "show" },
+          { name: "목록 (빠진 사람 보기)", value: "list" },
+        ],
+      },
+      { name: "유저", description: "대상 유저 (제외 · 복구 때)", type: 6, required: false },
+    ],
+  },
+  {
     name: "코인대행",
     description: "코인대행(LTC · USDT) 패널을 이 채널에 올립니다 (관리자)",
     type: 1,

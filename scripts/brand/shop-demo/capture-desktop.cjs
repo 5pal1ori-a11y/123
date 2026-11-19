@@ -2,6 +2,10 @@
  * 실제 doesmc.xyz PC 화면 녹화 (1536x864 화면을 1920x1080 고화질로 · 마우스 커서 · 클릭 표시 포함).
  *   node scripts/brand/shop-demo/capture-desktop.cjs <출력폴더>
  * 결과: <출력폴더>/frames/*.jpg, <출력폴더>/timeline.json
+ *
+ * 구매 장면은 실제 결제 없이 보여 주려고, 이 녹화 브라우저 안에서만
+ * 로그인 확인(/api/auth/user/me)과 포인트 결제(/api/purchase/points) 응답을 데모 값으로 바꾼다.
+ * 서버에는 결제 요청이 가지 않는다.
  */
 const { chromium } = require("playwright");
 const fs = require("fs");
@@ -42,6 +46,26 @@ const CURSOR = () => {
   const b = await chromium.launch({ args: ["--force-device-scale-factor=1.25"] });
   const ctx = await b.newContext({ viewport: { width: 1536, height: 864 }, deviceScaleFactor: 1.25 });
   await ctx.addInitScript(CURSOR);
+  const DEMO_USER = {
+    id: "usr_demo", email: "demo@doesmc.xyz", name: "DOES 데모", bankDepositorName: null, avatar: null,
+    points: 50000, totalCharged: 50000, discordId: "100000000000000001", discordUsername: "does_demo", theme: "dark", tierId: null,
+    isSubAdmin: false, staffPermissions: [], banned: false, banReason: null, acceptedTermsVersion: "1.0",
+    acceptedPrivacyVersion: "1.0", minecraftUuid: null, minecraftName: null, minecraftManual: false, premium: null,
+  };
+  let demoPoints = DEMO_USER.points;
+  await ctx.route("**/api/auth/user/me", (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({ json: { user: { ...DEMO_USER, points: demoPoints } } })
+      : route.fulfill({ json: { ok: true } }),
+  );
+  await ctx.route("**/api/purchase/points", async (route) => {
+    const body = route.request().postDataJSON() || {};
+    demoPoints -= 12900;
+    await new Promise((r) => setTimeout(r, 700));
+    return route.fulfill({
+      json: { order: { id: "ord_demo", orderUuid: "DEMO-ORDER", productId: body.productId, dispensedCode: "DOES-7K2Q-X9M4-TB8R" } },
+    });
+  });
   const p = await ctx.newPage();
   const cdp = await ctx.newCDPSession(p);
   const frames = [];
@@ -176,15 +200,30 @@ const CURSOR = () => {
   await wheel(-420, 900);
   await wait(500);
 
-  // 6. 바로구매
+  // 6. 바로구매 → 결제 화면
   mark("buy");
   const buy = p.getByRole("button", { name: /바로구매/ }).first();
   await clickEl(buy);
-  await load(() => p.waitForURL(/checkout|login/, { timeout: 15000 }).then(() => p.waitForLoadState("networkidle")).catch(() => {}));
+  await load(() => p.waitForURL(/checkout/, { timeout: 15000 }).then(() => p.waitForLoadState("networkidle")).catch(() => {}));
   await p.mouse.move(mx, my);
-  await wait(1200);
-  await glide(768, 470, 700);
-  await wait(1800);
+  await wait(1300);
+  await glide(900, 300, 900);
+  await wait(900);
+
+  // 7. 약관 동의 · 포인트 결제
+  mark("pay");
+  const agree = p.locator('input[type="checkbox"]').first();
+  const agreeBox = await agree.boundingBox().catch(() => null);
+  if (agreeBox) await clickAt(agreeBox.x + agreeBox.width / 2, agreeBox.y + agreeBox.height / 2);
+  else await agree.check({ force: true }).catch(() => {});
+  await wait(700);
+  const pay = p.getByRole("button", { name: /포인트로/ }).first();
+  await clickEl(pay);
+  await load(() => p.getByText("구매 완료").first().waitFor({ timeout: 15000 }).catch(() => {}));
+  await wait(600);
+  mark("done");
+  await glide(768, 380, 700);
+  await wait(2600);
   mark("end");
   await cdp.send("Page.stopScreencast");
   await wait(300);

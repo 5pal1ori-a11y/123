@@ -67,8 +67,6 @@
     <div id="view">
       <img id="screen" alt="" />
       <div id="shade"></div>
-      <div id="done"><div class="ok"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></div>
-        <b>구매 완료!</b><span>16자리 코드로 바로 받아요</span><div class="code">DOES-7K2Q-X9M4-TB8R</div></div>
       <div id="dm"><div class="av"><svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><path d="M19.6 5.3A16.6 16.6 0 0 0 15.5 4l-.5 1a15.3 15.3 0 0 0-6 0l-.5-1a16.6 16.6 0 0 0-4.1 1.3C1.8 9.2 1.1 13 1.4 16.7a16.8 16.8 0 0 0 5 2.5l1.1-1.7a10.8 10.8 0 0 1-1.7-.8l.4-.3a11.9 11.9 0 0 0 11.6 0l.4.3c-.5.3-1.1.6-1.7.8l1.1 1.7a16.7 16.7 0 0 0 5-2.5c.4-4.3-.7-8-3-11.4zM8.5 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2zm7 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2z"/></svg></div>
         <div><b>DOES</b><span>구매하신 계정 코드가 도착했어요</span></div></div>
     </div>
@@ -82,10 +80,11 @@
     { no: "STEP 03", title: "상점 둘러보기", desc: "클릭 한 번으로 계정 · 망토 · 기타상품" },
     { no: "STEP 04", title: "쭉 넘겨 보기", desc: "스크롤하며 마음에 드는 계정 찾기" },
     { no: "STEP 05", title: "상품 상세", desc: "가격 · 망토 · 서버 기록까지 꼼꼼하게" },
-    { no: "STEP 06", title: "바로구매", desc: "Discord 로그인 한 번이면 바로 결제" },
-    { no: "STEP 07", title: "<span class=grad>즉시 수령</span>", desc: "결제하면 16자리 코드가 DM 으로 바로" },
+    { no: "STEP 06", title: "바로구매", desc: "Discord 로그인 하나로 바로 주문" },
+    { no: "STEP 07", title: "포인트 결제", desc: "약관 동의하고 클릭 한 번" },
+    { no: "STEP 08", title: "<span class=grad>즉시 수령</span>", desc: "결제하자마자 코드 발급 · DM 으로도 와요" },
   ];
-  const URLS = ["doesmc.xyz", "doesmc.xyz/main", "doesmc.xyz/dashboard?tab=products", "doesmc.xyz/dashboard?tab=products", "doesmc.xyz/product/mc-mwkj0pkd5qzy", "doesmc.xyz/checkout", "doesmc.xyz/checkout"];
+  const URLS = ["doesmc.xyz", "doesmc.xyz/main", "doesmc.xyz/dashboard?tab=products", "doesmc.xyz/dashboard?tab=products", "doesmc.xyz/product/mc-mwkj0pkd5qzy", "doesmc.xyz/checkout?product=mc-mwkj0pkd5qzy", "doesmc.xyz/checkout?product=mc-mwkj0pkd5qzy", "doesmc.xyz/checkout?product=mc-mwkj0pkd5qzy"];
   CAPS.forEach((c) => {
     const d = document.createElement("div");
     d.className = "cap";
@@ -130,15 +129,14 @@
     });
     $("url").textContent = URLS[cur];
 
-    const fa = info.finishAt;
-    $("shade").style.background = `rgba(4,6,14,${.6 * ease(seg(t, fa, fa + .5))})`;
-    const dp = back(seg(t, fa + .3, fa + .9));
-    $("done").style.transform = `translateY(-50%) scale(${.7 + .3 * dp})`;
-    $("done").style.opacity = clamp(dp);
-    const mp = back(seg(t, fa + 1.6, fa + 2.2));
+    // 결제 화면은 PC 에서 작아서 확대해 보여 준다
+    const z = info.zoom ? easeIO(seg(t, info.zoom.start, info.zoom.start + .8)) : 0;
+    const zs = 1 + (info.zoom ? info.zoom.scale - 1 : 0) * z;
+    img.style.transformOrigin = info.zoom ? `${info.zoom.x}px ${info.zoom.y}px` : "50% 50%";
+    img.style.transform = `scale(${zs})`;
+    const mp = back(seg(t, info.dmAt, info.dmAt + .6));
     $("dm").style.transform = `translateX(${(1 - mp) * 520}px)`;
-    $("dm").style.opacity = clamp(mp);
-
+    $("dm").style.opacity = clamp(mp) * (1 - seg(t, info.total - .8, info.total));
     $("fade").style.opacity = 1 - ease(seg(t, 0, .5)) + easeIO(seg(t, info.total - .6, info.total));
   };
   window.ready = document.fonts.ready;

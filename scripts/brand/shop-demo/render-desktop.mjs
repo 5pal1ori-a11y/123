@@ -15,7 +15,7 @@ const { chromium } = createRequire(import.meta.url)("playwright");
 const capDir = path.resolve(process.argv[2] || "shop-demo-capture");
 const out = process.argv[3] || path.join(here, "../../../public/brand/does-shop-demo.mp4");
 const FPS = 30;
-const FINISH = 6;
+const FINISH = 0.8;
 
 const { frames, marks } = JSON.parse(readFileSync(path.join(capDir, "timeline.json"), "utf8"));
 const M = Object.fromEntries(marks.map((m) => [m.name, m.t / 1000]));
@@ -28,7 +28,9 @@ const SEGS = [
   { cap: 2, from: M.shop + 0.2, to: M.swipe, speed: 1 },
   { cap: 3, from: M.swipe, to: M.product, speed: 1 },
   { cap: 4, from: M.product, to: M.buy, speed: 1 },
-  { cap: 5, from: M.buy, to: M.end, speed: 1 },
+  { cap: 5, from: M.buy, to: M.pay, speed: 1 },
+  { cap: 6, from: M.pay, to: M.done, speed: 1 },
+  { cap: 7, from: M.done, to: M.end, speed: 1 },
 ];
 let acc = 0;
 for (const s of SEGS) {
@@ -39,7 +41,7 @@ for (const s of SEGS) {
 const finishAt = acc;
 const total = acc + FINISH;
 const caps = [];
-for (let i = 0; i <= 6; i++) {
+for (let i = 0; i <= 7; i++) {
   const ss = SEGS.filter((s) => s.cap === i);
   caps.push(ss.length ? { start: ss[0].start, end: ss.at(-1).end } : { start: finishAt, end: total });
 }
@@ -65,7 +67,8 @@ const browser = await chromium.launch({ args: ["--allow-file-access-from-files"]
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
 await page.goto(pathToFileURL(path.join(here, "stage-desktop.html")).href);
 await page.evaluate(() => window.ready);
-const info = { caps, taps, finishAt, total };
+// 결제 화면(바로구매 누른 뒤 1초)부터 확대 · 구매 완료 1.2초 뒤 DM 알림
+const info = { caps, taps, finishAt, total, zoom: { start: outAt(M.buy + 1.2) ?? 0, scale: 1.9, x: 768, y: 8 }, dmAt: (outAt(M.done) ?? finishAt) + 1.2 };
 const n = Math.round(total * FPS);
 console.log(`total ${total.toFixed(1)}s · ${n} frames`);
 

@@ -5,6 +5,7 @@ import {
   ButtonStyle,
   cid,
   container,
+  mediaGallery,
   InteractionResponseType,
   InteractionType,
   MessageFlags,
@@ -39,7 +40,7 @@ import {
 } from "@/lib/verify-bot/store";
 
 /** Discord 가 직접 받아 가므로 절대 URL 이어야 한다 (public/brand) */
-export const VERIFY_PANEL_BANNER = "https://doesmc.xyz/brand/verify-guide-3d.gif";
+export const VERIFY_PANEL_BANNER = "https://doesmc.xyz/brand/does-verify.gif";
 
 function isGuildAdmin(permissions?: string) {
   if (!permissions) return false;
@@ -175,6 +176,7 @@ export async function handleVerifyBotInteraction(interaction: DiscordInteraction
     const slug = findShopByDiscordGuildId(guildId)?.slug ?? MFA_SHOP_SLUG;
     // 버튼만 누르면 바로 역할이 지급되는 간단한 인증 (웹 페이지 · IP 기록 없음)
     return publicV2([
+      mediaGallery([VERIFY_PANEL_BANNER]),
       textDisplay("## 인증하기"),
       separator(true, 1),
       textDisplay("아래 **인증하기** 버튼을 누르면 바로 인증이 완료되고 역할이 지급돼요."),

@@ -145,7 +145,12 @@ export function SeasonPassClient() {
                   <RewardCell c={t.free} gold={false} />
                   <div className="relative flex h-10 w-24 items-center justify-center">
                     <div className={`absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 ${reached ? "bg-amber-400" : "bg-slate-500/25"}`} />
-                    <span className={`relative flex size-8 items-center justify-center rounded-full text-xs font-black ${reached ? "bg-gradient-to-br from-amber-200 to-amber-500 text-amber-950" : "bg-slate-700 text-slate-300"} ${t.level === lv + 1 ? "ring-2 ring-amber-400" : ""}`}>{t.level}</span>
+                    <span
+                      className={`relative flex size-8 items-center justify-center rounded-full text-xs font-black ${t.level === lv + 1 ? "ring-2 ring-amber-400" : ""}`}
+                      style={reached ? { background: "linear-gradient(135deg,#fde68a,#f59e0b)", color: "#451a03" } : { background: "var(--mf-surface-2, #e5e7eb)", color: "var(--ad-text, #111)", border: "1px solid rgba(127,127,127,0.3)" }}
+                    >
+                      {t.level}
+                    </span>
                   </div>
                   <RewardCell c={t.pass} gold />
                 </div>

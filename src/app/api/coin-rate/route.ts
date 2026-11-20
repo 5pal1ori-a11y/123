@@ -12,6 +12,24 @@ export async function GET(request: Request) {
   const shop = requireShop(request);
   if (!isShop(shop)) return shop;
 
+  if (new URL(request.url).searchParams.get("wallet") === "1") {
+    // 연결 확인용 — 키가 맞는지 · 어느 방식인지 (금액은 패널에도 공개되는 재고 합계만)
+    const [{ nowpaymentsBalanceDetailed, nowpaymentsPayoutConfig }, { coinPayoutMode, coinWalletKrw }] = await Promise.all([
+      import("@/lib/coin-payout-direct"),
+      import("@/lib/coin-trade"),
+    ]);
+    const cfg = await nowpaymentsPayoutConfig();
+    const bal = await nowpaymentsBalanceDetailed();
+    return NextResponse.json({
+      apiKey: Boolean(cfg.apiKey),
+      payoutReady: cfg.configured,
+      mode: await coinPayoutMode(),
+      balanceOk: bal.ok,
+      coins: bal.balances ? Object.keys(bal.balances) : [],
+      stockKrw: bal.ok ? await coinWalletKrw().catch(() => null) : null,
+      error: bal.error,
+    });
+  }
   if (new URL(request.url).searchParams.get("premium") === "1") {
     const { kimchiPremiumInfo } = await import("@/lib/coin-trade");
     return NextResponse.json(await kimchiPremiumInfo());

@@ -112,21 +112,34 @@ export async function createPayoutDirect(input: { currency: string; amount: numb
   return String(batchId);
 }
 
-/** NOWPayments 커스터디 잔액 — { currency: amount } (실패하면 null) */
-export async function nowpaymentsBalance(): Promise<Record<string, number> | null> {
+/** NOWPayments 커스터디 잔액 — { currency: amount }. API 키만으로 먼저 시도하고, 안 되면 로그인 토큰을 붙인다 */
+export async function nowpaymentsBalanceDetailed(): Promise<{ ok: boolean; balances: Record<string, number> | null; error: string | null }> {
   const cfg = await nowpaymentsPayoutConfig();
-  if (!cfg.configured) return null;
-  try {
-    const j = (await np(cfg, "GET", "/balance")) as Record<string, unknown>;
+  if (!cfg.apiKey) return { ok: false, balances: null, error: "NP_API_KEY 없음" };
+  const read = (j: Record<string, unknown>) => {
     const out: Record<string, number> = {};
     for (const [k, v] of Object.entries(j)) {
       const amt = typeof v === "number" ? v : Number((v as { amount?: number })?.amount);
       if (Number.isFinite(amt) && amt > 0) out[k.toLowerCase()] = amt;
     }
     return out;
-  } catch {
-    return null;
+  };
+  try {
+    const r = await fetch(`${API}/balance`, { headers: { "x-api-key": cfg.apiKey } });
+    const text = await r.text();
+    if (r.ok) return { ok: true, balances: read(JSON.parse(text) as Record<string, unknown>), error: null };
+    if (cfg.email && cfg.password) {
+      const j = (await np(cfg, "GET", "/balance")) as Record<string, unknown>;
+      return { ok: true, balances: read(j), error: null };
+    }
+    return { ok: false, balances: null, error: `${r.status} ${text.slice(0, 160)}` };
+  } catch (e) {
+    return { ok: false, balances: null, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+export async function nowpaymentsBalance(): Promise<Record<string, number> | null> {
+  return (await nowpaymentsBalanceDetailed()).balances;
 }
 
 const DONE_OK = new Set(["FINISHED"]);

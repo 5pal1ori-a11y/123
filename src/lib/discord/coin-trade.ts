@@ -97,30 +97,73 @@ const STATUS_KO: Record<string, string> = {
 
 /* ───────────── 패널 ───────────── */
 
+/** 김치 프리미엄 — 업비트 BTC(원화) vs 코인게코 글로벌 BTC(원화 환산). 실패하면 null */
+async function kimchiPremium(): Promise<number | null> {
+  try {
+    const [upR, gkR] = await Promise.all([
+      fetch("https://api.upbit.com/v1/ticker?markets=KRW-BTC", { headers: { accept: "application/json" } }),
+      fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=krw", { headers: { accept: "application/json" } }),
+    ]);
+    const up = (await upR.json().catch(() => null)) as { trade_price?: number }[] | null;
+    const gk = (await gkR.json().catch(() => null)) as { bitcoin?: { krw?: number } } | null;
+    const upbit = Number(up?.[0]?.trade_price);
+    const global = Number(gk?.bitcoin?.krw);
+    if (!(upbit > 0) || !(global > 0)) return null;
+    return (upbit / global - 1) * 100;
+  } catch {
+    return null;
+  }
+}
+
+/** 패널 상단 통계 이미지 — 현재 재고(취급 코인) · 김프 · 누적 이용금액 */
+async function coinStatsImageUrl(shopId: string, shopSlug: string) {
+  try {
+    const [s, prem] = await Promise.all([coinStats(shopId), kimchiPremium()]);
+    const { cardImageUrl } = await import("@/lib/discord/rank-image");
+    return await cardImageUrl(shopSlug, {
+      theme: "green",
+      eyebrow: "코인대행 실시간 현황",
+      title: won(s.volume),
+      subtitle: "누적 이용금액",
+      chips: [
+        `재고 ${Object.keys(COINS).length}종`,
+        prem !== null ? `김프 ${prem >= 0 ? "+" : ""}${prem.toFixed(1)}%` : "김프 집계중",
+        `누적 ${s.orders.toLocaleString("ko-KR")}건`,
+      ],
+    }).catch(() => null);
+  } catch {
+    return null;
+  }
+}
+
 async function panelMessage(shopId: string, shopSlug: string) {
   const s = await coinStats(shopId);
-  const coinList = Object.values(COINS)
-    .map((c) => `**${c.name}**`)
-    .join(" · ");
+  const statsImg = await coinStatsImageUrl(shopId, shopSlug);
   const kids: unknown[] = [
     textDisplay(`## ${plainEmoji("does_coin")} 코인대행`),
+    textDisplay("보유 **포인트**로 원하는 코인을 사서 **내 지갑**으로 바로 받아요."),
+    ...(statsImg ? [mediaGallery([statsImg])] : []),
+    separator(true, 1),
     textDisplay(
       [
-        "보유 포인트로 코인을 사서 내 지갑으로 받아요.",
-        `> ${coinList}`,
-        `> 실시간 업비트 원화 시세 · 수수료 1~3% (VIP 등급에 따라 할인)`,
-        `> 한 번에 ${won(COIN_MIN_KRW)} ~ ${won(COIN_MAX_KRW)}`,
+        "**이용 안내**",
+        `> 💱 실시간 업비트 시세 · 수수료 **1~3%** (VIP 할인)`,
+        `> 💰 한 번에 ${won(COIN_MIN_KRW)} ~ ${won(COIN_MAX_KRW)}`,
+        `> ⚡ 결제 후 **자동 송금** (설정 시) · 결과는 DM`,
       ].join("\n"),
     ),
-    textDisplay(`누적 송금 **${s.orders.toLocaleString("ko-KR")}건** · 이용자 **${s.buyers.toLocaleString("ko-KR")}명** · 누적 **${won(s.volume)}**`),
     separator(true, 1),
+    ...(statsImg ? [] : [textDisplay(`-# 📊 누적 **${s.orders.toLocaleString("ko-KR")}건** 송금 · 이용자 **${s.buyers.toLocaleString("ko-KR")}명** · 누적 **${won(s.volume)}**`)]),
     actionRow(
-      styledButton(cid(shopSlug, "cn_choose"), "🪙 코인 구매", ButtonStyle.PRIMARY, appEmoji("does_coin")),
-      styledButton(cid(shopSlug, "cn_mine"), "📊 내 주문", ButtonStyle.SECONDARY, appEmoji("does_chart")),
-      styledButton(cid(shopSlug, "cn_vip"), "💎 VIP 혜택", ButtonStyle.SECONDARY),
+      styledButton(cid(shopSlug, "cn_choose"), "코인 구매하기", ButtonStyle.SUCCESS, appEmoji("does_coin")),
       linkButton(shopUrl(shopSlug, "/coin-calculator"), "🧮 계산기"),
     ),
-    textDisplay("-# 신청 → 견적 확인 → 확정(포인트 차감) → 관리자 확인 후 송금 · 결과는 DM 으로 알려 드려요\n-# 주소를 잘못 적으면 되돌릴 수 없어요. 네트워크를 꼭 확인해 주세요."),
+    actionRow(
+      styledButton(cid(shopSlug, "cn_mine"), "내 주문", ButtonStyle.SECONDARY, appEmoji("does_chart")),
+      styledButton(cid(shopSlug, "cn_vip"), "VIP 혜택", ButtonStyle.SECONDARY),
+      linkButton(shopUrl(shopSlug, "/coin-trade"), "웹에서 구매"),
+    ),
+    textDisplay("-# 주소를 잘못 적으면 되돌릴 수 없어요 · 네트워크를 꼭 확인해 주세요"),
   ];
   return { flags: MessageFlags.IS_COMPONENTS_V2, components: [container(kids, ACCENT)], allowed_mentions: { parse: [] as string[] } };
 }

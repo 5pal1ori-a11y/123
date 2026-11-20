@@ -1630,6 +1630,62 @@ export class WorldEngine {
     });
   }
 
+  private playerCape: THREE.Group | null = null;
+
+  /** 마크 망토(64×32 텍스처)를 내 캐릭터 등에 단다 — null 이면 뗀다 (구매 전 체험용) */
+  setPlayerCape(url: string | null) {
+    if (this.playerCape) {
+      this.playerCape.parent?.remove(this.playerCape);
+      this.playerCape.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh) {
+          m.geometry.dispose();
+          const mat = m.material as THREE.MeshLambertMaterial;
+          mat.map?.dispose();
+          mat.dispose();
+        }
+      });
+      this.playerCape = null;
+    }
+    if (!url || !this.limbs) return;
+    new THREE.TextureLoader().load(url, (tex) => {
+      if (this.disposed || !this.limbs) return tex.dispose();
+      tex.magFilter = THREE.NearestFilter;
+      tex.minFilter = THREE.NearestFilter;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const geo = new THREE.BoxGeometry(10 / 16, 16 / 16, 1 / 16);
+      const uv = geo.attributes.uv as THREE.BufferAttribute;
+      // +x −x +y −y +z(몸 쪽) −z(바깥) — 망토 텍스처 64×32 배치
+      const faces: [number, number, number, number][] = [
+        [11, 1, 1, 16],
+        [0, 1, 1, 16],
+        [1, 0, 10, 1],
+        [11, 0, 10, 1],
+        [12, 1, 10, 16],
+        [1, 1, 10, 16],
+      ];
+      faces.forEach(([x, y, w, h], i) => {
+        const x0 = x / 64;
+        const x1 = (x + w) / 64;
+        const y0 = 1 - y / 32;
+        const y1 = 1 - (y + h) / 32;
+        uv.setXY(i * 4, x0, y0);
+        uv.setXY(i * 4 + 1, x1, y0);
+        uv.setXY(i * 4 + 2, x0, y1);
+        uv.setXY(i * 4 + 3, x1, y1);
+      });
+      uv.needsUpdate = true;
+      const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex }));
+      mesh.position.y = -0.5;
+      const pivot = new THREE.Group();
+      pivot.position.set(0, 0.75, -2.5 / 16);
+      pivot.rotation.x = 0.16;
+      pivot.add(mesh);
+      this.limbs.torso.add(pivot);
+      this.playerCape = pivot;
+    });
+  }
+
   private setRemoteSkin(r: Remote, uuid: string) {
     r.skinId = uuid;
     this.loadSkin(`/api/world/skin?uuid=${uuid}`, (tex) => {

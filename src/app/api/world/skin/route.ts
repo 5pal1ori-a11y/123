@@ -4,7 +4,17 @@ export const dynamic = "force-dynamic";
 
 /** 스킨 PNG 프록시 — three.js 텍스처는 같은 출처여야 깔끔하다 */
 export async function GET(request: Request) {
-  const uuid = normalizeUuid(new URL(request.url).searchParams.get("uuid"));
+  const sp = new URL(request.url).searchParams;
+  let uuid = normalizeUuid(sp.get("uuid"));
+  // 구매 전 체험: 판매 중인 계정 상품의 스킨 (닉네임은 내보내지 않는다)
+  const productId = sp.get("product");
+  if (!uuid && productId && /^[\w-]{1,60}$/.test(productId)) {
+    const [{ getProductById, initStore }, { resolveMcProfile }] = await Promise.all([import("@/lib/store"), import("@/lib/mc-profile-server")]);
+    await initStore();
+    const p = getProductById(productId);
+    if (!p || !p.active || p.productKind !== "mc_account" || !p.mcNickname) return new Response("not found", { status: 404 });
+    uuid = normalizeUuid((await resolveMcProfile(p.mcNickname).catch(() => null))?.uuid ?? null);
+  }
   if (!uuid) return new Response("bad uuid", { status: 400 });
   const profile = await profileByUuid(uuid).catch(() => null);
 

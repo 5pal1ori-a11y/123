@@ -231,6 +231,21 @@ export function ProductDetailView({
         {isMc ? <McHypixelPanel info={mcInfo} /> : null}
         {isMc ? (
           <Link
+            href={`/main?try=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug)}&name=${encodeURIComponent(title)}`}
+            className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-violet-400/30 bg-violet-500/[0.07] px-4 py-3 transition hover:bg-violet-500/[0.12]"
+          >
+            <span className="flex items-center gap-2.5">
+              <span className="flex size-9 items-center justify-center rounded-xl bg-violet-500/20 text-lg">🧪</span>
+              <span className="flex flex-col">
+                <span className="text-sm font-bold text-violet-400">웹마크에서 체험하기</span>
+                <span className="text-[11px] opacity-70">이 계정 스킨 · 망토를 입고 직접 돌아다녀 보기</span>
+              </span>
+            </span>
+            <span className="text-violet-400">→</span>
+          </Link>
+        ) : null}
+        {isMc ? (
+          <Link
             href={`/passport/p/${product.id}`}
             className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-amber-400/30 bg-amber-500/[0.07] px-4 py-3 transition hover:bg-amber-500/[0.12]"
           >

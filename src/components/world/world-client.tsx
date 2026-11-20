@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, Boxes, Check, ChevronDown, Compass, Eye, HelpCircle, Loader2, LogOut, MapPin, MessageCircle, Store, Swords, Trophy, X } from "lucide-react";
 import { shopHeaders } from "@/lib/shop-client";
@@ -515,8 +516,40 @@ export function WorldClient({ shopSlug }: { shopSlug: string }) {
   }, [ready, me?.user, unlock]);
 
   useEffect(() => {
-    if (ready && mcUuid) engineRef.current?.setPlayerSkin(`/api/world/skin?uuid=${mcUuid}`);
+    if (!ready || !mcUuid) return;
+    // 구매 전 체험 중이면 내 스킨 대신 그 계정 스킨을 입는다
+    if (new URLSearchParams(window.location.search).has("try")) return;
+    engineRef.current?.setPlayerSkin(`/api/world/skin?uuid=${mcUuid}`);
   }, [ready, mcUuid]);
+
+  /* ───── 구매 전 체험 모드 (?try=상품ID) ───── */
+  const [trial, setTrial] = useState<TrialState | null>(null);
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const id = sp.get("try");
+    if (!id || !/^[\w-]{1,60}$/.test(id)) return;
+    fetch(`/api/mc-account/${encodeURIComponent(id)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((info: { capes?: { source: string; title?: string }[]; hypixel?: TrialState["hypixel"] } | null) => {
+        if (!info) return;
+        const capes = (info.capes ?? []).map((c, i) => ({ i, title: c.title ?? `망토 ${i + 1}`, source: c.source })).filter((c) => c.source === "minecraft");
+        setTrial({ id, slug: sp.get("slug"), name: sp.get("name") ?? "체험 계정", capes, capeIdx: capes[0]?.i ?? -1, hypixel: info.hypixel ?? null });
+      })
+      .catch(() => null);
+  }, []);
+  useEffect(() => {
+    if (!ready || !trial) return;
+    engineRef.current?.setPlayerSkin(`/api/world/skin?product=${encodeURIComponent(trial.id)}`);
+    engineRef.current?.setPlayerCape(trial.capeIdx >= 0 ? `/api/mc-account/${encodeURIComponent(trial.id)}?asset=cape&i=${trial.capeIdx}` : null);
+  }, [ready, trial]);
+  const endTrial = useCallback(() => {
+    setTrial(null);
+    engineRef.current?.setPlayerCape(null);
+    if (mcUuid) engineRef.current?.setPlayerSkin(`/api/world/skin?uuid=${mcUuid}`);
+    const u = new URL(window.location.href);
+    ["try", "slug", "name"].forEach((k) => u.searchParams.delete(k));
+    window.history.replaceState(null, "", u.toString());
+  }, [mcUuid]);
 
   const skinHinted = useRef(false);
   useEffect(() => {
@@ -993,6 +1026,7 @@ export function WorldClient({ shopSlug }: { shopSlug: string }) {
 
   return (
     <div className="mcw">
+      {trial ? <TrialHud trial={trial} onCape={(i) => setTrial((t) => (t ? { ...t, capeIdx: i } : t))} onEnd={endTrial} /> : null}
       <div ref={hostRef} className="mcw-canvas" />
 
       <div className="mcw-vignette" aria-hidden />
@@ -1639,5 +1673,89 @@ function TouchControls({
         ) : null}
       </div>
     </>
+  );
+}
+
+
+type TrialState = {
+  id: string;
+  slug: string | null;
+  name: string;
+  capes: { i: number; title: string; source: string }[];
+  capeIdx: number;
+  hypixel: { rank: string | null; level: number; bedwars?: { stars: number } } | null;
+};
+
+/** 구매 전 체험 — 그 계정 스킨 · 망토를 입고 돌아다니며 하이픽셀 기록을 본다 */
+function TrialHud({ trial, onCape, onEnd }: { trial: TrialState; onCape: (i: number) => void; onEnd: () => void }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 12,
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 40,
+        width: "min(92vw, 420px)",
+        borderRadius: 18,
+        background: "rgba(10,14,28,0.86)",
+        border: "1px solid rgba(167,139,250,0.45)",
+        boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
+        color: "#fff",
+        padding: "12px 14px",
+        backdropFilter: "blur(8px)",
+        fontSize: 13,
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ fontWeight: 800 }}>🧪 구매 전 체험 중 · {trial.name}</div>
+        <button onClick={() => setOpen((o) => !o)} style={{ fontSize: 12, opacity: 0.75 }}>{open ? "접기" : "펼치기"}</button>
+      </div>
+      {open ? (
+        <>
+          <div style={{ marginTop: 8, opacity: 0.85 }}>
+            하이픽셀 {trial.hypixel ? `${trial.hypixel.rank ?? "일반"} · Lv.${Math.floor(trial.hypixel.level)} · 베드워즈 ${trial.hypixel.bedwars?.stars ?? 0}성` : "기록 없음"}
+          </div>
+          <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {trial.capes.length ? (
+              <>
+                {trial.capes.map((c) => (
+                  <button
+                    key={c.i}
+                    onClick={() => onCape(c.i)}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 999,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      background: trial.capeIdx === c.i ? "#8b5cf6" : "rgba(255,255,255,0.08)",
+                      border: "1px solid rgba(255,255,255,0.15)",
+                    }}
+                  >
+                    {c.title}
+                  </button>
+                ))}
+                <button onClick={() => onCape(-1)} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 12, opacity: 0.7, border: "1px solid rgba(255,255,255,0.15)" }}>
+                  망토 벗기
+                </button>
+              </>
+            ) : (
+              <span style={{ opacity: 0.6 }}>망토 없음</span>
+            )}
+          </div>
+          <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+            <Link href={`/product/${trial.slug || trial.id}`} style={{ flex: 2, textAlign: "center", padding: "8px 0", borderRadius: 12, background: "linear-gradient(90deg,#8b5cf6,#d946ef)", fontWeight: 800 }}>
+              이 계정 구매하기
+            </Link>
+            <button onClick={onEnd} style={{ flex: 1, padding: "8px 0", borderRadius: 12, background: "rgba(255,255,255,0.08)", fontWeight: 700 }}>
+              체험 끝내기
+            </button>
+          </div>
+          <div style={{ marginTop: 6, fontSize: 11, opacity: 0.55 }}>V 키로 시점을 바꿔 볼 수 있어요 · 내 화면에서만 보이는 체험이에요</div>
+        </>
+      ) : null}
+    </div>
   );
 }

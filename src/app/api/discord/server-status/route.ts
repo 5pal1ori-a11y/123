@@ -193,6 +193,8 @@ async function refreshRankingEvery10m(shopId: string) {
   await import("@/lib/discord/gugo").then(({ runGugoSweep }) => runGugoSweep(shopId)).catch((err) => console.error("[gugo]", err));
   // DOES 케어: 기간이 끝난 구독 자동 갱신(포인트) · 종료 알림
   await import("@/lib/discord/care").then(({ runCareRenew }) => runCareRenew(shopId)).catch((err) => console.error("[care]", err));
+  // 도스마켓: 구매자 보호 기간이 끝난 판매 정산 (포인트 자동 · 계좌는 관리자 카드)
+  await import("@/lib/dosmarket").then(({ runDosMarketPayouts }) => runDosMarketPayouts(shopId)).catch((err) => console.error("[dosmarket]", err));
   // 프리미엄 플랜: 월 포인트 지급 · 만료 역할 회수
   await import("@/lib/premium")
     .then(async ({ premiumCron }) => {

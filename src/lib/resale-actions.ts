@@ -100,7 +100,9 @@ export async function approveResaleRequest(shopId: string, id: string, opts: { p
   if (!current) throw new Error("신청을 찾을 수 없어요.");
   if (current.status !== "pending") throw new Error("이미 처리된 신청이에요.");
   const price = opts.price && opts.price > 0 ? Math.floor(opts.price) : current.price;
-  const code = opts.deliveryCode?.trim() || "";
+  // 도스마켓: 판매자가 웹에서 낸 로그인 정보가 있으면 그걸 지급 코드로 써서 팔리면 바로 전달된다
+  const { credentialsText } = await import("@/lib/dosmarket");
+  const code = opts.deliveryCode?.trim() || credentialsText(current);
   const desc = [`[${current.accountType}] 대리판매 계정`, current.capes.length ? `보유 망토: ${capeLabels(current)}` : "", current.description]
     .filter(Boolean)
     .join("\n");
@@ -132,6 +134,8 @@ export async function approveResaleRequest(shopId: string, id: string, opts: { p
     x.status = "approved";
     x.reviewedAt = new Date().toISOString();
     x.productId = product.id;
+    // 지급 코드로 옮겼으니 암호화 사본은 지운다
+    x.credEnc = null;
     x.price = price;
     x.payout = resalePayout(price, x.feePercent);
   });
@@ -174,8 +178,10 @@ export async function approveResaleRequest(shopId: string, id: string, opts: { p
 export async function notifyResaleSold(shopId: string, product: { name: string; resale?: { requestId: string } | null }, orderUuid: string) {
   const reqId = product.resale?.requestId;
   if (!reqId) return;
-  const r = await markResaleSold(shopId, reqId, orderUuid);
-  if (!r) return;
+  const r0 = await markResaleSold(shopId, reqId, orderUuid);
+  if (!r0) return;
+  const { startPayoutHold } = await import("@/lib/dosmarket");
+  const r = (await startPayoutHold(shopId, reqId)) ?? r0;
   pushUserNotification(shopId, r.userId, "resale", "대리판매 판매 완료", `${r.ign} 계정이 판매됐어요. 정산 예정 금액 ${won(r.payout)}`);
   await persistAsync().catch(() => null);
   const image = await card(shopId, {
@@ -185,7 +191,7 @@ export async function notifyResaleSold(shopId: string, product: { name: string; 
     ...(r.discordId ? { people: [{ id: r.discordId }] } : {}),
     subtitle: resaleShownName(r),
     chips: [`판매가 ${won(r.price)}`, `정산 예정 ${won(r.payout)}`],
-    note: "관리자가 확인 후 등록하신 계좌로 정산해 드려요",
+    note: "구매자 보호 24시간 뒤 정산돼요",
   });
   await dm(
     r,
@@ -194,7 +200,7 @@ export async function notifyResaleSold(shopId: string, product: { name: string; 
       `**계정** ${resaleShownName(r)}`,
       `**판매 가격** ${won(r.price)} · **수수료** ${r.feePercent}%`,
       `**정산 예정 금액** ${won(r.payout)}`,
-      "-# 관리자가 확인한 뒤 등록하신 계좌로 정산해 드려요.",
+      "-# 구매자 보호 24시간이 지나면 정산돼요 (포인트는 자동 · 계좌는 관리자가 송금)",
     ],
     0xfacc15,
     shopId,

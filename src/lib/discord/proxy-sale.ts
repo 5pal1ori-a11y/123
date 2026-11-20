@@ -158,12 +158,13 @@ export async function refreshProxyPanel(shopId: string) {
 export function handleProxyRegisterButton(shopSlug: string) {
   return showModal({
     customId: cid(shopSlug, "px_modal"),
-    title: "프록시 대리판매 등록",
+    title: "도스마켓 판매 등록",
     inputs: [
       textInput({ customId: "ign", label: "마인크래프트 닉네임", placeholder: "영문·숫자·_ 3~16자", required: true, minLength: 3, maxLength: 16 }),
       textInput({ customId: "price", label: "희망 판매 가격 (원)", placeholder: "예: 30000", required: true, maxLength: 9 }),
       textInput({ customId: "desc", label: "계정 설명", style: 2, placeholder: "망토 · 랭크 · 하이픽셀 기록 · 특이사항 등", required: false, maxLength: 1000 }),
-      textInput({ customId: "account", label: "정산 계좌 (은행 · 계좌번호 · 예금주)", placeholder: "예: 카카오뱅크 3333-00-0000000 홍길동", required: true, minLength: 6, maxLength: 100 }),
+      textInput({ customId: "account", label: "정산 — '포인트' 또는 계좌(은행·번호·예금주)", placeholder: "포인트  /  카카오뱅크 3333-00-0000000 홍길동", required: true, minLength: 3, maxLength: 100 }),
+      textInput({ customId: "login", label: "계정 로그인 정보 (암호화 보관 · 구매자에게만 전달)", style: 2, placeholder: "1줄: 이메일\n2줄: 비밀번호\n3줄~: 복구 이메일 등 추가 정보", required: false, maxLength: 800 }),
     ],
   });
 }
@@ -190,7 +191,15 @@ export async function handleProxyRegisterSubmit(shopSlug: string, discordUser: {
   const ign = modalFieldValue(interaction, "ign").trim();
   const price = Number(modalFieldValue(interaction, "price").replace(/[,\s원₩]/g, ""));
   const description = modalFieldValue(interaction, "desc").trim();
-  const payoutAccount = modalFieldValue(interaction, "account").trim();
+  const accountRaw = modalFieldValue(interaction, "account").trim();
+  const payByPoints = /^(포인트|point|points|p)$/i.test(accountRaw.replace(/\s/g, ""));
+  const payoutAccount = payByPoints ? "포인트 자동 정산" : accountRaw;
+  const loginLines = modalFieldValue(interaction, "login")
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(이메일|email|아이디|id|비밀번호|비번|password|pw)\s*[:：]\s*/i, "").trim())
+    .filter(Boolean);
+  const cred = loginLines.length >= 2 ? { email: loginLines[0]!, password: loginLines[1]!, extra: loginLines.slice(2).join("\n") } : null;
+  if (loginLines.length === 1) return plainEphemeral("로그인 정보는 1줄에 이메일, 2줄에 비밀번호를 적어 주세요.");
   const input = { accountType: DISCORD_ACCOUNT_TYPE, ign, showName: false, capes: [] as string[], description, price, payoutAccount };
   const err = validateResaleInput(input);
   if (err) return plainEphemeral(err);
@@ -199,6 +208,8 @@ export async function handleProxyRegisterSubmit(shopSlug: string, discordUser: {
   let req: ResaleRequest;
   try {
     req = await createResaleRequest(shop.id, { id: user.id, name: user.name || discordUser.name, discordId: discordUser.id }, input, fee, "discord");
+    const { attachSellerInfo } = await import("@/lib/dosmarket");
+    req = await attachSellerInfo(shop.id, req.id, { cred, payoutMethod: payByPoints ? "points" : "bank", payoutAccount: payByPoints ? null : payoutAccount });
   } catch (e) {
     return plainEphemeral(e instanceof Error ? e.message : "신청하지 못했어요.");
   }
@@ -233,13 +244,14 @@ function styledLink(url: string, label: string) {
 
 function adminCard(shopSlug: string, r: ResaleRequest, result?: { by: string; text: string; color: number }) {
   const kids: unknown[] = [
-    textDisplay(`## ${plainEmoji("does_inbox")} 프록시 대리판매 신청`),
+    textDisplay(`## ${plainEmoji("does_inbox")} 도스마켓 판매 신청`),
     textDisplay(
       [
         `**신청자** ${r.discordId ? `<@${r.discordId}>` : r.userName} · ${r.source === "discord" ? "디스코드" : "웹"}`,
         `**닉네임** ${r.ign}`,
         `**희망 가격** ${won(r.price)} · 수수료 ${r.feePercent}% · 정산 ${won(r.payout)}`,
-        `**정산 계좌** ${r.payoutAccount || "-"}`,
+        `**정산** ${(r.payoutMethod ?? "bank") === "points" ? "포인트 자동" : `계좌 · ${r.payoutAccount || "-"}`}`,
+        `**로그인 정보** ${r.hasCred ? "제출됨 (승인하면 구매자에게 자동 전달)" : "없음 — 승인 창에서 지급 코드를 직접 넣어야 해요"}`,
       ].join("\n"),
     ),
     ...(r.description ? [textDisplay(`> ${r.description.slice(0, 900).replace(/\n/g, "\n> ")}`)] : []),
@@ -252,6 +264,7 @@ function adminCard(shopSlug: string, r: ResaleRequest, result?: { by: string; te
       actionRow(
         styledButton(cid(shopSlug, "px_ok", r.id), "승인", ButtonStyle.SUCCESS),
         styledButton(cid(shopSlug, "px_no", r.id), "거절", ButtonStyle.DANGER),
+        ...(r.hasCred ? [styledButton(cid(shopSlug, "dm_cred", r.id), "로그인 정보 확인", ButtonStyle.SECONDARY)] : []),
       ),
     );
     kids.push(textDisplay(`-# 신청 ${r.id} · 승인하면 가격·계정 정보를 확인하는 창이 떠요`));
@@ -284,9 +297,9 @@ export async function handleProxyApproveButton(shopSlug: string, id: string, rol
       textInput({ customId: "price", label: "판매 가격 (원)", value: String(r.price), required: true, maxLength: 9 }),
       textInput({
         customId: "code",
-        label: "구매자에게 줄 계정 정보 (비우면 수동 지급)",
+        label: r.hasCred ? "구매자에게 줄 계정 정보 (비우면 판매자 제출본)" : "구매자에게 줄 계정 정보 (비우면 수동 지급)",
         style: 2,
-        placeholder: "이메일 | 비밀번호 … 적으면 결제 즉시 자동 지급",
+        placeholder: r.hasCred ? "비워 두면 판매자가 낸 로그인 정보가 결제 즉시 자동 지급돼요" : "이메일 | 비밀번호 … 적으면 결제 즉시 자동 지급",
         required: false,
         maxLength: 2000,
       }),

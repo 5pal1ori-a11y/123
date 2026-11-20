@@ -44,7 +44,21 @@ export type ResaleRequest = {
   /** 판매 완료 시각 · 주문 */
   soldAt?: string | null;
   soldOrderUuid?: string | null;
+  /** 도스마켓 — 판매자가 웹에서 낸 로그인 정보 (암호화 · 승인하면 지급 코드로 옮기고 지운다) */
+  credEnc?: string | null;
+  hasCred?: boolean;
+  /** 정산 방법 — points: 보호 기간이 끝나면 자동 지급 / bank: 관리자가 계좌로 송금 */
+  payoutMethod?: "points" | "bank";
+  /** holding: 구매자 보호 중 · ready: 송금 대기 · held: 신고로 보류 · paid: 정산 완료 · refunded: 구매자 환불 */
+  payoutState?: "holding" | "ready" | "held" | "paid" | "refunded" | null;
+  holdUntil?: string | null;
+  paidAt?: string | null;
+  disputeReason?: string | null;
+  payoutCard?: { channelId: string; messageId: string } | null;
 };
+
+/** 도스마켓 구매자 보호 — 팔린 뒤 이 시간 동안은 정산하지 않고 문제 신고를 받는다 */
+export const DOSMARKET_HOLD_HOURS = 24;
 
 export function resalePayout(price: number, feePercent: number) {
   return Math.max(0, Math.floor(price * (1 - feePercent / 100)));

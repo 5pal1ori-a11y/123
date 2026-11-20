@@ -1,31 +1,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Repeat, ShieldCheck } from "lucide-react";
+import { Repeat, ShieldCheck, Store } from "lucide-react";
+import { DosMarketSell } from "./dosmarket-sell";
 import { BuybackClient } from "./buyback-client";
 import { CareClient } from "./care-client";
 
-type Sub = "buyback" | "care";
+type Sub = "market" | "buyback" | "care";
 
 /** 도스마켓 — DOES 가 직접 하는 거래 · 보장 서비스 모음 (매입 · 보상판매 / DOES 케어) */
-export function DosMarketHub() {
-  const [sub, setSub] = useState<Sub>("buyback");
+export function DosMarketHub({ shopSlug }: { shopSlug: string }) {
+  const [sub, setSub] = useState<Sub>("market");
 
   // 예전 링크(?tab=care · ?tab=buyback)나 ?sub= 로 들어오면 그 탭을 연다
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const v = sp.get("sub") ?? sp.get("tab");
     if (v === "care") setSub("care");
+    else if (v === "buyback") setSub("buyback");
   }, []);
 
   const tabs: { id: Sub; label: string; icon: typeof Repeat }[] = [
+    { id: "market", label: "마켓 판매", icon: Store },
     { id: "buyback", label: "매입 · 보상판매", icon: Repeat },
     { id: "care", label: "DOES 케어", icon: ShieldCheck },
   ];
 
   return (
     <div className="w-full space-y-4">
-      <div className="mx-auto grid w-full max-w-lg grid-cols-2 gap-1 rounded-2xl p-1" style={{ background: "var(--mf-surface-2, rgba(127,127,127,0.12))" }}>
+      <div className="mx-auto grid w-full max-w-xl grid-cols-3 gap-1 rounded-2xl p-1" style={{ background: "var(--mf-surface-2, rgba(127,127,127,0.12))" }}>
         {tabs.map((t) => {
           const on = sub === t.id;
           const Icon = t.icon;
@@ -41,7 +44,7 @@ export function DosMarketHub() {
           );
         })}
       </div>
-      {sub === "buyback" ? <BuybackClient /> : <CareClient />}
+      {sub === "market" ? <DosMarketSell shopSlug={shopSlug} /> : sub === "buyback" ? <BuybackClient /> : <CareClient />}
     </div>
   );
 }

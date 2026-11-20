@@ -1040,7 +1040,7 @@ export function UserDashboard({
 
               {tab === "dosmarket" && (
                 <div className="w-full">
-                  <DosMarketHub />
+                  <DosMarketHub shopSlug={shopSlug} />
                 </div>
               )}
 

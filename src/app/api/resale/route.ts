@@ -15,13 +15,13 @@ export async function GET(request: Request) {
   const all = new URL(request.url).searchParams.get("all") === "1";
   if (all) {
     if (!isShopAdmin(request, shop)) return unauthorized();
-    return NextResponse.json({ requests: await listResaleRequests(shop.id) });
+    return NextResponse.json({ requests: (await listResaleRequests(shop.id)).map(strip) });
   }
   const session = await getUserSession(shop.slug, request);
   if (!session) return NextResponse.json({ requests: [], feePercent: RESALE_DEFAULT_FEE_PERCENT, loggedIn: false });
   const mine = (await listResaleRequests(shop.id)).filter((r) => r.userId === session.user.id).slice(0, 30);
   const fee = (await premiumBenefits(shop.id, session.user.id)).resaleFeePercent;
-  return NextResponse.json({ requests: mine, feePercent: fee, loggedIn: true });
+  return NextResponse.json({ requests: mine.map(strip), feePercent: fee, loggedIn: true });
 }
 
 const schema = z.object({
@@ -32,7 +32,17 @@ const schema = z.object({
   description: z.string().max(1000),
   price: z.number().int(),
   agree: z.literal(true),
+  /** 도스마켓 — 팔리면 바로 전달할 로그인 정보 (암호화 저장) */
+  login: z.object({ email: z.string().max(120), password: z.string().max(200), extra: z.string().max(500).optional() }).nullable().optional(),
+  payoutMethod: z.enum(["points", "bank"]).optional(),
+  payoutAccount: z.string().max(100).optional(),
 });
+
+/** 응답에서 암호화된 로그인 정보는 빼고, 있는지만 알려 준다 */
+const strip = <T extends { credEnc?: string | null }>(r: T) => {
+  const { credEnc, ...rest } = r;
+  return { ...rest, hasCred: Boolean(credEnc) || Boolean((r as { hasCred?: boolean }).hasCred) };
+};
 
 export async function POST(request: Request) {
   await initStore();
@@ -45,16 +55,27 @@ export async function POST(request: Request) {
     if (!parsed.success) return badRequest("신청 내용을 확인해 주세요. 동의 체크도 필요해요.");
     const { getMcCategories } = await import("@/lib/mc-categories");
     const { MC_RESALE_CATEGORY } = await import("@/lib/mc-account");
-    const err = validateResaleInput(parsed.data, (await getMcCategories(shop.id)).filter((c) => c !== MC_RESALE_CATEGORY));
+    const err = validateResaleInput(
+      { ...parsed.data, payoutAccount: parsed.data.payoutMethod === "bank" ? (parsed.data.payoutAccount ?? "") : undefined },
+      (await getMcCategories(shop.id)).filter((c) => c !== MC_RESALE_CATEGORY),
+    );
     if (err) return badRequest(err);
     const user = getUserById(session.user.id);
     const fee = (await premiumBenefits(shop.id, session.user.id)).resaleFeePercent;
-    const req = await createResaleRequest(
+    const method = parsed.data.payoutMethod ?? "points";
+    if (method === "bank" && (parsed.data.payoutAccount ?? "").trim().length < 6) return badRequest("계좌로 정산받으려면 은행 · 계좌번호 · 예금주를 적어 주세요.");
+    const created = await createResaleRequest(
       shop.id,
       { id: session.user.id, name: user?.name || session.user.name || "회원", discordId: user?.discordId ?? null },
-      parsed.data,
+      { ...parsed.data, payoutAccount: undefined },
       fee,
     );
+    const { attachSellerInfo } = await import("@/lib/dosmarket");
+    const req = await attachSellerInfo(shop.id, created.id, {
+      cred: parsed.data.login?.email && parsed.data.login.password ? parsed.data.login : null,
+      payoutMethod: method,
+      payoutAccount: method === "bank" ? parsed.data.payoutAccount : null,
+    });
     pushAdminNotification(
       shop.id,
       "resale_request",
@@ -63,7 +84,7 @@ export async function POST(request: Request) {
       { requestId: req.id },
     );
     await persistAsync();
-    return NextResponse.json({ ok: true, request: req });
+    return NextResponse.json({ ok: true, request: strip(req) });
   } catch (e) {
     if (e instanceof Error && /신청|닉네임/.test(e.message)) return badRequest(e.message);
     return serverError(e);

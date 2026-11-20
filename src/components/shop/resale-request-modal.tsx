@@ -26,6 +26,11 @@ export function ResaleRequestModal({ shopSlug, types: typesProp, onClose }: { sh
   const [desc, setDesc] = useState("");
   const [price, setPrice] = useState("");
   const [agree, setAgree] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPw, setLoginPw] = useState("");
+  const [loginExtra, setLoginExtra] = useState("");
+  const [payMethod, setPayMethod] = useState<"points" | "bank">("points");
+  const [bankAcct, setBankAcct] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [fee, setFee] = useState(RESALE_DEFAULT_FEE_PERCENT);
@@ -52,7 +57,7 @@ export function ResaleRequestModal({ shopSlug, types: typesProp, onClose }: { sh
   const payout = useMemo(() => resalePayout(priceNum, fee), [priceNum, fee]);
   const feeAmount = priceNum - payout;
   const ignOk = MC_NICKNAME_RE.test(ign.trim());
-  const canSubmit = loggedIn && ignOk && priceNum >= 1000 && agree && !busy;
+  const canSubmit = loggedIn && ignOk && priceNum >= 1000 && agree && !busy && (payMethod === "points" || bankAcct.trim().length >= 6);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,13 +69,27 @@ export function ResaleRequestModal({ shopSlug, types: typesProp, onClose }: { sh
         method: "POST",
         credentials: "include",
         headers: shopHeaders(shopSlug),
-        body: JSON.stringify({ accountType: type, ign: ign.trim(), showName, capes, description: desc, price: priceNum, agree: true }),
+        body: JSON.stringify({
+          accountType: type,
+          ign: ign.trim(),
+          showName,
+          capes,
+          description: desc,
+          price: priceNum,
+          agree: true,
+          login: loginEmail.trim() && loginPw ? { email: loginEmail.trim(), password: loginPw, extra: loginExtra.trim() } : null,
+          payoutMethod: payMethod,
+          payoutAccount: payMethod === "bank" ? bankAcct.trim() : undefined,
+        }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error || "신청하지 못했어요.");
       setMsg({ ok: true, text: "신청했어요! 관리자가 확인하면 디스코드로 알려 드릴게요." });
       setIgn("");
       setCapes([]);
+      setLoginEmail("");
+      setLoginPw("");
+      setLoginExtra("");
       setDesc("");
       setPrice("");
       setAgree(false);
@@ -101,8 +120,8 @@ export function ResaleRequestModal({ shopSlug, types: typesProp, onClose }: { sh
             <PackagePlus className="size-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-extrabold">대리판매 등록</h3>
-            <p className="text-xs text-neutral-400">상품 정보를 입력하고 판매를 시작하세요.</p>
+            <h3 className="text-lg font-extrabold">도스마켓 판매 등록</h3>
+            <p className="text-xs text-neutral-400">관리자 확인 후 공개 → 팔리면 계정 자동 전달 → 구매자 보호 24시간 뒤 정산</p>
           </div>
           <button type="button" className="admin-icon-btn" onClick={onClose} aria-label="닫기">
             <X className="size-4" />
@@ -220,6 +239,33 @@ export function ResaleRequestModal({ shopSlug, types: typesProp, onClose }: { sh
             {fee < RESALE_DEFAULT_FEE_PERCENT ? <p className="mt-2 text-xs text-emerald-300">DOES PASS+ 혜택으로 수수료가 {fee}% 예요</p> : null}
           </div>
 
+          <div className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-sm font-bold">계정 로그인 정보 (팔리면 구매자에게 자동 전달)</p>
+            <p className="text-[11px] text-neutral-400">암호화해서 저장하고, 관리자가 확인한 뒤 판매가 되면 구매자에게만 전달돼요. 비워 두면 관리자가 따로 연락해요.</p>
+            <input className={field} value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="마이크로소프트 로그인 이메일" autoComplete="off" />
+            <input className={field} type="password" value={loginPw} onChange={(e) => setLoginPw(e.target.value)} placeholder="비밀번호" autoComplete="new-password" />
+            <input className={field} value={loginExtra} onChange={(e) => setLoginExtra(e.target.value)} placeholder="복구 이메일 · 백업 코드 등 (선택)" autoComplete="off" />
+          </div>
+
+          <div className="grid gap-2">
+            <span className="text-sm font-semibold">정산 받는 방법</span>
+            <div className="grid grid-cols-2 gap-2">
+              {(["points", "bank"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setPayMethod(m)}
+                  className={`rounded-xl border px-3 py-2.5 text-sm font-semibold ${payMethod === m ? "border-white bg-white text-black" : "border-white/15 text-neutral-300"}`}
+                >
+                  {m === "points" ? "포인트 (자동 · 즉시)" : "계좌 송금"}
+                </button>
+              ))}
+            </div>
+            {payMethod === "bank" ? (
+              <input className={field} value={bankAcct} onChange={(e) => setBankAcct(e.target.value)} maxLength={100} placeholder="은행 · 계좌번호 · 예금주" />
+            ) : null}
+          </div>
+
           <button type="button" onClick={() => setAgree(!agree)} className="flex items-center gap-2.5 text-left text-sm">
             <span className={`flex size-5 shrink-0 items-center justify-center rounded-full border ${agree ? "border-white bg-white text-black" : "border-white/30"}`}>
               {agree ? <Check className="size-3" /> : null}
@@ -231,7 +277,7 @@ export function ResaleRequestModal({ shopSlug, types: typesProp, onClose }: { sh
 
           <button type="submit" disabled={!canSubmit} className="toss-admin-primary inline-flex w-full items-center justify-center gap-2 py-3 disabled:opacity-40">
             {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-            대리판매 등록 신청
+            도스마켓 판매 등록
           </button>
           <p className="-mt-2 text-center text-[11px] text-neutral-500">관리자가 승인하면 디스코드 DM 으로 알려 드려요 (디스코드 연동 필요)</p>
         </div>

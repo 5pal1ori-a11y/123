@@ -746,6 +746,10 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const avatar = u?.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128` : null;
       return px.handleProxyMine(shop.slug, { id: actor.id, name: u?.global_name || actor.username, avatar });
     }
+    if (action === "dm_paid" || action === "dm_release" || action === "dm_refund" || action === "dm_cred") {
+      const { handleDosMarketButton } = await import("@/lib/dosmarket");
+      return handleDosMarketButton(shop.slug, action, payload, actor.roles, perms);
+    }
     if (action === "cr_ok" || action === "cr_no") {
       const { handleClaimButton } = await import("@/lib/discord/care");
       return handleClaimButton(shop.slug, payload, action === "cr_ok", actor.roles, perms);

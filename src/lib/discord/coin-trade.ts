@@ -278,14 +278,7 @@ export async function handleCoinConfirm(shopSlug: string, discordId: string, id:
     return customerNotice("주문하지 못했어요", [e instanceof Error ? e.message : "다시 시도해 주세요."], 0xef4444);
   }
   await persistAsync();
-
-  const adminCh = getShopSettings(shop.id).coinAdminChannelId;
-  if (adminCh) {
-    const posted = await postChannelMessage(adminCh, await adminCard(shop.slug, o), shop.id).catch(() => null);
-    const messageId = (posted?.json as { id?: string } | null)?.id;
-    if (messageId) await setCoinAdminCard(shop.id, o.id, { channelId: adminCh, messageId }).catch(() => null);
-  }
-  void refreshCoinPanel(shop.id);
+  await announceCoinOrder(shop.id, shop.slug, o);
   return customerNotice(
     `${plainEmoji("does_check")} 주문 접수 완료`,
     [
@@ -295,6 +288,17 @@ export async function handleCoinConfirm(shopSlug: string, discordId: string, id:
     ],
     ACCENT,
   );
+}
+
+/** 주문 확정 후 관리자 채널에 승인 카드를 올리고 패널을 갱신한다 (디스코드·웹 공용) */
+export async function announceCoinOrder(shopId: string, shopSlug: string, o: CoinOrder) {
+  const adminCh = getShopSettings(shopId).coinAdminChannelId;
+  if (adminCh) {
+    const posted = await postChannelMessage(adminCh, await adminCard(shopSlug, o), shopId).catch(() => null);
+    const messageId = (posted?.json as { id?: string } | null)?.id;
+    if (messageId) await setCoinAdminCard(shopId, o.id, { channelId: adminCh, messageId }).catch(() => null);
+  }
+  void refreshCoinPanel(shopId);
 }
 
 export async function handleCoinCancel(shopSlug: string, discordId: string, id: string) {

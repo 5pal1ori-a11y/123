@@ -11,7 +11,12 @@ import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { changeUserPoints } from "@/lib/store";
 import { kvGetJson, kvPutJson, withLock } from "@/lib/world/kv";
 
-export type CoinKey = "btc" | "eth" | "usdt" | "usdc" | "ltc" | "bch" | "xrp" | "doge" | "ada";
+export type CoinKey = "btc" | "eth" | "usdt" | "usdc" | "sol" | "xrp" | "trx" | "doge" | "ltc" | "bch" | "ada";
+
+/** 코인 아이콘 (CC0 오픈 아이콘셋 cryptocurrency-icons) */
+export function coinIconUrl(coin: CoinKey) {
+  return `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${coin}.svg`;
+}
 
 export const COINS: Record<
   CoinKey,
@@ -70,6 +75,28 @@ export const COINS: Record<
     decimals: 6,
     explorer: (tx) => `https://polygonscan.com/tx/${tx}`,
     addressHint: "0x 로 시작하는 Polygon 주소",
+  },
+  sol: {
+    key: "sol",
+    name: "솔라나 (SOL)",
+    network: "Solana",
+    npCode: "sol",
+    upbit: "KRW-SOL",
+    bithumb: "SOL_KRW",
+    decimals: 6,
+    explorer: (tx) => `https://solscan.io/tx/${tx}`,
+    addressHint: "32~44자리 솔라나 주소",
+  },
+  trx: {
+    key: "trx",
+    name: "트론 (TRX)",
+    network: "TRON (TRC20)",
+    npCode: "trx",
+    upbit: "KRW-TRX",
+    bithumb: "TRX_KRW",
+    decimals: 6,
+    explorer: (tx) => `https://tronscan.org/#/transaction/${tx}`,
+    addressHint: "T 로 시작하는 트론 주소",
   },
   ltc: {
     key: "ltc",
@@ -240,8 +267,12 @@ export function validateCoinAddress(coin: CoinKey, raw: string): string | null {
       if (/^[LM3][1-9A-HJ-NP-Za-km-z]{25,34}$/.test(a)) return null;
       return "라이트코인 주소가 아니에요. L · M · ltc1 로 시작하는 주소를 넣어 주세요.";
     case "usdt":
+    case "trx":
       if (/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a) && BASE58.test(a)) return null;
       return "트론(TRC20) 주소가 아니에요. T 로 시작하는 34자리 주소를 넣어 주세요.";
+    case "sol":
+      if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a)) return null;
+      return "솔라나 주소가 아니에요. 32~44자리 주소를 넣어 주세요.";
     case "bch":
       if (/^[qp][0-9a-z]{41}$/.test(a)) return null;
       if (/^bitcoincash:[qp][0-9a-z]{41}$/.test(a)) return null;

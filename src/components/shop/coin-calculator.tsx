@@ -4,16 +4,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Calculator, Loader2, RefreshCw, ArrowDownUp } from "lucide-react";
 
 const COIN_OPTIONS: { key: string; label: string }[] = [
-  { key: "btc", label: "비트코인 BTC" },
-  { key: "eth", label: "이더리움 ETH" },
-  { key: "usdt", label: "테더 USDT" },
+  { key: "btc", label: "비트코인" },
+  { key: "eth", label: "이더리움" },
+  { key: "usdt", label: "테더" },
   { key: "usdc", label: "USDC" },
-  { key: "ltc", label: "라이트코인 LTC" },
-  { key: "bch", label: "비트코인캐시 BCH" },
-  { key: "xrp", label: "리플 XRP" },
-  { key: "doge", label: "도지코인 DOGE" },
-  { key: "ada", label: "카르다노 ADA" },
+  { key: "sol", label: "솔라나" },
+  { key: "xrp", label: "리플" },
+  { key: "trx", label: "트론" },
+  { key: "doge", label: "도지코인" },
+  { key: "ltc", label: "라이트코인" },
+  { key: "bch", label: "비트코인캐시" },
+  { key: "ada", label: "카르다노" },
 ];
+
+const coinIcon = (k: string) => `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${k}.svg`;
 
 type Rate = {
   coin: string;
@@ -101,10 +105,12 @@ export function CoinCalculator() {
             <button
               key={o.key}
               onClick={() => setCoin(o.key)}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
                 coin === o.key ? "bg-indigo-500 text-white" : "bg-white/5 text-slate-300 hover:bg-white/10"
               }`}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={coinIcon(o.key)} alt="" className="size-4" loading="lazy" />
               {o.label}
             </button>
           ))}
@@ -116,8 +122,9 @@ export function CoinCalculator() {
           {loading ? (
             <Loader2 className="size-4 animate-spin text-slate-400" />
           ) : rate ? (
-            <span className="font-semibold text-white">
-              1 {rate.coin.toUpperCase()} = {won(rate.rate)}{" "}
+            <span className="flex items-center gap-1.5 font-semibold text-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={coinIcon(rate.coin)} alt="" className="size-4" />1 {rate.coin.toUpperCase()} = {won(rate.rate)}{" "}
               <span className="text-xs font-normal text-slate-500">({rate.source})</span>
             </span>
           ) : (

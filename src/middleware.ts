@@ -275,10 +275,15 @@ export async function middleware(request: Request) {
       return withSessionRefresh(NextResponse.next(), request, null);
     }
 
-    // doesmc.xyz/verify-identity · /coin-calculator — DOES 전역 최상위 페이지 (상점 rewrite 제외)
+    // doesmc.xyz/verify-identity · /coin-calculator · /coin-trade — DOES 전역 최상위 페이지 (상점 rewrite 제외)
     if (
       isMfaSiteHost(host) &&
-      (pathname === "/verify-identity" || pathname.startsWith("/verify-identity/") || pathname === "/coin-calculator" || pathname.startsWith("/coin-calculator/"))
+      (pathname === "/verify-identity" ||
+        pathname.startsWith("/verify-identity/") ||
+        pathname === "/coin-calculator" ||
+        pathname.startsWith("/coin-calculator/") ||
+        pathname === "/coin-trade" ||
+        pathname.startsWith("/coin-trade/"))
     ) {
       return withSessionRefresh(NextResponse.next(), request, slug);
     }

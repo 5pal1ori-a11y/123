@@ -15,6 +15,7 @@ import {
   Coins,
   Bitcoin,
   LineChart,
+  Sparkles,
   Crown,
   Home,
   LayoutGrid,
@@ -45,6 +46,7 @@ import {
 import { ShopCartBar, addToCart } from "./shop-cart";
 import { CoinTradeClient } from "./coin-trade-client";
 import { MarketChartClient } from "./market-chart-client";
+import { GugoClient } from "./gugo-client";
 import { UserHomeTab } from "./user-home-tab";
 import { UserHistoryTab } from "./user-history-tab";
 import { UserAccountTab } from "./user-account-tab";
@@ -100,6 +102,7 @@ const NAV: { id: UserTab; label: string; icon: typeof Home }[] = [
   { id: "charge", label: "충전", icon: Coins },
   { id: "coin", label: "코인대행", icon: Bitcoin },
   { id: "market", label: "시세", icon: LineChart },
+  { id: "gugo", label: "구해드림", icon: Sparkles },
   { id: "attendance", label: "출석", icon: CalendarCheck },
   { id: "reviews", label: "후기", icon: Star },
   { id: "island", label: "내 섬", icon: TreePine },
@@ -111,7 +114,7 @@ const NAV: { id: UserTab; label: string; icon: typeof Home }[] = [
 const TABS = NAV.map((n) => n.id);
 
 /** 로그인해야 열 수 있는 탭 — 게스트는 홈·쇼핑·후기·랭킹만 */
-const LOGIN_TABS = new Set<UserTab>(["charge", "coin", "attendance", "island", "history", "account"]);
+const LOGIN_TABS = new Set<UserTab>(["charge", "coin", "gugo", "attendance", "island", "history", "account"]);
 
 /** 로그인 전 화면에 쓰는 자리표시 사용자 */
 const GUEST_VIEWER = {
@@ -128,6 +131,7 @@ const META: Record<UserTab, { title: string; sub: string }> = {
   charge: { title: "포인트 충전", sub: "계좌 · 문화상품권 · 코인으로 간편하게" },
   coin: { title: "코인대행", sub: "포인트로 코인을 사서 내 지갑으로 받아보세요" },
   market: { title: "계정 차트", sub: "망토 · 계정 종류별 시세와 내일 추세" },
+  gugo: { title: "구해드림", sub: "원하는 계정을 조건 · 예산으로 주문하면 구해 드려요" },
   attendance: { title: "출석체크", sub: "매일 한 번, 랜덤 포인트 상자를 열어보세요" },
   reviews: { title: "후기내역", sub: "디스코드에 남겨진 후기를 실시간으로 모아봤어요" },
   island: { title: "내 섬", sub: "활동으로 블록을 모아 나만의 스카이블럭 섬을 꾸며보세요" },
@@ -1019,6 +1023,12 @@ export function UserDashboard({
                     nowpaymentsEnabled={nowpaymentsEnabled}
                     embedded
                   />
+                </div>
+              )}
+
+              {user && tab === "gugo" && (
+                <div className="w-full">
+                  <GugoClient />
                 </div>
               )}
 

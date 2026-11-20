@@ -135,6 +135,10 @@ function needsSyncModalResponse(interaction: DiscordInteraction) {
     action === "cn_buy" ||
     action === "cn_pick" ||
     action === "cn_rev" ||
+    // 구해드림 신청 · 납품 · 거절 → 입력 창(모달)
+    action === "gg_new" ||
+    action === "gg_off" ||
+    action === "gg_rej" ||
     action === "cn_send" ||
     action === "cn_rej" ||
     action === "chg_custom" ||

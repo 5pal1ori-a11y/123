@@ -135,7 +135,12 @@ export async function buildPassport(productId: string, fresh = false): Promise<P
     .orders.filter((o) => o.productId === p.id && o.paidAt && ["paid", "dispensed", "awaiting_fulfillment"].includes(o.status))
     .sort((a, b) => Date.parse(b.paidAt!) - Date.parse(a.paidAt!))[0];
   let warranty: PassportData["warranty"];
-  if (order?.paidAt) {
+  // 아직 재고가 남아 판매 중이면 '구매 후 30일' (예전 주문이 있어도 지금 파는 건 새 계정)
+  const { listProducts } = await import("@/lib/store");
+  const onSale = p.active && listProducts(p.shopId).some((x) => x.id === p.id && x.availableCount > 0);
+  if (onSale) {
+    warranty = { state: "on_sale", until: null, daysLeft: WARRANTY_DAYS };
+  } else if (order?.paidAt) {
     const until = Date.parse(order.paidAt) + WARRANTY_DAYS * 86_400_000;
     const left = Math.ceil((until - Date.now()) / 86_400_000);
     warranty = { state: left > 0 ? "active" : "expired", until: new Date(until).toISOString(), daysLeft: Math.max(0, left) };

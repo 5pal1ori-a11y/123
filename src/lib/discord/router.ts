@@ -285,6 +285,11 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         review: opt("후기채널"),
       });
     }
+    if (name === "구해드림") {
+      const v = interaction.data?.options?.find((o) => o.name === "승인채널")?.value;
+      const { handleGugoCommand } = await import("@/lib/discord/gugo");
+      return handleGugoCommand(shop.slug, actor.roles, perms, interaction.channel_id, typeof v === "string" ? v : null);
+    }
     if (name === "코인입고") {
       const { handleCoinRestockCommand } = await import("@/lib/discord/coin-trade");
       return handleCoinRestockCommand(shop.slug, actor.roles, perms, optionValue(interaction, "코인"), optionValue(interaction, "수량"), optionValue(interaction, "현재재고"));
@@ -559,6 +564,14 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       return px.handleProxyRejectSubmit(shop.slug, parsed.payload, actor.id, actor.roles, modalPerms, interaction);
     }
 
+    if (parsed.action === "gg_modal" || parsed.action === "gg_offm" || parsed.action === "gg_rejm") {
+      const gg = await import("@/lib/discord/gugo");
+      const modalPerms = interaction.member?.permissions;
+      if (parsed.action === "gg_modal") return gg.handleGugoSubmit(shop.slug, actor.id, interaction);
+      if (parsed.action === "gg_offm") return gg.handleGugoOfferSubmit(shop.slug, parsed.payload, actor.roles, modalPerms, interaction);
+      return gg.handleGugoRejectSubmit(shop.slug, parsed.payload, actor.roles, modalPerms, interaction);
+    }
+
     if (parsed.action === "cn_revm") {
       const { handleCoinReviewSubmit } = await import("@/lib/discord/coin-trade");
       return handleCoinReviewSubmit(shop.slug, actor.id, parsed.payload, interaction);
@@ -710,6 +723,16 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const u = interaction.member?.user ?? interaction.user;
       const avatar = u?.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128` : null;
       return px.handleProxyMine(shop.slug, { id: actor.id, name: u?.global_name || actor.username, avatar });
+    }
+    if (action === "gg_new" || action === "gg_mine" || action === "gg_cancel" || action === "gg_pay" || action === "gg_acc" || action === "gg_off" || action === "gg_rej") {
+      const gg = await import("@/lib/discord/gugo");
+      if (action === "gg_new") return gg.handleGugoNewButton(shop.slug);
+      if (action === "gg_mine") return gg.handleGugoMine(shop.slug, actor.id);
+      if (action === "gg_cancel") return gg.handleGugoCancel(shop.slug, actor.id, payload);
+      if (action === "gg_pay") return gg.handleGugoPay(shop.slug, actor.id, payload);
+      if (action === "gg_acc") return gg.handleGugoAccept(shop.slug, payload, actor.roles, perms);
+      if (action === "gg_off") return gg.handleGugoOfferButton(shop.slug, payload, actor.roles, perms);
+      return gg.handleGugoRejectButton(shop.slug, payload, actor.roles, perms);
     }
     if (action === "cn_buy" || action === "cn_ok" || action === "cn_cancel" || action === "cn_mine" || action === "cn_send" || action === "cn_rej" || action === "cn_chk" || action === "cn_choose" || action === "cn_vip" || action === "cn_pick" || action === "cn_rev") {
       const cn = await import("@/lib/discord/coin-trade");

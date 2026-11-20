@@ -30,6 +30,7 @@ export type UserTab =
   | "charge"
   | "coin"
   | "market"
+  | "gugo"
   | "history"
   | "account"
   | "leaderboard"

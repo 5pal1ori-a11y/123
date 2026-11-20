@@ -24,15 +24,18 @@ export async function POST(request: Request) {
     const o = await confirmCoinOrder(shop.id, parsed.data.orderId, session.user.id);
     await persistAsync();
 
-    // 관리자 채널 카드 + 패널 갱신 (디스코드 흐름과 동일)
+    // 관리자 채널 카드 + 패널 갱신, 그리고 자동송금이 설정돼 있으면 바로 송금
+    let status: string = o.status; // pending
     try {
-      const { announceCoinOrder } = await import("@/lib/discord/coin-trade");
-      await announceCoinOrder(shop.id, shop.slug, await getCoinOrder(shop.id, o.id) ?? o).catch(() => {});
+      const cn = await import("@/lib/discord/coin-trade");
+      await cn.announceCoinOrder(shop.id, shop.slug, (await getCoinOrder(shop.id, o.id)) ?? o).catch(() => {});
+      const final = await cn.autoSendAndNotify(shop.id, shop.slug, o.id).catch(() => null);
+      if (final) status = final.status;
     } catch {
-      /* 디스코드 미연동 시 무시 */
+      /* 디스코드/송금 모듈 미연동 시 pending 유지 */
     }
 
-    return NextResponse.json({ ok: true, orderId: o.id, balance: o.balance });
+    return NextResponse.json({ ok: true, orderId: o.id, balance: o.balance, status });
   } catch (err) {
     if (err instanceof Error) return badRequest(err.message);
     return serverError(err);

@@ -52,6 +52,7 @@ export function CoinTradeClient() {
   const [needVerify, setNeedVerify] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [points, setPoints] = useState<number | null>(null);
+  const [doneStatus, setDoneStatus] = useState<string>("pending");
 
   const loadMine = useCallback(async () => {
     try {
@@ -116,11 +117,12 @@ export function CoinTradeClient() {
         credentials: "include",
         body: JSON.stringify({ orderId: quote.id }),
       });
-      const data = (await res.json().catch(() => null)) as { ok?: boolean; balance?: number; error?: string } | null;
+      const data = (await res.json().catch(() => null)) as { ok?: boolean; balance?: number; error?: string; status?: string } | null;
       if (!res.ok || !data?.ok) {
         setPhase("quoted");
         return setMsg(data?.error || "확정에 실패했어요.");
       }
+      setDoneStatus(data.status || "pending");
       setPhase("done");
       setQuote(null);
       setKrw("");
@@ -186,14 +188,30 @@ export function CoinTradeClient() {
 
       {phase === "done" && (
         <div className="glass mb-4 flex flex-col items-center gap-2 p-6 text-center">
-          <div className="flex size-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
-            <CheckCircle2 className="size-8" />
+          <div
+            className={`flex size-14 items-center justify-center rounded-full ${
+              doneStatus === "sent" ? "bg-emerald-500/15 text-emerald-500" : doneStatus === "failed" || doneStatus === "rejected" ? "bg-rose-500/15 text-rose-500" : "bg-sky-500/15 text-sky-500"
+            }`}
+          >
+            {doneStatus === "failed" || doneStatus === "rejected" ? <ShieldAlert className="size-8" /> : doneStatus === "sent" ? <CheckCircle2 className="size-8" /> : <Loader2 className="size-8 animate-spin" />}
           </div>
           <p className="text-base font-bold" style={{ color: "var(--ad-text, #fff)" }}>
-            주문이 접수됐어요
+            {doneStatus === "sent"
+              ? "송금 완료!"
+              : doneStatus === "sending"
+                ? "자동 송금 중이에요"
+                : doneStatus === "failed" || doneStatus === "rejected"
+                  ? "송금을 처리하지 못했어요"
+                  : "주문이 접수됐어요"}
           </p>
           <p className="text-sm" style={{ color: "var(--ad-muted, #94a3b8)" }}>
-            관리자 확인 후 송금하고 알려 드릴게요.
+            {doneStatus === "sent"
+              ? "지갑으로 코인을 보냈어요. 블록체인 확인까지 몇 분 걸릴 수 있어요."
+              : doneStatus === "sending"
+                ? "지갑으로 전송 중이에요. 완료되면 알려 드릴게요."
+                : doneStatus === "failed" || doneStatus === "rejected"
+                  ? "포인트는 환불됐어요. 잠시 뒤 다시 시도해 주세요."
+                  : "관리자 확인 후 송금하고 알려 드릴게요."}
           </p>
         </div>
       )}

@@ -548,6 +548,71 @@ export async function handleCoinSendSubmit(shopSlug: string, id: string, adminId
   }
 }
 
+/**
+ * 자동송금 실행 (승인 없이) — 웹/디스코드 공용.
+ * relay 또는 direct 가 설정돼 있으면 바로 송금하고 결과 상태를 담은 주문을 돌려준다.
+ * manual 이면 pending 그대로 둔다.
+ */
+export async function autoSendAndNotify(shopId: string, shopSlug: string, orderId: string): Promise<CoinOrder> {
+  const mode = await coinPayoutMode();
+  const cur = await getCoinOrder(shopId, orderId);
+  if (!cur) throw new Error("주문을 찾을 수 없어요.");
+  if (mode === "manual" || cur.status !== "pending") return cur;
+
+  const patchAdminCard = async (order: CoinOrder, note?: string) => {
+    if (!order.adminCard) return;
+    const card = await adminCard(shopSlug, order, note);
+    await discordRest("PATCH", `/channels/${order.adminCard.channelId}/messages/${order.adminCard.messageId}`, { components: card.components, flags: card.flags }, shopId).catch(() => null);
+  };
+
+  let o: CoinOrder;
+  try {
+    o = await beginCoinAutoSend(shopId, orderId, "auto");
+  } catch {
+    return (await getCoinOrder(shopId, orderId)) ?? cur;
+  }
+
+  const fail = async (msg: string, payoutId?: string | null) => {
+    const { order } = await finishCoinAutoSend(shopId, orderId, { ok: false, error: msg, payoutId: payoutId ?? null });
+    await persistAsync();
+    await notifyFailed(order);
+    await patchAdminCard(order);
+    return order;
+  };
+
+  if (mode === "relay") {
+    try {
+      const r = await requestRelayPayout(o, callbackUrl(shopSlug));
+      if (r.payoutId) ({ order: o } = await finishCoinAutoSendPayoutId(shopId, orderId, r.payoutId));
+      await patchAdminCard(o, "자동 송금 요청됨 · 전송 완료되면 알림");
+      return o;
+    } catch (e) {
+      return fail(e instanceof Error ? e.message : "송금 요청 실패");
+    }
+  }
+
+  // direct
+  try {
+    const { createPayoutDirect, checkPayoutStatus } = await import("@/lib/coin-payout-direct");
+    const payoutId = await createPayoutDirect({ currency: COINS[o.coin].npCode, amount: o.coinAmount, address: o.address });
+    ({ order: o } = await finishCoinAutoSendPayoutId(shopId, orderId, payoutId));
+    const st = await checkPayoutStatus(payoutId).catch(() => null);
+    if (st?.final === "ok") {
+      const { order } = await finishCoinAutoSend(shopId, orderId, { ok: true, txid: st.txid, payoutId });
+      await persistAsync();
+      await notifySent(order);
+      void refreshCoinPanel(shopId);
+      await patchAdminCard(order);
+      return order;
+    }
+    if (st?.final === "fail") return fail(`NOWPayments ${st.status}${st.error ? ` · ${st.error}` : ""}`, payoutId);
+    await patchAdminCard(o, "자동 송금 중 · 전송 완료되면 알림");
+    return o;
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "송금 요청 실패");
+  }
+}
+
 /** [상태 확인] — direct 방식에서 sending 상태의 송금 결과를 다시 조회 */
 export async function handleCoinCheckButton(shopSlug: string, id: string, roles: string[], permissions: string | undefined) {
   const shop = getShopBySlug(shopSlug);

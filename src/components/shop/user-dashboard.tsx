@@ -47,6 +47,7 @@ import {
 import { ShopCartBar, addToCart } from "./shop-cart";
 import { CoinTradeClient } from "./coin-trade-client";
 import { MarketChartClient } from "./market-chart-client";
+import { MockStockClient } from "./mock-stock-client";
 import { GugoClient } from "./gugo-client";
 import { BuybackClient } from "./buyback-client";
 import { CareClient } from "./care-client";
@@ -1052,8 +1053,9 @@ export function UserDashboard({
               )}
 
               {tab === "market" && (
-                <div className="w-full">
+                <div className="w-full space-y-4">
                   <MarketChartClient />
+                  <MockStockClient />
                 </div>
               )}
 

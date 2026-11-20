@@ -285,6 +285,11 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         review: opt("후기채널"),
       });
     }
+    if (name === "케어") {
+      const v = interaction.data?.options?.find((o) => o.name === "승인채널")?.value;
+      const { handleCareCommand } = await import("@/lib/discord/care");
+      return handleCareCommand(shop.slug, actor.roles, perms, interaction.channel_id, typeof v === "string" ? v : null);
+    }
     if (name === "매입") {
       const v = interaction.data?.options?.find((o) => o.name === "승인채널")?.value;
       const { handleBuybackCommand } = await import("@/lib/discord/buyback");
@@ -569,6 +574,11 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       return px.handleProxyRejectSubmit(shop.slug, parsed.payload, actor.id, actor.roles, modalPerms, interaction);
     }
 
+    if (parsed.action === "cr_okm" || parsed.action === "cr_nom") {
+      const { handleClaimSubmit } = await import("@/lib/discord/care");
+      return handleClaimSubmit(shop.slug, parsed.payload, parsed.action === "cr_okm", actor.roles, interaction.member?.permissions, interaction);
+    }
+
     if (parsed.action === "bb_offm" || parsed.action === "bb_rejm") {
       const bb = await import("@/lib/discord/buyback");
       const modalPerms = interaction.member?.permissions;
@@ -735,6 +745,10 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const u = interaction.member?.user ?? interaction.user;
       const avatar = u?.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128` : null;
       return px.handleProxyMine(shop.slug, { id: actor.id, name: u?.global_name || actor.username, avatar });
+    }
+    if (action === "cr_ok" || action === "cr_no") {
+      const { handleClaimButton } = await import("@/lib/discord/care");
+      return handleClaimButton(shop.slug, payload, action === "cr_ok", actor.roles, perms);
     }
     if (action === "bb_mine" || action === "bb_off" || action === "bb_view" || action === "bb_done" || action === "bb_rej" || action === "bb_yes" || action === "bb_no") {
       const bb = await import("@/lib/discord/buyback");

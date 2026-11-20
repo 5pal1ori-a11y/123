@@ -142,6 +142,9 @@ function needsSyncModalResponse(interaction: DiscordInteraction) {
     // 매입가 제시 · 반려 → 입력 창(모달)
     action === "bb_off" ||
     action === "bb_rej" ||
+    // 케어 보상 승인 · 거절 → 입력 창(모달)
+    action === "cr_ok" ||
+    action === "cr_no" ||
     action === "cn_send" ||
     action === "cn_rej" ||
     action === "chg_custom" ||

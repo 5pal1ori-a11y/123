@@ -311,6 +311,14 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "케어",
+    description: "DOES 케어(계정 보장 구독) 안내 패널을 올립니다 (관리자)",
+    type: 1,
+    options: [
+      { name: "승인채널", description: "보상 신청 카드를 받을 관리자 채널", type: 7, channel_types: [0, 5], required: false },
+    ],
+  },
+  {
     name: "매입",
     description: "계정 매입 · 보상판매 안내 패널을 올립니다 (관리자)",
     type: 1,

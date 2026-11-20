@@ -32,6 +32,7 @@ export type UserTab =
   | "market"
   | "gugo"
   | "buyback"
+  | "care"
   | "history"
   | "account"
   | "leaderboard"

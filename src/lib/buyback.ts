@@ -125,6 +125,21 @@ export async function appraiseAccount(shopId: string, nicknameRaw: string): Prom
       basis.push(`${CAPE_BY_TYPE[c.type]?.title ?? c.title} 망토 계정 평균 ${g.avg.toLocaleString("ko-KR")}원`);
     }
   }
+  // 시세에 없는 망토(희귀 망토)를 가졌으면 평균으로 깎아 부르지 않고 관리자가 직접 감정한다
+  const unpriced = capes.filter((c) => c.type !== "optifine" && !today[`cape:${c.type}`]?.avg);
+  if (unpriced.length) {
+    return {
+      ok: true,
+      nickname: profile.name,
+      uuid: profile.uuid,
+      capes,
+      hypixel,
+      market: market || null,
+      low: null,
+      high: null,
+      basis: [`시세에 없는 망토 보유 (${unpriced.map((c) => c.title).join(", ")}) — 관리자가 직접 감정해요`],
+    };
+  }
   if (!market) {
     const g = today["cat:일반 계정"] ?? today.all;
     if (g?.avg) {

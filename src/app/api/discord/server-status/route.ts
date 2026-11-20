@@ -191,6 +191,8 @@ async function refreshRankingEvery10m(shopId: string) {
   await import("@/lib/market-index").then(({ updateMarketIndex }) => updateMarketIndex(shopId)).catch((err) => console.error("[market]", err));
   // 구해드림: 기한 지난 주문 선금 환불 · 잔금 안 낸 납품 만료
   await import("@/lib/discord/gugo").then(({ runGugoSweep }) => runGugoSweep(shopId)).catch((err) => console.error("[gugo]", err));
+  // DOES 케어: 기간이 끝난 구독 자동 갱신(포인트) · 종료 알림
+  await import("@/lib/discord/care").then(({ runCareRenew }) => runCareRenew(shopId)).catch((err) => console.error("[care]", err));
   // 프리미엄 플랜: 월 포인트 지급 · 만료 역할 회수
   await import("@/lib/premium")
     .then(async ({ premiumCron }) => {

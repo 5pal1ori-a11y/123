@@ -10,6 +10,7 @@ import type { LicensePlan, PointCharge, ShopSettings } from "@/lib/types";
 import { AccountBankPanel, type AccountBankForm } from "./account-bank-panel";
 import { AutoChargePairingPanel } from "./auto-charge-pairing-panel";
 import { PaymentApiPanel, type PaymentApiForm } from "./payment-api-panel";
+import { IdentityReviewPanel } from "./identity-review-panel";
 import { AdminSecurityPanel } from "./admin-security-panel";
 import { MfaMarketPanel } from "./mfa-market-panel";
 import { AdminHero } from "./admin-bento";
@@ -229,12 +230,15 @@ export function AdminBillingHub({
             )}
 
             {filter === "payment" && (
-              <PaymentApiPanel
-                form={paymentApiForm}
-                onChange={onPaymentApiChange}
-                saving={saving}
-                onSubmit={onSavePaymentApis}
-              />
+              <>
+                <PaymentApiPanel
+                  form={paymentApiForm}
+                  onChange={onPaymentApiChange}
+                  saving={saving}
+                  onSubmit={onSavePaymentApis}
+                />
+                {paymentApiForm.identityVerifyEnabled && <IdentityReviewPanel />}
+              </>
             )}
 
             {filter === "mfa" && <MfaMarketPanel shopSlug={shopSlug} />}

@@ -1,160 +1,121 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BadgeCheck, Loader2, ShieldCheck, ShieldAlert } from "lucide-react";
+import { BadgeCheck, Loader2, ShieldCheck, ShieldAlert, Upload, Clock } from "lucide-react";
 
-/* 토스 본인인증 SDK (v2) — CDN 로드. window.TossPayments 로 노출된다. */
-const TOSS_SDK_SRC = "https://js.tosspayments.com/v2/standard";
-
-type Status = {
+type StatusResp = {
   required: boolean;
+  status: "pending" | "approved" | "rejected" | null;
   verified: boolean;
-  configured: boolean;
-  clientKey: string | null;
-  name: string | null;
-  verifiedAt: string | null;
+  rejectReason: string | null;
+  submittedAt: string | null;
 };
 
-type Phase = "loading" | "idle" | "running" | "confirming" | "done" | "error";
+type Phase = "loading" | "form" | "uploading" | "pending" | "approved" | "error";
 
-declare global {
-  interface Window {
-    TossPayments?: (clientKey: string) => {
-      identity: (opts: { customerKey: string }) => {
-        requestIdentityVerification: (opts: {
-          redirectUrl?: string;
-          successUrl?: string;
-          failUrl?: string;
-        }) => Promise<{ identityVerificationId?: string } | void>;
-      };
-    };
-  }
-}
-
-function loadTossSdk(): Promise<void> {
+function fileToBase64(file: File): Promise<{ base64: string; type: string }> {
   return new Promise((resolve, reject) => {
-    if (window.TossPayments) return resolve();
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${TOSS_SDK_SRC}"]`);
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => reject(new Error("토스 SDK 로드 실패")));
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = TOSS_SDK_SRC;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("토스 SDK 로드 실패"));
-    document.head.appendChild(s);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const comma = result.indexOf(",");
+      resolve({ base64: comma >= 0 ? result.slice(comma + 1) : result, type: file.type });
+    };
+    reader.onerror = () => reject(new Error("파일을 읽지 못했어요."));
+    reader.readAsDataURL(file);
   });
 }
 
 export function IdentityVerifyClient() {
-  const [status, setStatus] = useState<Status | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
   const [message, setMessage] = useState("");
-  const confirming = useRef(false);
+  const [rejectReason, setRejectReason] = useState<string | null>(null);
+  const [realName, setRealName] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const confirm = useCallback(async (verificationId: string) => {
-    if (confirming.current) return;
-    confirming.current = true;
-    setPhase("confirming");
+  const loadStatus = useCallback(async () => {
     try {
-      const res = await fetch("/api/identity-verify/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ verificationId }),
-      });
-      const data = (await res.json().catch(() => null)) as { verified?: boolean; name?: string; duplicate?: boolean; error?: string } | null;
-      if (!res.ok || !data?.verified) {
+      const res = await fetch("/api/identity-verify/status", { credentials: "include" });
+      if (res.status === 401) {
         setPhase("error");
-        setMessage(data?.error || "인증 확인에 실패했어요. 다시 시도해 주세요.");
+        setMessage("먼저 사이트에 로그인해 주세요.");
         return;
       }
-      setPhase("done");
-      setMessage(data.duplicate ? "인증 완료! (참고: 같은 명의로 가입된 다른 계정이 있어요)" : "본인인증이 완료됐어요.");
+      const data = (await res.json()) as StatusResp;
+      if (data.status === "approved") {
+        setPhase("approved");
+      } else if (data.status === "pending") {
+        setPhase("pending");
+      } else {
+        if (data.status === "rejected") setRejectReason(data.rejectReason);
+        setPhase("form");
+      }
     } catch {
       setPhase("error");
-      setMessage("네트워크 오류로 확인하지 못했어요.");
-    } finally {
-      confirming.current = false;
+      setMessage("상태를 불러오지 못했어요.");
     }
   }, []);
 
-  // 상태 조회 + 리다이렉트 복귀 처리
   useEffect(() => {
-    (async () => {
-      // 토스 팝업이 ?identityVerificationId=... 로 돌아온 경우 바로 확정
-      const params = new URLSearchParams(window.location.search);
-      const returned = params.get("identityVerificationId");
-      try {
-        const res = await fetch("/api/identity-verify/status", { credentials: "include" });
-        if (res.status === 401) {
-          setPhase("error");
-          setMessage("먼저 사이트에 로그인해 주세요.");
-          return;
-        }
-        const data = (await res.json()) as Status;
-        setStatus(data);
-        if (data.verified) {
-          setPhase("done");
-          setMessage("이미 본인인증이 완료된 계정이에요.");
-          return;
-        }
-        if (returned) {
-          // URL 정리 후 확정
-          window.history.replaceState(null, "", window.location.pathname);
-          await confirm(returned);
-          return;
-        }
-        setPhase("idle");
-      } catch {
-        setPhase("error");
-        setMessage("상태를 불러오지 못했어요.");
-      }
-    })();
-  }, [confirm]);
+    void loadStatus();
+  }, [loadStatus]);
 
-  const start = useCallback(async () => {
-    if (!status?.clientKey) {
-      setPhase("error");
-      setMessage("본인인증이 아직 설정되지 않았어요. 관리자에게 문의해 주세요.");
+  const pick = (f: File | null) => {
+    setMessage("");
+    if (!f) return;
+    if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) {
+      setMessage("이미지 파일(JPG·PNG·WEBP)만 올릴 수 있어요.");
       return;
     }
-    setPhase("running");
+    if (f.size > 4 * 1024 * 1024) {
+      setMessage("사진이 너무 커요. 4MB 이하로 올려 주세요.");
+      return;
+    }
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+  };
+
+  const submit = useCallback(async () => {
+    if (!file) {
+      setMessage("신분증 사진을 선택해 주세요.");
+      return;
+    }
+    setPhase("uploading");
     setMessage("");
     try {
-      await loadTossSdk();
-      const toss = window.TossPayments?.(status.clientKey);
-      if (!toss) throw new Error("토스 SDK 초기화 실패");
-      // customerKey: 계정마다 고유해야 함 (추적 불가능한 랜덤값 권장)
-      const customerKey = `cust_${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`;
-      const identity = toss.identity({ customerKey });
-      // 인증 후 이 페이지로 돌아온다 (?identityVerificationId=...)
-      const redirectUrl = `${window.location.origin}${window.location.pathname}`;
-      const result = await identity.requestIdentityVerification({ redirectUrl, successUrl: redirectUrl, failUrl: redirectUrl });
-      // 리다이렉트 없이 promise 로 바로 결과가 오는 경우
-      const id = result && typeof result === "object" ? result.identityVerificationId : undefined;
-      if (id) await confirm(id);
-    } catch (e) {
-      // 사용자가 팝업을 닫으면 여기로 올 수 있음
-      setPhase("idle");
-      const msg = e instanceof Error ? e.message : "";
-      if (msg && !/cancel|close|사용자/i.test(msg)) setMessage(msg);
+      const { base64, type } = await fileToBase64(file);
+      const res = await fetch("/api/identity-verify/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ imageBase64: base64, imageType: type, realName: realName.trim() || undefined }),
+      });
+      const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!res.ok || !data?.ok) {
+        setPhase("form");
+        setMessage(data?.error || "업로드에 실패했어요. 다시 시도해 주세요.");
+        return;
+      }
+      setPhase("pending");
+    } catch {
+      setPhase("form");
+      setMessage("네트워크 오류로 업로드하지 못했어요.");
     }
-  }, [status, confirm]);
+  }, [file, realName]);
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center gap-6 px-4 py-12">
       <div className="flex flex-col items-center gap-3 text-center">
         <div className="flex size-16 items-center justify-center rounded-2xl bg-indigo-500/15 text-indigo-300 ring-1 ring-indigo-400/30">
-          {phase === "done" ? <ShieldCheck className="size-8" /> : phase === "error" ? <ShieldAlert className="size-8" /> : <BadgeCheck className="size-8" />}
+          {phase === "approved" ? <ShieldCheck className="size-8" /> : phase === "error" ? <ShieldAlert className="size-8" /> : phase === "pending" ? <Clock className="size-8" /> : <BadgeCheck className="size-8" />}
         </div>
         <h1 className="text-xl font-bold text-white">본인인증</h1>
         <p className="text-sm text-slate-400">
-          안전한 거래를 위해 토스로 본인확인을 진행해요.
+          안전한 거래를 위해 신분증 사진으로 본인확인을 해요.
           <br />
-          토스 공식 인증 창에서 직접 진행되며, 정보는 안전하게 처리됩니다.
+          관리자 확인 후 승인되며, 사진은 승인 즉시 삭제됩니다.
         </p>
       </div>
 
@@ -164,28 +125,75 @@ export function IdentityVerifyClient() {
         </div>
       )}
 
-      {phase === "done" && (
+      {phase === "approved" && (
         <div className="w-full rounded-2xl bg-emerald-500/10 p-5 text-center text-sm text-emerald-200 ring-1 ring-emerald-400/30">
           <ShieldCheck className="mx-auto mb-2 size-6" />
-          {message || "본인인증이 완료됐어요."}
-          {status?.name ? <div className="mt-1 text-emerald-300/80">{status.name} 님</div> : null}
+          본인인증이 완료됐어요. 이제 코인대행을 이용할 수 있어요.
         </div>
       )}
 
-      {(phase === "idle" || phase === "running" || phase === "confirming") && (
-        <button
-          onClick={start}
-          disabled={phase !== "idle"}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-500 px-6 py-4 font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-60"
-        >
-          {phase === "idle" ? (
-            <>토스로 본인인증 시작</>
-          ) : (
-            <>
-              <Loader2 className="size-4 animate-spin" /> {phase === "confirming" ? "확인 중…" : "인증 창 여는 중…"}
-            </>
+      {phase === "pending" && (
+        <div className="w-full rounded-2xl bg-amber-500/10 p-5 text-center text-sm text-amber-200 ring-1 ring-amber-400/30">
+          <Clock className="mx-auto mb-2 size-6" />
+          검토 중이에요. 관리자가 확인하면 알려 드릴게요. (보통 수 분 ~ 수 시간)
+        </div>
+      )}
+
+      {(phase === "form" || phase === "uploading") && (
+        <div className="w-full space-y-4">
+          {rejectReason && (
+            <div className="rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200 ring-1 ring-rose-400/30">
+              이전 신청이 반려됐어요: {rejectReason}
+              <br />새 사진으로 다시 신청해 주세요.
+            </div>
           )}
-        </button>
+
+          <input
+            type="text"
+            placeholder="실명 (신분증과 동일하게)"
+            value={realName}
+            onChange={(e) => setRealName(e.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-indigo-400/50"
+          />
+
+          <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => pick(e.target.files?.[0] ?? null)} />
+
+          <button
+            onClick={() => inputRef.current?.click()}
+            className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-8 text-slate-300 transition hover:border-indigo-400/40 hover:bg-white/[0.04]"
+          >
+            {preview ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={preview} alt="미리보기" className="max-h-44 rounded-lg object-contain" />
+            ) : (
+              <>
+                <Upload className="size-6" />
+                <span className="text-sm">신분증 사진 선택 (주민증·운전면허·여권)</span>
+                <span className="text-xs text-slate-500">JPG · PNG · WEBP · 4MB 이하</span>
+              </>
+            )}
+          </button>
+
+          <p className="text-xs text-slate-500">
+            개인정보 보호를 위해 주민등록번호 뒷자리는 가리고 올리는 것을 권장해요.
+          </p>
+
+          <button
+            onClick={submit}
+            disabled={phase === "uploading" || !file}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-500 px-6 py-4 font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-50"
+          >
+            {phase === "uploading" ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> 올리는 중…
+              </>
+            ) : (
+              <>본인인증 신청</>
+            )}
+          </button>
+
+          {message && <p className="text-center text-sm text-rose-300">{message}</p>}
+        </div>
       )}
 
       {phase === "error" && (
@@ -193,8 +201,6 @@ export function IdentityVerifyClient() {
           {message || "오류가 발생했어요."}
         </div>
       )}
-
-      {message && phase !== "error" && phase !== "done" ? <p className="text-center text-xs text-slate-500">{message}</p> : null}
     </div>
   );
 }

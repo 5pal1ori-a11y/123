@@ -3944,8 +3944,19 @@ export function confirmPointCharge(
   const mention = user.discordId ? `<@${user.discordId}>` : user.email;
   const uname = user.discordUsername || user.name || user.email;
 
+  // 같은 입금이 APK·Pushbullet 으로 동시에 들어와 다른 Worker 인스턴스에서 한 번 더 승인돼도
+  // 충전로그 · 메시지 갱신 · DM 은 충전 1건당 한 번만 나가게 선점한다
+  const discordId = user.discordId;
+  const resultLabel = opts?.resultLabel || "승인됨";
   scheduleDiscordBackground(
-    import("@/lib/discord/logs").then(({ postChargeCompleteLog }) =>
+    (async () => {
+      const { claimOnce } = await import("@/lib/once-lock");
+      if (!(await claimOnce(`charge-done:${chargeId}`, 24 * 3_600_000))) return;
+
+      const [{ postChargeCompleteLog }, { markChargeMessagesCompleted }] = await Promise.all([
+        import("@/lib/discord/logs"),
+        import("@/lib/discord/charge-message"),
+      ]);
       postChargeCompleteLog(shopId, {
         userMention: mention,
         userName: uname,
@@ -3953,40 +3964,29 @@ export function confirmPointCharge(
         amount: charge.amount,
         balance,
         chargeId,
-      }),
-    ),
-  );
+      });
+      await markChargeMessagesCompleted({ shopId, charge, balance, resultLabel }).catch(() => null);
 
-  // Flip "충전 요청" / "충전 안내" Discord messages → 충전 완료 (auto + manual)
-  scheduleDiscordBackground(
-    import("@/lib/discord/charge-message").then(({ markChargeMessagesCompleted }) =>
-      markChargeMessagesCompleted({
-        shopId,
-        charge,
-        balance,
-        resultLabel: opts?.resultLabel || "승인됨",
-      }),
-    ),
+      if (discordId) {
+        const [{ sendDiscordDm }, { separator, textDisplay, v2Message }] = await Promise.all([
+          import("@/lib/discord/dm"),
+          import("@/lib/discord/components"),
+        ]);
+        await sendDiscordDm(
+          discordId,
+          v2Message([
+            textDisplay("## 충전 완료"),
+            separator(true, 1),
+            textDisplay(`**충전 금액**\n${charge.amount.toLocaleString()}원`),
+            textDisplay(`**현재 잔액**\n${balance.toLocaleString()}원`),
+            separator(true, 1),
+            textDisplay(`-# DOES · <t:${Math.floor(Date.now() / 1000)}:f>`),
+          ]),
+          shopId,
+        ).catch(() => null);
+      }
+    })(),
   );
-
-  if (user.discordId) {
-    const amountLabel = `${charge.amount.toLocaleString()}원`;
-    void import("@/lib/discord/dm").then(async ({ sendDiscordDm }) => {
-      const { separator, textDisplay, v2Message } = await import("@/lib/discord/components");
-      await sendDiscordDm(
-        user.discordId!,
-        v2Message([
-          textDisplay("## 충전 완료"),
-          separator(true, 1),
-          textDisplay(`**충전 금액**\n${amountLabel}`),
-          textDisplay(`**현재 잔액**\n${balance.toLocaleString()}원`),
-          separator(true, 1),
-          textDisplay(`-# DOES · <t:${Math.floor(Date.now() / 1000)}:f>`),
-        ]),
-        shopId,
-      );
-    });
-  }
   return { ok: true, charge };
 }
 

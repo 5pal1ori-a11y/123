@@ -7,6 +7,7 @@ export { PushbulletBridge } from "./worker/pushbullet-bridge";
 export { GiveawayHub } from "./worker/giveaway-hub";
 export { TicketGateway } from "./worker/ticket-gateway";
 export { StatusWatch } from "./worker/status-watch";
+export { OnceLock } from "./worker/once-lock";
 
 type Env = {
   PRESENCE: DurableObjectNamespace;

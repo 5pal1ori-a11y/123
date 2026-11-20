@@ -34,7 +34,8 @@
       { "name": "PB_BRIDGE", "class_name": "PushbulletBridge" },
       { "name": "GIVEAWAY", "class_name": "GiveawayHub" },
       { "name": "TICKET_GW", "class_name": "TicketGateway" },
-      { "name": "STATUS_WATCH", "class_name": "StatusWatch" }
+      { "name": "STATUS_WATCH", "class_name": "StatusWatch" },
+      { "name": "ONCE_LOCK", "class_name": "OnceLock" }
     ]
   },
   "migrations": [
@@ -43,7 +44,8 @@
     { "tag": "pushbullet-v1", "new_sqlite_classes": ["PushbulletBridge"] },
     { "tag": "giveaway-v1", "new_sqlite_classes": ["GiveawayHub"] },
     { "tag": "ticket-gateway-v1", "new_sqlite_classes": ["TicketGateway"] },
-    { "tag": "status-watch-v1", "new_sqlite_classes": ["StatusWatch"] }
+    { "tag": "status-watch-v1", "new_sqlite_classes": ["StatusWatch"] },
+    { "tag": "once-lock-v1", "new_sqlite_classes": ["OnceLock"] }
   ],
   "vars": {
     "NEXT_PUBLIC_ROOT_DOMAIN": "vendix.team",

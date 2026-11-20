@@ -7,7 +7,7 @@
  *   송금 → 모달: TXID 를 적으면 직접 보낸 것으로 처리, 비우면 NOWPayments 중계 서버로 자동 송금
  *   거절 · 송금 실패 → 포인트 자동 환불 · 손님 DM
  */
-import { appEmoji, plainEmoji } from "@/lib/discord/app-emojis";
+import { appEmoji, loadSavedEmojis, plainEmoji } from "@/lib/discord/app-emojis";
 import {
   actionRow,
   ButtonStyle,
@@ -147,6 +147,7 @@ async function coinStatsImageUrl(shopId: string, shopSlug: string) {
 }
 
 async function panelMessage(shopId: string, shopSlug: string) {
+  await loadSavedEmojis().catch(() => null);
   const s = await coinStats(shopId);
   const statsImg = await coinStatsImageUrl(shopId, shopSlug);
   const coinLine = SENDABLE_COINS.map((c) => `${COIN_EMOJI[c] ? appEmoji(COIN_EMOJI[c]!) : ""} **${c.toUpperCase()}**`).join("  ·  ");
@@ -383,6 +384,8 @@ export async function handleCoinMine(shopSlug: string, discordId: string) {
 export async function handleCoinChooseButton(shopSlug: string) {
   const shop = getShopBySlug(shopSlug);
   if (!shop) return plainEphemeral("상점을 찾을 수 없어요.");
+  // 떠 있던 인스턴스가 새로 올린 서버 이모지를 모를 수 있어 목록을 다시 읽는다
+  await loadSavedEmojis().catch(() => null);
   const options = SENDABLE_COINS.map((k) => ({
     label: `${k.toUpperCase()} · ${COINS[k].name.replace(/\s*\(.*\)$/, "")}`,
     value: k,

@@ -39,7 +39,7 @@ const EXTRA_FALLBACK = {
   does_user: "👤",
   does_verified: "☑️",
   does_warning: "⚠️",
-  does_ltc: "Ł",
+  does_ltc: "🪙",
   does_trx: "🔺",
 } as const;
 export type AppEmojiName = BotEmojiName | keyof typeof EXTRA_FALLBACK;

@@ -15,6 +15,7 @@ import {
   ComponentType,
   container,
   errorPanel,
+  mediaGallery,
   MessageFlags,
   modalFieldValue,
   plainEphemeral,
@@ -646,6 +647,43 @@ export async function notifySent(o: CoinOrder) {
     0x22c55e,
     o.txid ? [linkButton(c.explorer(o.txid), "거래 확인하기")] : [],
   );
+  void postCoinSentLog(o);
+}
+
+/** 송금 완료 로그 — 로그 채널에 이미지 카드로 올린다 (구매·충전 로그와 같은 방식, 누적 송금 건수 포함) */
+async function postCoinSentLog(o: CoinOrder) {
+  try {
+    const settings = getShopSettings(o.shopId);
+    const channelId = settings.discordChargeLogChannelId || settings.coinAdminChannelId;
+    if (!channelId) return;
+    const slug = getShopById(o.shopId)?.slug;
+    if (!slug) return;
+    const stats = await coinStats(o.shopId).catch(() => null);
+    const { cardImageUrl } = await import("@/lib/discord/rank-image");
+    const url = await cardImageUrl(slug, {
+      theme: "green",
+      eyebrow: "코인대행 송금완료",
+      title: formatCoin(o.coin, o.coinAmount),
+      ...(o.discordId ? { people: [{ id: o.discordId }] } : {}),
+      subtitle: `${won(o.krw)} 결제 · ${COINS[o.coin].network}`,
+      chips: [
+        `시세 ${won(o.rate)}`,
+        `수수료 ${o.feePercent}%`,
+        ...(stats ? [`누적 ${stats.orders.toLocaleString("ko-KR")}건`, `누적 ${won(stats.volume)}`] : []),
+      ],
+      ...(o.txid ? { note: `TXID ${o.txid.slice(0, 32)}` } : {}),
+    }).catch(() => null);
+    const kids: unknown[] = url
+      ? [mediaGallery([url]), textDisplay(`-# 코인 송금 완료 · <t:${Math.floor(Date.now() / 1000)}:f>`)]
+      : [
+          textDisplay("## 코인대행 송금완료"),
+          textDisplay([`**${formatCoin(o.coin, o.coinAmount)}** → \`${shortAddr(o.address)}\``, `**결제** ${won(o.krw)} · ${COINS[o.coin].network}`].join("\n")),
+        ];
+    const body = { flags: MessageFlags.IS_COMPONENTS_V2, components: [container(kids, 0x22c55e)], allowed_mentions: { parse: [] as string[] } };
+    await postChannelMessage(channelId, body, o.shopId).catch(() => null);
+  } catch {
+    /* 로그 실패는 무시 */
+  }
 }
 
 export async function notifyFailed(o: CoinOrder) {

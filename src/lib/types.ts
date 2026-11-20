@@ -504,6 +504,10 @@ export type ShopUser = {
   referredBy?: string | null;
   /** 추천 보상으로 받은 포인트 합계 */
   referralEarned?: number;
+  /** 코인대행 누적 지출액(원) */
+  totalCoinSpent?: number;
+  /** 코인대행 VIP 등급 (0-5, 0=일반) */
+  vipTier?: number;
   createdAt: string;
 };
 

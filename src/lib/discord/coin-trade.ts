@@ -44,12 +44,16 @@ import {
   finishCoinAutoSend,
   formatCoin,
   getCoinOrder,
+  getVipFeePercent,
+  getVipName,
+  getVipTier,
   listCoinOrders,
   markCoinOrderSentManually,
   rejectCoinOrder,
   requestRelayPayout,
   setCoinAdminCard,
   updateCoinOrder,
+  VIP_TIERS,
   type CoinKey,
   type CoinOrder,
 } from "@/lib/coin-trade";
@@ -57,7 +61,7 @@ import { getShopById, getShopBySlug, getShopSettings, getUserByDiscordId, persis
 
 const won = (n: number) => `${Math.max(0, Math.round(n)).toLocaleString("ko-KR")}원`;
 const ACCENT = 0x22c55e;
-const isCoin = (v: string): v is CoinKey => v === "ltc" || v === "usdt";
+const isCoin = (v: string): v is CoinKey => Object.keys(COINS).includes(v);
 
 function styledButton(customId: string, label: string, style: number, emoji?: string) {
   const m = emoji ? /^<(a?):(\w+):(\d+)>$/.exec(emoji) : null;
@@ -93,24 +97,27 @@ const STATUS_KO: Record<string, string> = {
 
 async function panelMessage(shopId: string, shopSlug: string) {
   const s = await coinStats(shopId);
+  const coinList = Object.values(COINS)
+    .map((c) => `**${c.name}**`)
+    .join(" · ");
   const kids: unknown[] = [
     textDisplay(`## ${plainEmoji("does_coin")} 코인대행`),
     textDisplay(
       [
         "보유 포인트로 코인을 사서 내 지갑으로 받아요.",
-        `> **라이트코인 (LTC)** · **테더 (USDT · TRC20)**`,
-        `> 실시간 업비트 원화 시세 + 대행 수수료 **${COIN_FEE_PERCENT}%**`,
+        `> ${coinList}`,
+        `> 실시간 업비트 원화 시세 · 수수료 1~3% (VIP 등급에 따라 할인)`,
         `> 한 번에 ${won(COIN_MIN_KRW)} ~ ${won(COIN_MAX_KRW)}`,
       ].join("\n"),
     ),
     textDisplay(`누적 송금 **${s.orders.toLocaleString("ko-KR")}건** · 이용자 **${s.buyers.toLocaleString("ko-KR")}명** · 누적 **${won(s.volume)}**`),
     separator(true, 1),
     actionRow(
-      styledButton(cid(shopSlug, "cn_buy", "ltc"), "LTC 구매", ButtonStyle.PRIMARY, appEmoji("does_coin")),
-      styledButton(cid(shopSlug, "cn_buy", "usdt"), "USDT 구매", ButtonStyle.SUCCESS, appEmoji("does_coin")),
-      styledButton(cid(shopSlug, "cn_mine"), "내 주문", ButtonStyle.SECONDARY, appEmoji("does_chart")),
+      styledButton(cid(shopSlug, "cn_choose"), "🪙 코인 구매", ButtonStyle.PRIMARY, appEmoji("does_coin")),
+      styledButton(cid(shopSlug, "cn_mine"), "📊 내 주문", ButtonStyle.SECONDARY, appEmoji("does_chart")),
+      styledButton(cid(shopSlug, "cn_vip"), "💎 VIP 혜택", ButtonStyle.SECONDARY),
     ),
-    textDisplay("-# 신청 → 견적 확인 → 확정(포인트 차감) → 관리자 확인 후 송금 · 결과는 DM 으로 알려 드려요\n-# 주소를 잘못 적으면 되돌릴 수 없어요. 네트워크(LTC / TRC20)를 꼭 확인해 주세요."),
+    textDisplay("-# 신청 → 견적 확인 → 확정(포인트 차감) → 관리자 확인 후 송금 · 결과는 DM 으로 알려 드려요\n-# 주소를 잘못 적으면 되돌릴 수 없어요. 네트워크를 꼭 확인해 주세요."),
   ];
   return { flags: MessageFlags.IS_COMPONENTS_V2, components: [container(kids, ACCENT)], allowed_mentions: { parse: [] as string[] } };
 }

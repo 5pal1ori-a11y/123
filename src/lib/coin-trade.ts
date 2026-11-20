@@ -11,7 +11,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { changeUserPoints } from "@/lib/store";
 import { kvGetJson, kvPutJson, withLock } from "@/lib/world/kv";
 
-export type CoinKey = "ltc" | "usdt";
+export type CoinKey = "btc" | "eth" | "usdt" | "usdc" | "ltc" | "bch" | "xrp" | "doge" | "ada";
 
 export const COINS: Record<
   CoinKey,
@@ -19,9 +19,7 @@ export const COINS: Record<
     key: CoinKey;
     name: string;
     network: string;
-    /** NOWPayments 통화 코드 */
     npCode: string;
-    /** 업비트 · 빗썸 원화 마켓 */
     upbit: string;
     bithumb: string;
     decimals: number;
@@ -29,16 +27,27 @@ export const COINS: Record<
     addressHint: string;
   }
 > = {
-  ltc: {
-    key: "ltc",
-    name: "라이트코인 (LTC)",
-    network: "Litecoin",
-    npCode: "ltc",
-    upbit: "KRW-LTC",
-    bithumb: "LTC_KRW",
-    decimals: 6,
-    explorer: (tx) => `https://blockchair.com/litecoin/transaction/${tx}`,
-    addressHint: "L · M · ltc1 로 시작하는 주소",
+  btc: {
+    key: "btc",
+    name: "비트코인 (BTC)",
+    network: "Bitcoin",
+    npCode: "btc",
+    upbit: "KRW-BTC",
+    bithumb: "BTC_KRW",
+    decimals: 8,
+    explorer: (tx) => `https://blockchair.com/bitcoin/transaction/${tx}`,
+    addressHint: "bc1 · 1 · 3 으로 시작하는 비트코인 주소",
+  },
+  eth: {
+    key: "eth",
+    name: "이더리움 (ETH)",
+    network: "Ethereum",
+    npCode: "eth",
+    upbit: "KRW-ETH",
+    bithumb: "ETH_KRW",
+    decimals: 18,
+    explorer: (tx) => `https://etherscan.io/tx/${tx}`,
+    addressHint: "0x 로 시작하는 이더리움 주소",
   },
   usdt: {
     key: "usdt",
@@ -51,14 +60,106 @@ export const COINS: Record<
     explorer: (tx) => `https://tronscan.org/#/transaction/${tx}`,
     addressHint: "T 로 시작하는 트론(TRC20) 주소",
   },
+  usdc: {
+    key: "usdc",
+    name: "USDC (USD Coin)",
+    network: "Polygon",
+    npCode: "usdcpoly",
+    upbit: "KRW-USDC",
+    bithumb: "USDC_KRW",
+    decimals: 6,
+    explorer: (tx) => `https://polygonscan.com/tx/${tx}`,
+    addressHint: "0x 로 시작하는 Polygon 주소",
+  },
+  ltc: {
+    key: "ltc",
+    name: "라이트코인 (LTC)",
+    network: "Litecoin",
+    npCode: "ltc",
+    upbit: "KRW-LTC",
+    bithumb: "LTC_KRW",
+    decimals: 6,
+    explorer: (tx) => `https://blockchair.com/litecoin/transaction/${tx}`,
+    addressHint: "L · M · ltc1 로 시작하는 주소",
+  },
+  bch: {
+    key: "bch",
+    name: "비트코인캐시 (BCH)",
+    network: "Bitcoin Cash",
+    npCode: "bch",
+    upbit: "KRW-BCH",
+    bithumb: "BCH_KRW",
+    decimals: 8,
+    explorer: (tx) => `https://blockchair.com/bitcoin-cash/transaction/${tx}`,
+    addressHint: "bitcoincash: 또는 q 로 시작하는 주소",
+  },
+  xrp: {
+    key: "xrp",
+    name: "리플 (XRP)",
+    network: "XRP Ledger",
+    npCode: "xrp",
+    upbit: "KRW-XRP",
+    bithumb: "XRP_KRW",
+    decimals: 6,
+    explorer: (tx) => `https://xrpscan.com/tx/${tx}`,
+    addressHint: "r 로 시작하는 XRP 주소",
+  },
+  doge: {
+    key: "doge",
+    name: "도지코인 (DOGE)",
+    network: "Dogecoin",
+    npCode: "doge",
+    upbit: "KRW-DOGE",
+    bithumb: "DOGE_KRW",
+    decimals: 8,
+    explorer: (tx) => `https://blockchair.com/dogecoin/transaction/${tx}`,
+    addressHint: "D 로 시작하는 도지코인 주소",
+  },
+  ada: {
+    key: "ada",
+    name: "카르다노 (ADA)",
+    network: "Cardano",
+    npCode: "ada",
+    upbit: "KRW-ADA",
+    bithumb: "ADA_KRW",
+    decimals: 6,
+    explorer: (tx) => `https://cardanoscan.io/transaction/${tx}`,
+    addressHint: "addr1 로 시작하는 카르다노 주소",
+  },
 };
 
 export const COIN_FEE_PERCENT = 3;
 export const COIN_MIN_KRW = 5_000;
-/** 100만 원 이상은 트래블룰(수취인 정보 확인) 대상이라 한 번에 99만 원까지만 받는다 */
 export const COIN_MAX_KRW = 990_000;
-/** 견적 유효 시간 */
 export const COIN_QUOTE_TTL_MS = 90_000;
+
+/** VIP 등급별 누적 지출액(원) · 수수료 */
+export const VIP_TIERS = [
+  { tier: 0, name: "일반", minSpent: 0, feePercent: 3 },
+  { tier: 1, name: "실버", minSpent: 500_000, feePercent: 2.5 },
+  { tier: 2, name: "골드", minSpent: 2_000_000, feePercent: 2 },
+  { tier: 3, name: "플래티넘", minSpent: 10_000_000, feePercent: 1.5 },
+  { tier: 4, name: "다이아", minSpent: 50_000_000, feePercent: 1 },
+  { tier: 5, name: "크라운", minSpent: 200_000_000, feePercent: 0.5 },
+];
+
+export function getVipTier(totalSpent: number): number {
+  let tier = 0;
+  for (const v of VIP_TIERS) {
+    if (totalSpent >= v.minSpent) tier = v.tier;
+  }
+  return tier;
+}
+
+export function getVipFeePercent(tier: number): number {
+  const v = VIP_TIERS.find((x) => x.tier === tier) || VIP_TIERS[0];
+  return v.feePercent;
+}
+
+export function getVipName(tier: number): string {
+  const v = VIP_TIERS.find((x) => x.tier === tier) || VIP_TIERS[0];
+  return v.name;
+}
 
 export type CoinOrderStatus = "quote" | "pending" | "sending" | "sent" | "failed" | "rejected" | "cancelled" | "expired";
 
@@ -125,13 +226,37 @@ const BASE58 = /^[1-9A-HJ-NP-Za-km-z]+$/;
 
 export function validateCoinAddress(coin: CoinKey, raw: string): string | null {
   const a = raw.trim();
-  if (coin === "ltc") {
-    if (/^ltc1[02-9ac-hj-np-z]{20,87}$/.test(a)) return null;
-    if (/^[LM3][1-9A-HJ-NP-Za-km-z]{25,34}$/.test(a)) return null;
-    return "라이트코인 주소가 아니에요. L · M · ltc1 로 시작하는 주소를 넣어 주세요.";
+  switch (coin) {
+    case "btc":
+      if (/^bc1[02-9ac-hj-np-z]{39,87}$/.test(a)) return null;
+      if (/^[13][1-9A-HJ-NP-Za-km-z]{24,33}$/.test(a) && BASE58.test(a)) return null;
+      return "비트코인 주소가 아니에요. bc1 · 1 · 3 으로 시작하는 주소를 넣어 주세요.";
+    case "eth":
+    case "usdc":
+      if (/^0x[0-9a-fA-F]{40}$/.test(a)) return null;
+      return "이더리움/Polygon 주소가 아니에요. 0x 로 시작하는 40자리 주소를 넣어 주세요.";
+    case "ltc":
+      if (/^ltc1[02-9ac-hj-np-z]{20,87}$/.test(a)) return null;
+      if (/^[LM3][1-9A-HJ-NP-Za-km-z]{25,34}$/.test(a)) return null;
+      return "라이트코인 주소가 아니에요. L · M · ltc1 로 시작하는 주소를 넣어 주세요.";
+    case "usdt":
+      if (/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a) && BASE58.test(a)) return null;
+      return "트론(TRC20) 주소가 아니에요. T 로 시작하는 34자리 주소를 넣어 주세요.";
+    case "bch":
+      if (/^[qp][0-9a-z]{41}$/.test(a)) return null;
+      if (/^bitcoincash:[qp][0-9a-z]{41}$/.test(a)) return null;
+      if (/^[13][1-9A-HJ-NP-Za-km-z]{24,33}$/.test(a) && BASE58.test(a)) return null;
+      return "비트코인캐시 주소가 아니에요. 올바른 형식을 확인해 주세요.";
+    case "xrp":
+      if (/^r[1-9A-HJ-NP-Za-km-z]{24,34}$/.test(a) && BASE58.test(a)) return null;
+      return "리플 주소가 아니에요. r 로 시작하는 주소를 넣어 주세요.";
+    case "doge":
+      if (/^D[1-9A-HJ-NP-Za-km-z]{25,34}$/.test(a) && BASE58.test(a)) return null;
+      return "도지코인 주소가 아니에요. D 로 시작하는 주소를 넣어 주세요.";
+    case "ada":
+      if (/^addr1[0-9a-z]{98,}$/.test(a)) return null;
+      return "카르다노 주소가 아니에요. addr1 로 시작하는 주소를 넣어 주세요.";
   }
-  if (/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a) && BASE58.test(a)) return null;
-  return "트론(TRC20) 주소가 아니에요. T 로 시작하는 34자리 주소를 넣어 주세요. (이더리움 0x 주소는 안 돼요)";
 }
 
 export function floorTo(n: number, decimals: number) {
@@ -178,7 +303,7 @@ export async function fetchKrwRate(coin: CoinKey): Promise<{ rate: number; sourc
 
 export async function createCoinQuote(
   shopId: string,
-  user: { id: string; discordId: string | null },
+  user: { id: string; discordId: string | null; totalCoinSpent?: number; vipTier?: number },
   coin: CoinKey,
   krw: number,
   address: string,
@@ -189,7 +314,9 @@ export async function createCoinQuote(
   const addrErr = validateCoinAddress(coin, address);
   if (addrErr) throw new Error(addrErr);
   const { rate, source } = await fetchKrwRate(coin);
-  const coinAmount = coinAmountFor(coin, krw, rate);
+  const vipTier = user.vipTier ?? getVipTier(user.totalCoinSpent ?? 0);
+  const feePercent = getVipFeePercent(vipTier);
+  const coinAmount = coinAmountFor(coin, krw, rate, feePercent);
   if (!(coinAmount > 0)) throw new Error("금액이 너무 작아요.");
   const now = Date.now();
   const order: CoinOrder = {
@@ -200,7 +327,7 @@ export async function createCoinQuote(
     coin,
     address: address.trim(),
     krw,
-    feePercent: COIN_FEE_PERCENT,
+    feePercent,
     rate,
     rateSource: source,
     coinAmount,

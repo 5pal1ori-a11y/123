@@ -5085,3 +5085,15 @@ html.mfa-dark.mfa-light .support-chat-bubble--human { border-color: rgba(34, 197
   .rv-who > span { display: flex; flex-wrap: wrap; gap: 2px 8px; }
   .rv-who em { overflow-wrap: anywhere; }
 }
+
+/* 마이페이지 사이드바 — 그룹 머리글 */
+.udx-side-group {
+  margin: 10px 4px 4px;
+  padding: 10px 10px 2px;
+  border-top: 1px solid var(--mf-line, rgba(127, 127, 127, 0.18));
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--mf-muted);
+  opacity: 0.85;
+}

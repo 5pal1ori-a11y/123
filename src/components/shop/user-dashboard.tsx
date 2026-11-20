@@ -3,7 +3,7 @@
 import { UserPremiumTab } from "./user-premium-tab";
 import { mcAccountCategory } from "@/lib/mc-account";
 import { useMcCategories } from "@/lib/use-mc-categories";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ import {
   Bitcoin,
   LineChart,
   Sparkles,
+  Store,
   Repeat,
   Crown,
   Home,
@@ -49,8 +50,7 @@ import { CoinTradeClient } from "./coin-trade-client";
 import { MarketChartClient } from "./market-chart-client";
 import { MockStockClient } from "./mock-stock-client";
 import { GugoClient } from "./gugo-client";
-import { BuybackClient } from "./buyback-client";
-import { CareClient } from "./care-client";
+import { DosMarketHub } from "./dosmarket-hub";
 import { UserHomeTab } from "./user-home-tab";
 import { UserHistoryTab } from "./user-history-tab";
 import { UserAccountTab } from "./user-account-tab";
@@ -99,22 +99,21 @@ function saveDarkTheme(dark: boolean) {
   themeListeners.forEach((listener) => listener());
 }
 
-const NAV: { id: UserTab; label: string; icon: typeof Home }[] = [
+const NAV: { id: UserTab; label: string; icon: typeof Home; group?: string }[] = [
   { id: "main", label: "홈", icon: Home },
-  { id: "products", label: "쇼핑", icon: Package },
-  { id: "premium", label: "프리미엄 플랜", icon: Crown },
-  { id: "charge", label: "충전", icon: Coins },
-  { id: "coin", label: "코인대행", icon: Bitcoin },
-  { id: "market", label: "시세", icon: LineChart },
-  { id: "gugo", label: "구해드림", icon: Sparkles },
-  { id: "buyback", label: "매입", icon: Repeat },
-  { id: "care", label: "케어", icon: ShieldCheck },
-  { id: "attendance", label: "출석", icon: CalendarCheck },
-  { id: "reviews", label: "후기", icon: Star },
-  { id: "island", label: "내 섬", icon: TreePine },
-  { id: "history", label: "내역", icon: Receipt },
-  { id: "leaderboard", label: "랭킹", icon: Trophy },
-  { id: "account", label: "계정", icon: Settings },
+  { id: "products", label: "쇼핑", icon: Package, group: "쇼핑 및 거래" },
+  { id: "dosmarket", label: "도스마켓", icon: Store, group: "쇼핑 및 거래" },
+  { id: "gugo", label: "구해드림", icon: Sparkles, group: "쇼핑 및 거래" },
+  { id: "market", label: "시세", icon: LineChart, group: "쇼핑 및 거래" },
+  { id: "charge", label: "충전", icon: Coins, group: "쇼핑 및 거래" },
+  { id: "coin", label: "코인대행", icon: Bitcoin, group: "쇼핑 및 거래" },
+  { id: "premium", label: "프리미엄 플랜", icon: Crown, group: "혜택 및 활동" },
+  { id: "attendance", label: "출석", icon: CalendarCheck, group: "혜택 및 활동" },
+  { id: "island", label: "내 섬", icon: TreePine, group: "혜택 및 활동" },
+  { id: "leaderboard", label: "랭킹", icon: Trophy, group: "혜택 및 활동" },
+  { id: "reviews", label: "후기", icon: Star, group: "혜택 및 활동" },
+  { id: "history", label: "내역", icon: Receipt, group: "내 정보" },
+  { id: "account", label: "계정", icon: Settings, group: "내 정보" },
 ];
 
 const TABS = NAV.map((n) => n.id);
@@ -140,6 +139,7 @@ const META: Record<UserTab, { title: string; sub: string }> = {
   gugo: { title: "구해드림", sub: "원하는 계정을 조건 · 예산으로 주문하면 구해 드려요" },
   buyback: { title: "계정 매입 · 보상판매", sub: "내 계정 시세 조회 · 매입 · 더 좋은 계정으로 바꾸기" },
   care: { title: "DOES 케어", sub: "계정이 잠기거나 도난 · 정지돼도 보상받는 구독" },
+  dosmarket: { title: "도스마켓", sub: "계정 매입 · 보상판매 · DOES 케어" },
   attendance: { title: "출석체크", sub: "매일 한 번, 랜덤 포인트 상자를 열어보세요" },
   reviews: { title: "후기내역", sub: "디스코드에 남겨진 후기를 실시간으로 모아봤어요" },
   island: { title: "내 섬", sub: "활동으로 블록을 모아 나만의 스카이블럭 섬을 꾸며보세요" },
@@ -150,6 +150,7 @@ const META: Record<UserTab, { title: string; sub: string }> = {
 
 function normalizeTab(value: string | null): UserTab {
   if (value === "purchase") return "products";
+  if (value === "buyback" || value === "care") return "dosmarket";
   if (value !== null && TABS.includes(value as UserTab)) return value as UserTab;
   return "main";
 }
@@ -690,12 +691,14 @@ export function UserDashboard({
         </button>
 
         <nav className="udx-side-nav" aria-label="마이페이지">
-          {NAV.map((item) => {
+          {NAV.map((item, i) => {
             const Icon = item.icon;
             const active = tab === item.id;
+            const header = item.group && item.group !== NAV[i - 1]?.group ? item.group : null;
             return (
+              <Fragment key={item.id}>
+              {header ? <p className="udx-side-group">{header}</p> : null}
               <button
-                key={item.id}
                 type="button"
                 onClick={() => switchTab(item.id)}
                 className={`udx-side-item ${active ? "is-on" : ""}`}
@@ -712,6 +715,7 @@ export function UserDashboard({
                 <span className="relative">{item.label}</span>
                 {item.id === "attendance" && !active && !attendedToday ? <i className="udx-side-dot" aria-hidden /> : null}
               </button>
+              </Fragment>
             );
           })}
         </nav>
@@ -1034,15 +1038,9 @@ export function UserDashboard({
                 </div>
               )}
 
-              {tab === "care" && (
+              {tab === "dosmarket" && (
                 <div className="w-full">
-                  <CareClient />
-                </div>
-              )}
-
-              {tab === "buyback" && (
-                <div className="w-full">
-                  <BuybackClient />
+                  <DosMarketHub />
                 </div>
               )}
 

@@ -33,6 +33,7 @@ export type UserTab =
   | "gugo"
   | "buyback"
   | "care"
+  | "dosmarket"
   | "history"
   | "account"
   | "leaderboard"

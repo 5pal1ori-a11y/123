@@ -20,6 +20,8 @@ type Entry = {
   flaggedAt: string | null;
   /** 판매를 멈춘 상품을 관리자가 다시 켰으면 기준을 새로 잡는다 */
   stopped: boolean;
+  /** DOES 가 본 닉네임 기록 (계정 여권용) */
+  names?: string[];
 };
 type Db = { entries: Record<string, Entry>; lastRun: string | null; cursor: number };
 
@@ -145,6 +147,7 @@ export async function runChecklock(shopId: string, force = false) {
       const fresh = !prev || prev.stopped;
       const n = await byName(nick);
       if (n.status === "error") continue;
+      const seenNames = new Set<string>([...(prev?.names ?? []), nick]);
       let issue: string | null = null;
       let uuid = prev && !fresh ? prev.uuid : null;
       if (n.status === "missing") {
@@ -155,7 +158,10 @@ export async function runChecklock(shopId: string, force = false) {
         uuid = n.id;
         if (prev && !fresh && prev.uuid) {
           const cur = await byUuid(prev.uuid);
-          if (cur && cur.toLowerCase() !== nick.toLowerCase()) issue = `닉네임이 ${cur} 으로 바뀌었어요 (회수 의심)`;
+          if (cur && cur.toLowerCase() !== nick.toLowerCase()) {
+            issue = `닉네임이 ${cur} 으로 바뀌었어요 (회수 의심)`;
+            seenNames.add(cur);
+          }
         }
       }
       const capes = issue ? null : await capeHashes(nick);
@@ -174,6 +180,7 @@ export async function runChecklock(shopId: string, force = false) {
         issue: issue ?? warn,
         flaggedAt: prev?.flaggedAt && !fresh ? prev.flaggedAt : null,
         stopped: false,
+        names: [...seenNames].slice(-10),
       };
       // 같은 문제가 두 번 연속이면 판매 중지
       if (issue && entry.strikes >= 2) {

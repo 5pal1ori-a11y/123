@@ -12,6 +12,7 @@
  * 오늘 점은 30분마다 다시 계산해 덮어쓰고, 날짜가 바뀌면 새 점이 생긴다. (KV · 최대 365일)
  */
 import { kvGetJson, kvPutJson } from "@/lib/world/kv";
+import { capeTypesFromHashes } from "@/lib/capes-data";
 
 export type GroupStat = { avg: number; min: number; count: number; soldAvg: number | null; sold: number };
 export type MarketPoint = { date: string; at: string; groups: Record<string, GroupStat> };
@@ -57,7 +58,7 @@ export async function computeTodayPoint(shopId: string): Promise<MarketPoint> {
     }
     out.add("all");
     out.add(`cat:${p.category || "일반 계정"}`);
-    const capes = Array.isArray(p.mcCapes) && p.mcCapes.length ? p.mcCapes : (lock.entries[p.id]?.capes ?? []);
+    const capes = Array.isArray(p.mcCapes) && p.mcCapes.length ? p.mcCapes : capeTypesFromHashes(lock.entries[p.id]?.capes ?? []);
     for (const c of capes) out.add(`cape:${c}`);
     return out;
   };

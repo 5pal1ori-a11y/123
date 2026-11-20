@@ -1,3 +1,4 @@
+import qrcode from "qrcode-generator";
 // DOES 랭킹 이미지 — satori 레이아웃(모든 div 는 flex). kind: "purchase" | "invite"
 const h = (type, style, ...children) => ({ type, props: { style, children: children.flat().filter((c) => c !== null && c !== false && c !== undefined) } });
 const img = (src, style) => ({ type: "img", props: { src, style } });
@@ -1222,5 +1223,97 @@ export function coinReviewTree(d) {
       h("div", { display: "flex", marginTop: 22, fontSize: comment.length > 90 ? 24 : 28, fontWeight: 700, color: "#f1f5f9", lineHeight: 1.45 }, `“${comment}”`),
     ),
     footer("DOES 코인대행 실제 이용 후기", "doesmc.xyz"),
+  );
+}
+
+
+/* ───────── 계정 여권 ───────── */
+function qrDataUrl(text, color = "#0b1020") {
+  const q = qrcode(0, "M");
+  q.addData(String(text ?? ""));
+  q.make();
+  const n = q.getModuleCount();
+  let d = "";
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c},${r}h1v1h-1z`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 ${n + 4} ${n + 4}" shape-rendering="crispEdges"><rect x="-2" y="-2" width="${n + 4}" height="${n + 4}" fill="#fff"/><path d="${d}" fill="${color}"/></svg>`;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+}
+const PASS_GOLD = "#e8c76a";
+function passRow(label, value, color) {
+  return h("div", { display: "flex", flexDirection: "column", marginBottom: 16, width: "50%", paddingRight: 18 },
+    h("div", { display: "flex", fontSize: 14, fontWeight: 700, color: "#8b93a7", letterSpacing: 1 }, label),
+    h("div", { display: "flex", fontSize: 22, fontWeight: 900, color: color ?? "#f1f5f9", marginTop: 4, overflow: "hidden", whiteSpace: "nowrap", maxWidth: 330 }, value),
+  );
+}
+const passDate = (iso) => (iso ? String(iso).slice(0, 10).replace(/-/g, ".") : "기록 없음");
+
+/**
+ * 계정 여권 — d: { no, name, uuid, skin, capes: [titles], hypixel: {rank, level, bw, first, last} | null,
+ *   lastNameChange, names: [], bans: { hypixel, donut, checked }, lock: "ok|warning|stopped|unknown",
+ *   warranty: { state, daysLeft, until }, issued, url }
+ */
+export function passportTree(d) {
+  const hy = d.hypixel;
+  const ban = (v) => (v === true ? ["밴 기록 있음", "#f87171"] : v === false ? ["정상", "#86efac"] : ["미점검", "#94a3b8"]);
+  const [hyBan, hyBanC] = ban(d.bans?.hypixel);
+  const [dnBan, dnBanC] = ban(d.bans?.donut);
+  const lock = { ok: ["정상 (자동 점검)", "#86efac"], warning: ["주의 필요", "#fcd34d"], stopped: ["판매 중지됨", "#f87171"], unknown: ["점검 대기", "#94a3b8"] }[d.lock] ?? ["점검 대기", "#94a3b8"];
+  const w = d.warranty ?? {};
+  const warranty = w.state === "on_sale" ? ["구매 후 30일 보증", "#86efac"] : w.state === "active" ? [`보증 중 · ${w.daysLeft}일 남음`, "#86efac"] : w.state === "expired" ? ["보증 기간 끝남", "#94a3b8"] : ["보증 없음", "#94a3b8"];
+  const capes = (d.capes ?? []).slice(0, 4);
+  return h("div", {
+      display: "flex", flexDirection: "column", width: "100%", height: "100%", padding: "34px 44px 28px",
+      background: "radial-gradient(ellipse 70% 60% at 85% 0%, rgba(232,199,106,0.18) 0%, rgba(11,16,32,0) 100%), linear-gradient(160deg, #111a33 0%, #0b1020 100%)",
+      fontFamily: "Pretendard", color: "#fff",
+    },
+    h("div", { display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 18, borderBottom: `2px solid ${PASS_GOLD}55` },
+      h("div", { display: "flex", alignItems: "center" },
+        d.logo ? img(d.logo, { width: 56, height: 56, marginRight: 16 }) : null,
+        h("div", { display: "flex", flexDirection: "column" },
+          h("div", { display: "flex", fontSize: 15, fontWeight: 700, color: PASS_GOLD, letterSpacing: 6 }, "DOES ACCOUNT PASSPORT"),
+          h("div", { display: "flex", fontSize: 38, fontWeight: 900, marginTop: 2, letterSpacing: -1 }, "마인크래프트 계정 여권"),
+        ),
+      ),
+      h("div", { display: "flex", flexDirection: "column", alignItems: "flex-end" },
+        h("div", { display: "flex", fontSize: 14, fontWeight: 700, color: "#8b93a7", letterSpacing: 2 }, "PASSPORT NO."),
+        h("div", { display: "flex", fontSize: 30, fontWeight: 900, color: PASS_GOLD, letterSpacing: 2 }, d.no),
+      ),
+    ),
+    h("div", { display: "flex", marginTop: 22 },
+      h("div", { display: "flex", flexDirection: "column", alignItems: "center", width: 220, marginRight: 30 },
+        h("div", { display: "flex", width: 210, height: 250, borderRadius: 22, background: "rgba(255,255,255,0.05)", border: `1px solid ${PASS_GOLD}44`, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+          d.skin ? img(d.skin, { width: 190, height: 230, objectFit: "contain" }) : h("div", { display: "flex", fontSize: 18, color: "#64748b" }, "스킨 없음"),
+        ),
+        h("div", { display: "flex", fontSize: 26, fontWeight: 900, marginTop: 14 }, d.name ?? "-"),
+        d.uuid ? h("div", { display: "flex", fontSize: 15, fontWeight: 500, color: "#8b93a7", marginTop: 2 }, `UUID ${d.uuid}…`) : null,
+      ),
+      h("div", { display: "flex", flexWrap: "wrap", flex: 1 },
+        passRow("하이픽셀 등급 · 레벨", hy ? `${hy.rank ?? "일반"} · Lv.${Math.floor(hy.level ?? 0)}` : "기록 없음"),
+        passRow("베드워즈", hy ? `${fmtN(hy.bw)}성` : "기록 없음"),
+        passRow("하이픽셀 첫 접속 (계정 나이)", passDate(hy?.first)),
+        passRow("닉네임 마지막 변경", passDate(d.lastNameChange)),
+        passRow("하이픽셀 밴 점검", hyBan, hyBanC),
+        passRow("도넛 밴 점검", dnBan, dnBanC),
+        passRow("자동 점검 (체크락)", lock[0], lock[1]),
+        passRow("보증 상태", warranty[0], warranty[1]),
+        h("div", { display: "flex", flexDirection: "column", width: "100%" },
+          h("div", { display: "flex", fontSize: 14, fontWeight: 700, color: "#8b93a7", letterSpacing: 1 }, "보유 망토"),
+          h("div", { display: "flex", marginTop: 8 },
+            capes.length
+              ? capes.map((c) => h("div", { display: "flex", padding: "7px 14px", borderRadius: 999, marginRight: 8, background: `${PASS_GOLD}22`, border: `1px solid ${PASS_GOLD}66`, fontSize: 17, fontWeight: 700, color: PASS_GOLD }, c))
+              : [h("div", { display: "flex", fontSize: 18, fontWeight: 700, color: "#64748b" }, "없음")],
+          ),
+        ),
+      ),
+      h("div", { display: "flex", flexDirection: "column", alignItems: "center", width: 170, marginLeft: 20 },
+        img(qrDataUrl(d.url), { width: 160, height: 160, borderRadius: 12 }),
+        h("div", { display: "flex", fontSize: 15, fontWeight: 700, color: PASS_GOLD, marginTop: 10 }, "QR로 진위 확인"),
+        h("div", { display: "flex", fontSize: 13, fontWeight: 500, color: "#8b93a7", marginTop: 2 }, "doesmc.xyz/passport"),
+      ),
+    ),
+    h("div", { display: "flex", justifyContent: "space-between", marginTop: "auto", paddingTop: 14, fontSize: 14, fontWeight: 500, color: "#64748b" },
+      h("div", { display: "flex" }, "공개 정보 · DOES 점검 기록 기준 · 로그인 정보는 담지 않아요"),
+      h("div", { display: "flex" }, `발급 ${passDate(d.issued)} · 확인 ${passDate(d.checked)}`),
+    ),
   );
 }

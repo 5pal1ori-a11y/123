@@ -250,3 +250,11 @@ export const CAPES: CapeEntry[] = [
 ];
 
 export const CAPE_BY_TYPE: Record<string, CapeEntry> = Object.fromEntries(CAPES.map((c) => [c.type, c]));
+
+/** Mojang 텍스처 해시 → 망토 종류 */
+export const CAPE_BY_HASH: Record<string, CapeEntry> = Object.fromEntries(CAPES.map((c) => [c.hash, c]));
+
+/** 체크락처럼 해시로 저장된 망토 목록을 종류 이름으로 바꾼다 (모르는 해시는 버린다) */
+export function capeTypesFromHashes(list: string[]) {
+  return list.map((h) => CAPE_BY_HASH[h]?.type ?? (h.length < 40 ? h : null)).filter((t): t is string => Boolean(t));
+}

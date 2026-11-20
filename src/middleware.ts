@@ -283,7 +283,9 @@ export async function middleware(request: Request) {
         pathname === "/coin-calculator" ||
         pathname.startsWith("/coin-calculator/") ||
         pathname === "/coin-trade" ||
-        pathname.startsWith("/coin-trade/"))
+        pathname.startsWith("/coin-trade/") ||
+        pathname === "/passport" ||
+        pathname.startsWith("/passport/"))
     ) {
       return withSessionRefresh(NextResponse.next(), request, slug);
     }

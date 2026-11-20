@@ -229,6 +229,21 @@ export function ProductDetailView({
         {isMc ? <McCapeChips productId={product.id} version={product.mcVersion} info={mcInfo} /> : null}
         {isMc ? <McAccountDetails status={product.mcStatus} info={mcInfo} /> : null}
         {isMc ? <McHypixelPanel info={mcInfo} /> : null}
+        {isMc ? (
+          <Link
+            href={`/passport/p/${product.id}`}
+            className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-amber-400/30 bg-amber-500/[0.07] px-4 py-3 transition hover:bg-amber-500/[0.12]"
+          >
+            <span className="flex items-center gap-2.5">
+              <span className="flex size-9 items-center justify-center rounded-xl bg-amber-500/20 text-lg">🛂</span>
+              <span className="flex flex-col">
+                <span className="text-sm font-bold text-amber-400">계정 여권 보기</span>
+                <span className="text-[11px] opacity-70">이력 · 밴 점검 · 보증 상태 · QR 진위 확인</span>
+              </span>
+            </span>
+            <span className="text-amber-400">→</span>
+          </Link>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <StockBadge status={product.stockStatus} />

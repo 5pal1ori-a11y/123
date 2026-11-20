@@ -285,6 +285,11 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         review: opt("후기채널"),
       });
     }
+    if (name === "매입") {
+      const v = interaction.data?.options?.find((o) => o.name === "승인채널")?.value;
+      const { handleBuybackCommand } = await import("@/lib/discord/buyback");
+      return handleBuybackCommand(shop.slug, actor.roles, perms, interaction.channel_id, typeof v === "string" ? v : null);
+    }
     if (name === "구해드림") {
       const v = interaction.data?.options?.find((o) => o.name === "승인채널")?.value;
       const { handleGugoCommand } = await import("@/lib/discord/gugo");
@@ -564,6 +569,13 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       return px.handleProxyRejectSubmit(shop.slug, parsed.payload, actor.id, actor.roles, modalPerms, interaction);
     }
 
+    if (parsed.action === "bb_offm" || parsed.action === "bb_rejm") {
+      const bb = await import("@/lib/discord/buyback");
+      const modalPerms = interaction.member?.permissions;
+      if (parsed.action === "bb_offm") return bb.handleBuybackOfferSubmit(shop.slug, parsed.payload, actor.roles, modalPerms, interaction);
+      return bb.handleBuybackRejectSubmit(shop.slug, parsed.payload, actor.roles, modalPerms, interaction);
+    }
+
     if (parsed.action === "gg_modal" || parsed.action === "gg_offm" || parsed.action === "gg_rejm") {
       const gg = await import("@/lib/discord/gugo");
       const modalPerms = interaction.member?.permissions;
@@ -723,6 +735,15 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const u = interaction.member?.user ?? interaction.user;
       const avatar = u?.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128` : null;
       return px.handleProxyMine(shop.slug, { id: actor.id, name: u?.global_name || actor.username, avatar });
+    }
+    if (action === "bb_mine" || action === "bb_off" || action === "bb_view" || action === "bb_done" || action === "bb_rej" || action === "bb_yes" || action === "bb_no") {
+      const bb = await import("@/lib/discord/buyback");
+      if (action === "bb_mine") return bb.handleBuybackMine(shop.slug, actor.id);
+      if (action === "bb_off") return bb.handleBuybackOfferButton(shop.slug, payload, actor.roles, perms);
+      if (action === "bb_view") return bb.handleBuybackView(shop.slug, payload, actor.roles, perms);
+      if (action === "bb_done") return bb.handleBuybackDone(shop.slug, payload, actor.roles, perms);
+      if (action === "bb_rej") return bb.handleBuybackRejectButton(shop.slug, payload, actor.roles, perms);
+      return bb.handleBuybackRespond(shop.slug, actor.id, payload, action === "bb_yes");
     }
     if (action === "gg_new" || action === "gg_mine" || action === "gg_cancel" || action === "gg_pay" || action === "gg_acc" || action === "gg_off" || action === "gg_rej") {
       const gg = await import("@/lib/discord/gugo");

@@ -31,6 +31,7 @@ export type UserTab =
   | "coin"
   | "market"
   | "gugo"
+  | "buyback"
   | "history"
   | "account"
   | "leaderboard"

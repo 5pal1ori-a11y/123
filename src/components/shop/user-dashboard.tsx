@@ -16,6 +16,7 @@ import {
   Bitcoin,
   LineChart,
   Sparkles,
+  Repeat,
   Crown,
   Home,
   LayoutGrid,
@@ -47,6 +48,7 @@ import { ShopCartBar, addToCart } from "./shop-cart";
 import { CoinTradeClient } from "./coin-trade-client";
 import { MarketChartClient } from "./market-chart-client";
 import { GugoClient } from "./gugo-client";
+import { BuybackClient } from "./buyback-client";
 import { UserHomeTab } from "./user-home-tab";
 import { UserHistoryTab } from "./user-history-tab";
 import { UserAccountTab } from "./user-account-tab";
@@ -103,6 +105,7 @@ const NAV: { id: UserTab; label: string; icon: typeof Home }[] = [
   { id: "coin", label: "코인대행", icon: Bitcoin },
   { id: "market", label: "시세", icon: LineChart },
   { id: "gugo", label: "구해드림", icon: Sparkles },
+  { id: "buyback", label: "매입", icon: Repeat },
   { id: "attendance", label: "출석", icon: CalendarCheck },
   { id: "reviews", label: "후기", icon: Star },
   { id: "island", label: "내 섬", icon: TreePine },
@@ -132,6 +135,7 @@ const META: Record<UserTab, { title: string; sub: string }> = {
   coin: { title: "코인대행", sub: "포인트로 코인을 사서 내 지갑으로 받아보세요" },
   market: { title: "계정 차트", sub: "망토 · 계정 종류별 시세와 내일 추세" },
   gugo: { title: "구해드림", sub: "원하는 계정을 조건 · 예산으로 주문하면 구해 드려요" },
+  buyback: { title: "계정 매입 · 보상판매", sub: "내 계정 시세 조회 · 매입 · 더 좋은 계정으로 바꾸기" },
   attendance: { title: "출석체크", sub: "매일 한 번, 랜덤 포인트 상자를 열어보세요" },
   reviews: { title: "후기내역", sub: "디스코드에 남겨진 후기를 실시간으로 모아봤어요" },
   island: { title: "내 섬", sub: "활동으로 블록을 모아 나만의 스카이블럭 섬을 꾸며보세요" },
@@ -1023,6 +1027,12 @@ export function UserDashboard({
                     nowpaymentsEnabled={nowpaymentsEnabled}
                     embedded
                   />
+                </div>
+              )}
+
+              {tab === "buyback" && (
+                <div className="w-full">
+                  <BuybackClient />
                 </div>
               )}
 

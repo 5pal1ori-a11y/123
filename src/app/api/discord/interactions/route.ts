@@ -139,6 +139,9 @@ function needsSyncModalResponse(interaction: DiscordInteraction) {
     action === "gg_new" ||
     action === "gg_off" ||
     action === "gg_rej" ||
+    // 매입가 제시 · 반려 → 입력 창(모달)
+    action === "bb_off" ||
+    action === "bb_rej" ||
     action === "cn_send" ||
     action === "cn_rej" ||
     action === "chg_custom" ||

@@ -146,6 +146,8 @@ export type ShopSettings = {
   coinReviewChannelId?: string | null;
   /** /구해드림 — 주문 카드를 받을 관리자 채널 */
   gugoAdminChannelId?: string | null;
+  /** /매입 — 매입 · 보상판매 신청 카드를 받을 관리자 채널 */
+  buybackAdminChannelId?: string | null;
   /** /랭킹관리 — 구매 랭킹 · 리더보드에서 뺀 디스코드 ID */
   rankingExcludedDiscordIds?: string[];
   /** /코인대행 — 숫자를 다시 그릴 패널 위치 */

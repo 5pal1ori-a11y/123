@@ -189,7 +189,7 @@ export function button(opts: {
 export function stringSelect(opts: {
   customId: string;
   placeholder: string;
-  options: { label: string; value: string; description?: string }[];
+  options: { label: string; value: string; description?: string; emoji?: string }[];
   minValues?: number;
   maxValues?: number;
 }) {
@@ -203,6 +203,7 @@ export function stringSelect(opts: {
       label: o.label.slice(0, 100),
       value: o.value.slice(0, 100),
       ...(o.description ? { description: o.description.slice(0, 100) } : {}),
+      ...(o.emoji ? { emoji: parseEmoji(o.emoji) } : {}),
     })),
   };
 }

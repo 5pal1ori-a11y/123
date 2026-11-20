@@ -695,9 +695,10 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const avatar = u?.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128` : null;
       return px.handleProxyMine(shop.slug, { id: actor.id, name: u?.global_name || actor.username, avatar });
     }
-    if (action === "cn_buy" || action === "cn_ok" || action === "cn_cancel" || action === "cn_mine" || action === "cn_send" || action === "cn_rej" || action === "cn_chk" || action === "cn_choose" || action === "cn_vip") {
+    if (action === "cn_buy" || action === "cn_ok" || action === "cn_cancel" || action === "cn_mine" || action === "cn_send" || action === "cn_rej" || action === "cn_chk" || action === "cn_choose" || action === "cn_vip" || action === "cn_pick") {
       const cn = await import("@/lib/discord/coin-trade");
       if (action === "cn_buy") return cn.handleCoinBuyButton(shop.slug, payload);
+      if (action === "cn_pick") return cn.handleCoinBuyButton(shop.slug, values[0] ?? "");
       if (action === "cn_ok") return cn.handleCoinConfirm(shop.slug, actor.id, payload);
       if (action === "cn_cancel") return cn.handleCoinCancel(shop.slug, actor.id, payload);
       if (action === "cn_send") return cn.handleCoinSendButton(shop.slug, payload, actor.roles, perms);

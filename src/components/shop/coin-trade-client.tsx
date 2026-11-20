@@ -3,18 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, ShieldAlert, CheckCircle2, ExternalLink, Wallet, ArrowRight, Sparkles } from "lucide-react";
 
-const COIN_OPTIONS = [
-  { key: "btc", label: "비트코인" },
-  { key: "eth", label: "이더리움" },
-  { key: "usdt", label: "테더" },
-  { key: "usdc", label: "USDC" },
-  { key: "sol", label: "솔라나" },
-  { key: "xrp", label: "리플" },
-  { key: "trx", label: "트론" },
-  { key: "doge", label: "도지코인" },
+const COIN_OPTIONS: { key: string; label: string }[] = [
   { key: "ltc", label: "라이트코인" },
-  { key: "bch", label: "비트코인캐시" },
-  { key: "ada", label: "카르다노" },
+  { key: "trx", label: "트론" },
 ];
 const coinIcon = (k: string) => `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${k}.svg`;
 const won = (n: number) => `${Math.round(n).toLocaleString("ko-KR")}원`;
@@ -43,7 +34,7 @@ type Quote = {
 type Order = { id: string; coin: string; coinAmount: number; krw: number; status: string; txid: string | null; explorer: string | null; createdAt: string };
 
 export function CoinTradeClient() {
-  const [coin, setCoin] = useState("usdt");
+  const [coin, setCoin] = useState("ltc");
   const [krw, setKrw] = useState("");
   const [addr, setAddr] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -223,7 +214,7 @@ export function CoinTradeClient() {
             <p className="mb-2.5 text-xs font-medium" style={{ color: "var(--ad-muted, #94a3b8)" }}>
               받을 코인
             </p>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2">
               {COIN_OPTIONS.map((o) => {
                 const on = coin === o.key;
                 return (

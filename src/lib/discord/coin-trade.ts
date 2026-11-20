@@ -21,6 +21,7 @@ import {
   plainEphemeral,
   separator,
   showModal,
+  stringSelect,
   textDisplay,
   textInput,
   v2Ephemeral,
@@ -57,6 +58,8 @@ import {
   setCoinAdminCard,
   updateCoinOrder,
   VIP_TIERS,
+  SENDABLE_COINS,
+  isSendableCoin,
   type CoinKey,
   type CoinOrder,
 } from "@/lib/coin-trade";
@@ -64,7 +67,9 @@ import { getShopById, getShopBySlug, getShopSettings, getUserByDiscordId, persis
 
 const won = (n: number) => `${Math.max(0, Math.round(n)).toLocaleString("ko-KR")}원`;
 const ACCENT = 0x22c55e;
-const isCoin = (v: string): v is CoinKey => Object.keys(COINS).includes(v);
+const isCoin = isSendableCoin;
+/** 코인별 서버 이모지 */
+const COIN_EMOJI: Partial<Record<CoinKey, "does_ltc" | "does_trx">> = { ltc: "does_ltc", trx: "does_trx" };
 
 function styledButton(customId: string, label: string, style: number, emoji?: string) {
   const m = emoji ? /^<(a?):(\w+):(\d+)>$/.exec(emoji) : null;
@@ -116,22 +121,26 @@ async function kimchiPremium(): Promise<number | null> {
   }
 }
 
-/** 패널 상단 통계 이미지 — 현재 재고(취급 코인) · 김프 · 누적 이용금액 */
+/** 패널 이미지 — 지갑 재고 · 김프 · 누적 이용금액 (전용 coin_panel 템플릿) */
 async function coinStatsImageUrl(shopId: string, shopSlug: string) {
   try {
+    const { hasRankImage, signedDataImageUrl } = await import("@/lib/discord/rank-image");
+    if (!(await hasRankImage())) return null;
     const [s, prem, wallet] = await Promise.all([coinStats(shopId), kimchiPremium(), coinWalletKrw().catch(() => null)]);
-    const { cardImageUrl } = await import("@/lib/discord/rank-image");
-    return await cardImageUrl(shopSlug, {
-      theme: "green",
-      eyebrow: "코인대행 실시간 현황",
-      title: wallet !== null ? `재고 ${won(wallet)}` : won(s.volume),
-      subtitle: wallet !== null ? "지갑 보유 재고" : "누적 이용금액",
-      chips: [
-        prem !== null ? `김프 ${prem >= 0 ? "+" : ""}${prem.toFixed(1)}%` : "김프 집계중",
-        `누적 ${won(s.volume)}`,
-        `${s.orders.toLocaleString("ko-KR")}건 송금`,
-      ],
-    }).catch(() => null);
+    const time = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })
+      .format(new Date())
+      .replace(/\s/g, "")
+      .replace(/\.(?=\d{2}:)/, " ")
+      .replace(/\.$/, "");
+    return await signedDataImageUrl(shopSlug, {
+      kind: "coin_panel",
+      wallet: wallet === null ? null : Math.floor(wallet),
+      premium: prem === null ? null : Math.round(prem * 100) / 100,
+      volume: s.volume,
+      orders: s.orders,
+      coins: SENDABLE_COINS.map((c) => ({ sym: c.toUpperCase(), icon: `https://doesmc.xyz/emoji/does_${c}.png` })),
+      time,
+    });
   } catch {
     return null;
   }
@@ -140,31 +149,22 @@ async function coinStatsImageUrl(shopId: string, shopSlug: string) {
 async function panelMessage(shopId: string, shopSlug: string) {
   const s = await coinStats(shopId);
   const statsImg = await coinStatsImageUrl(shopId, shopSlug);
+  const coinLine = SENDABLE_COINS.map((c) => `${COIN_EMOJI[c] ? appEmoji(COIN_EMOJI[c]!) : ""} **${c.toUpperCase()}**`).join("  ·  ");
   const kids: unknown[] = [
-    textDisplay(`## ${plainEmoji("does_coin")} 코인대행`),
-    textDisplay("보유 **포인트**로 원하는 코인을 사서 **내 지갑**으로 바로 받아요."),
-    ...(statsImg ? [mediaGallery([statsImg])] : []),
-    separator(true, 1),
-    textDisplay(
-      [
-        "**이용 안내**",
-        `> 💱 실시간 업비트 시세 · 수수료 **1~3%** (VIP 할인)`,
-        `> 💰 한 번에 ${won(COIN_MIN_KRW)} ~ ${won(COIN_MAX_KRW)}`,
-        `> ⚡ 결제 후 **자동 송금** (설정 시) · 결과는 DM`,
-      ].join("\n"),
-    ),
-    separator(true, 1),
-    ...(statsImg ? [] : [textDisplay(`-# 📊 누적 **${s.orders.toLocaleString("ko-KR")}건** 송금 · 이용자 **${s.buyers.toLocaleString("ko-KR")}명** · 누적 **${won(s.volume)}**`)]),
+    textDisplay(`## ${appEmoji("does_coin")} 코인대행\n${coinLine}  송금 가능`),
+    ...(statsImg
+      ? [mediaGallery([statsImg])]
+      : [textDisplay(`> 누적 **${s.orders.toLocaleString("ko-KR")}건** 송금 · 누적 **${won(s.volume)}**`)]),
+    textDisplay(`-# ${appEmoji("does_lightning")} 결제하면 자동 송금 · 수수료 1~3% (VIP 할인) · 한 번에 ${won(COIN_MIN_KRW)} ~ ${won(COIN_MAX_KRW)}`),
     actionRow(
       styledButton(cid(shopSlug, "cn_choose"), "코인 구매하기", ButtonStyle.SUCCESS, appEmoji("does_coin")),
-      linkButton(shopUrl(shopSlug, "/coin-calculator"), "🧮 계산기"),
+      styledButton(cid(shopSlug, "cn_mine"), "내 주문", ButtonStyle.SECONDARY, appEmoji("does_chart")),
+      styledButton(cid(shopSlug, "cn_vip"), "VIP 혜택", ButtonStyle.SECONDARY, appEmoji("does_gem")),
     ),
     actionRow(
-      styledButton(cid(shopSlug, "cn_mine"), "내 주문", ButtonStyle.SECONDARY, appEmoji("does_chart")),
-      styledButton(cid(shopSlug, "cn_vip"), "VIP 혜택", ButtonStyle.SECONDARY),
+      linkButton(shopUrl(shopSlug, "/coin-calculator"), "계산기"),
       linkButton(shopUrl(shopSlug, "/coin-trade"), "웹에서 구매"),
     ),
-    textDisplay("-# 주소를 잘못 적으면 되돌릴 수 없어요 · 네트워크를 꼭 확인해 주세요"),
   ];
   return { flags: MessageFlags.IS_COMPONENTS_V2, components: [container(kids, ACCENT)], allowed_mentions: { parse: [] as string[] } };
 }
@@ -383,19 +383,19 @@ export async function handleCoinMine(shopSlug: string, discordId: string) {
 export async function handleCoinChooseButton(shopSlug: string) {
   const shop = getShopBySlug(shopSlug);
   if (!shop) return plainEphemeral("상점을 찾을 수 없어요.");
-  const rows = [];
-  const coinList = Object.entries(COINS);
-  for (let i = 0; i < coinList.length; i += 5) {
-    rows.push(actionRow(...coinList.slice(i, i + 5).map(([k]) => styledButton(cid(shopSlug, "cn_buy", k), COINS[k as CoinKey].name.split(" ")[0], ButtonStyle.PRIMARY))));
-  }
+  const options = SENDABLE_COINS.map((k) => ({
+    label: `${k.toUpperCase()} · ${COINS[k].name.replace(/\s*\(.*\)$/, "")}`,
+    value: k,
+    description: `${COINS[k].network} 네트워크 · ${COINS[k].addressHint}`,
+    ...(COIN_EMOJI[k] ? { emoji: appEmoji(COIN_EMOJI[k]!) } : {}),
+  }));
   return v2Ephemeral([
     container(
       [
-        textDisplay(`## ${plainEmoji("does_coin")} 구매할 코인을 골라주세요`),
-        textDisplay("코인을 선택하면 금액 · 주소 입력 모달이 뜸니다."),
-        separator(true, 1),
-        ...rows,
-        textDisplay("-# 이 메시지는 나에게만 보여요"),
+        textDisplay(`## ${plainEmoji("does_coin")} 어떤 코인을 받을까요?`),
+        textDisplay("아래에서 코인을 고르면 금액 · 지갑 주소 입력 창이 열려요."),
+        actionRow(stringSelect({ customId: cid(shopSlug, "cn_pick"), placeholder: "받을 코인 선택", options })),
+        textDisplay(`-# ${plainEmoji("does_warning")} 네트워크가 다른 주소로 보내면 되찾을 수 없어요 · 이 메시지는 나에게만 보여요`),
       ],
       ACCENT,
     ),

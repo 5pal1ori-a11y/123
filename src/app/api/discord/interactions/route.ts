@@ -133,6 +133,7 @@ function needsSyncModalResponse(interaction: DiscordInteraction) {
     action === "px_no" ||
     // 코인대행 구매 · 송금 · 거절 → 입력 창(모달)
     action === "cn_buy" ||
+    action === "cn_pick" ||
     action === "cn_send" ||
     action === "cn_rej" ||
     action === "chg_custom" ||

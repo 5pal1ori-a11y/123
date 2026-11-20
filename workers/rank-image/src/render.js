@@ -1076,3 +1076,55 @@ export function attResultTree(d) {
     footer(`뽑기권 ${fmtN(d.cost)}P 사용`, d.time ? `${d.time}` : "doesmc.xyz"),
   );
 }
+
+/**
+ * /코인대행 패널 — d: { wallet (원|null), premium (%|null), volume (원), orders, coins: [{ sym, icon }], time }
+ * 큰 숫자 3칸만 크게 보여 준다 (막대·칩 없음)
+ */
+function coinTile(label, value, sub, color, last) {
+  const v = String(value);
+  return h("div", {
+      display: "flex", flexDirection: "column", flex: 1, padding: "26px 28px", marginRight: last ? 0 : 18,
+      borderRadius: 26, background: "linear-gradient(160deg, rgba(255,255,255,0.075) 0%, rgba(255,255,255,0.02) 100%)",
+      border: "1px solid rgba(255,255,255,0.10)",
+    },
+    h("div", { display: "flex", alignItems: "center", fontSize: 19, fontWeight: 700, color: "#94a3b8" },
+      h("div", { display: "flex", width: 10, height: 10, borderRadius: 10, background: color, boxShadow: `0 0 12px ${color}`, marginRight: 10 }),
+      label,
+    ),
+    h("div", { display: "flex", marginTop: 14, fontSize: v.length > 12 ? 36 : v.length > 10 ? 42 : v.length > 8 ? 46 : 56, fontWeight: 900, color, letterSpacing: -1.5, lineHeight: 1 }, v),
+    h("div", { display: "flex", marginTop: 14, fontSize: 17, fontWeight: 500, color: "#64748b" }, sub),
+  );
+}
+
+export function coinPanelTree(d) {
+  const coins = (d.coins ?? []).slice(0, 4);
+  const wallet = typeof d.wallet === "number" ? `₩${fmtN(Math.floor(d.wallet))}` : "확인 중";
+  const prem = typeof d.premium === "number" ? `${d.premium >= 0 ? "+" : ""}${d.premium.toFixed(2)}%` : "—";
+  return h("div", { ...PAGE("#064e3b"), padding: "42px 52px 30px" },
+    h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+      h("div", { display: "flex", alignItems: "center" },
+        d.logo ? img(d.logo, { width: 74, height: 74, marginRight: 20 }) : null,
+        h("div", { display: "flex", flexDirection: "column" },
+          h("div", { display: "flex", fontSize: 17, fontWeight: 700, color: "#34d399", letterSpacing: 6 }, "COIN EXCHANGE"),
+          h("div", { display: "flex", fontSize: 50, fontWeight: 900, marginTop: 2, letterSpacing: -1.5 }, "DOES 코인대행"),
+        ),
+      ),
+      h("div", { display: "flex" },
+        ...coins.map((c, i) =>
+          h("div", { display: "flex", alignItems: "center", marginLeft: i ? 12 : 0, padding: "10px 20px 10px 12px", borderRadius: 999,
+              background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)" },
+            c.icon ? img(c.icon, { width: 40, height: 40, marginRight: 10 }) : null,
+            h("div", { display: "flex", fontSize: 24, fontWeight: 900 }, c.sym),
+          ),
+        ),
+      ),
+    ),
+    h("div", { display: "flex", marginTop: 34 },
+      coinTile("지갑 재고", wallet, "지금 바로 보낼 수 있는 금액", "#6ee7b7"),
+      coinTile("김치 프리미엄", prem, "업비트 vs 해외 시세", "#fcd34d"),
+      coinTile("누적 이용금액", `₩${fmtN(d.volume)}`, `${fmtN(d.orders)}건 송금 완료`, "#93c5fd", true),
+    ),
+    footer("실시간 업비트 시세 · 결제하면 자동 송금", d.time ? `${d.time} 기준` : "doesmc.xyz"),
+  );
+}

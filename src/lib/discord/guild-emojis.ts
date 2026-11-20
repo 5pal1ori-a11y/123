@@ -58,6 +58,8 @@ export const GUILD_EMOJIS: { name: string; file: string }[] = [
   { name: "does_user", file: "does_user.png" },
   { name: "does_verified", file: "does_verified.png" },
   { name: "does_warning", file: "does_warning.png" },
+  { name: "does_ltc", file: "does_ltc.png" },
+  { name: "does_trx", file: "does_trx.png" },
   { name: "cape_aurora", file: "cape_aurora.png" },
   { name: "cape_moonlighttrail", file: "cape_moonlighttrail.png" },
   { name: "cape_mcexp", file: "cape_mcexp.png" },

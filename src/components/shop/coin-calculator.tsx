@@ -4,17 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Calculator, Loader2, RefreshCw, ArrowDownUp } from "lucide-react";
 
 const COIN_OPTIONS: { key: string; label: string }[] = [
-  { key: "btc", label: "비트코인" },
-  { key: "eth", label: "이더리움" },
-  { key: "usdt", label: "테더" },
-  { key: "usdc", label: "USDC" },
-  { key: "sol", label: "솔라나" },
-  { key: "xrp", label: "리플" },
-  { key: "trx", label: "트론" },
-  { key: "doge", label: "도지코인" },
   { key: "ltc", label: "라이트코인" },
-  { key: "bch", label: "비트코인캐시" },
-  { key: "ada", label: "카르다노" },
+  { key: "trx", label: "트론" },
 ];
 
 const coinIcon = (k: string) => `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${k}.svg`;
@@ -36,7 +27,7 @@ const won = (n: number) => `${Math.round(n).toLocaleString("ko-KR")}원`;
 const floorTo = (n: number, d: number) => Math.floor(n * 10 ** d) / 10 ** d;
 
 export function CoinCalculator() {
-  const [coin, setCoin] = useState("usdt");
+  const [coin, setCoin] = useState("ltc");
   const [rate, setRate] = useState<Rate | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

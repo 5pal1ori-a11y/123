@@ -13,6 +13,10 @@ import { kvGetJson, kvPutJson, withLock } from "@/lib/world/kv";
 
 export type CoinKey = "btc" | "eth" | "usdt" | "usdc" | "sol" | "xrp" | "trx" | "doge" | "ltc" | "bch" | "ada";
 
+/** 지금 송금 가능한 코인 — 이 목록에 없는 코인은 견적을 만들지 않는다 */
+export const SENDABLE_COINS: CoinKey[] = ["ltc", "trx"];
+export const isSendableCoin = (v: string): v is CoinKey => (SENDABLE_COINS as string[]).includes(v);
+
 /** 코인 아이콘 (CC0 오픈 아이콘셋 cryptocurrency-icons) */
 export function coinIconUrl(coin: CoinKey) {
   return `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${coin}.svg`;
@@ -339,6 +343,7 @@ export async function createCoinQuote(
   krw: number,
   address: string,
 ) {
+  if (!isSendableCoin(coin)) throw new Error("지금은 LTC · TRX 만 송금할 수 있어요.");
   if (!Number.isInteger(krw) || krw < COIN_MIN_KRW || krw > COIN_MAX_KRW) {
     throw new Error(`금액은 ${COIN_MIN_KRW.toLocaleString("ko-KR")}원 ~ ${COIN_MAX_KRW.toLocaleString("ko-KR")}원 사이로 적어 주세요.`);
   }

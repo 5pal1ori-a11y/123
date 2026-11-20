@@ -42,6 +42,8 @@ import {
   coinRelayConfig,
   coinPayoutMode,
   coinWalletKrw,
+  coinWalletBalances,
+  fetchKrwRate,
   coinStats,
   confirmCoinOrder,
   createCoinQuote,
@@ -66,6 +68,49 @@ import {
 import { getShopById, getShopBySlug, getShopSettings, getUserByDiscordId, persistAsync, updateShopSettings } from "@/lib/store";
 
 const won = (n: number) => `${Math.max(0, Math.round(n)).toLocaleString("ko-KR")}원`;
+const slugOf = (shopId: string) => getShopById(shopId)?.slug ?? null;
+
+/** 이미지에 쓰는 한국 시각 (11.20 17:12) */
+function kstTime() {
+  return new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })
+    .format(new Date())
+    .replace(/\s/g, "")
+    .replace(/\.(?=\d{2}:)/, " ")
+    .replace(/\.$/, "");
+}
+const coinNum = (n: number, coin: CoinKey) => n.toLocaleString("en-US", { maximumFractionDigits: COINS[coin].decimals > 6 ? 6 : COINS[coin].decimals });
+const coinIcon = (coin: CoinKey) => `https://doesmc.xyz/emoji/does_${coin}.png`;
+
+/** 서명 데이터 이미지 주소 (이미지 워커가 없으면 null) */
+async function coinImageUrl(shopSlug: string, data: { kind: string } & Record<string, unknown>) {
+  try {
+    const { hasRankImage, signedDataImageUrl } = await import("@/lib/discord/rank-image");
+    if (!(await hasRankImage())) return null;
+    return await signedDataImageUrl(shopSlug, data);
+  } catch {
+    return null;
+  }
+}
+
+/** 디스코드 회원 이름 · 프로필 사진 */
+async function discordPerson(shopId: string, discordId: string | null) {
+  if (!discordId) return { name: "회원", avatar: null as string | null };
+  try {
+    const [{ resolveNames }, { MFA_DISCORD_GUILD_ID }] = await Promise.all([import("@/lib/discord/rank-image"), import("@/lib/store")]);
+    const guildId = getShopSettings(shopId).discordGuildId || MFA_DISCORD_GUILD_ID;
+    const who = (await resolveNames(guildId, [discordId]))[discordId];
+    return { name: who?.name ?? "회원", avatar: who?.avatar ?? null };
+  } catch {
+    return { name: "회원", avatar: null as string | null };
+  }
+}
+
+/** 이미지 한 장짜리 로그 메시지를 채널에 올린다 (이미지 실패 시 글로 대신) */
+async function postImageLog(shopId: string, channelId: string, url: string | null, caption: string, fallback: string[], color: number) {
+  const kids: unknown[] = url ? [mediaGallery([url]), textDisplay(caption)] : [...fallback.map((t) => textDisplay(t)), textDisplay(caption)];
+  await postChannelMessage(channelId, { flags: MessageFlags.IS_COMPONENTS_V2, components: [container(kids, color)], allowed_mentions: { parse: [] as string[] } }, shopId).catch(() => null);
+}
+
 const ACCENT = 0x22c55e;
 const isCoin = isSendableCoin;
 /** 코인별 서버 이모지 */
@@ -115,11 +160,7 @@ async function coinStatsImageUrl(shopId: string, shopSlug: string) {
     const { hasRankImage, signedDataImageUrl } = await import("@/lib/discord/rank-image");
     if (!(await hasRankImage())) return null;
     const [s, prem, wallet] = await Promise.all([coinStats(shopId), kimchiPremium(), coinWalletKrw().catch(() => null)]);
-    const time = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })
-      .format(new Date())
-      .replace(/\s/g, "")
-      .replace(/\.(?=\d{2}:)/, " ")
-      .replace(/\.$/, "");
+    const time = kstTime();
     return await signedDataImageUrl(shopSlug, {
       kind: "coin_panel",
       wallet: wallet === null ? null : Math.floor(wallet),
@@ -165,6 +206,7 @@ export async function handleCoinCommand(
   permissions: string | undefined,
   channelId: string | undefined,
   adminChannelId: string | null,
+  logChannels: { log: string | null; restock: string | null; review: string | null } = { log: null, restock: null, review: null },
 ) {
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점을 찾을 수 없어요.");
@@ -177,12 +219,22 @@ export async function handleCoinCommand(
   const posted = await postChannelMessage(channelId, await panelMessage(shop.id, shop.slug), shop.id);
   const messageId = (posted.json as { id?: string } | null)?.id;
   if (!posted.ok || !messageId) return errorPanel("패널을 올리지 못했어요. 봇이 이 채널에 글을 쓸 수 있는지 확인해 주세요.");
-  updateShopSettings(shop.id, { coinAdminChannelId: adminCh, coinPanel: { channelId, messageId } });
+  updateShopSettings(shop.id, {
+    coinAdminChannelId: adminCh,
+    coinPanel: { channelId, messageId },
+    ...(logChannels.log ? { coinLogChannelId: logChannels.log } : {}),
+    ...(logChannels.restock ? { coinRestockChannelId: logChannels.restock } : {}),
+    ...(logChannels.review ? { coinReviewChannelId: logChannels.review } : {}),
+  });
   await persistAsync();
   const relay = await coinRelayConfig();
+  const after = getShopSettings(shop.id);
   return plainEphemeral(
-    `코인대행 패널을 올렸어요. 주문 카드는 <#${adminCh}> 채널로 갑니다.\n` +
-      (relay ? "자동 송금: 중계 서버 연결됨" : "자동 송금: 중계 서버 미설정 → 관리자가 직접 보내고 TXID 를 적는 방식으로 동작해요"),
+    [
+      `코인대행 패널을 올렸어요. 주문 카드는 <#${adminCh}> 채널로 갑니다.`,
+      `대행로그: ${after.coinLogChannelId ? `<#${after.coinLogChannelId}>` : "미지정 (충전로그 채널 사용)"} · 입고로그: ${after.coinRestockChannelId ? `<#${after.coinRestockChannelId}>` : "미지정"} · 후기: ${after.coinReviewChannelId ? `<#${after.coinReviewChannelId}>` : "미지정 (후기로그 채널 사용)"}`,
+      relay ? "자동 송금: 중계 서버 연결됨" : `자동 송금: ${(await coinPayoutMode()) === "direct" ? "NOWPayments 직접 연결됨" : "미설정 → 관리자가 직접 보내고 TXID 를 적어요"}`,
+    ].join("\n"),
   );
 }
 
@@ -745,45 +797,178 @@ export async function notifySent(o: CoinOrder) {
       "-# 블록체인 확인까지 몇 분 걸릴 수 있어요",
     ],
     0x22c55e,
-    o.txid ? [linkButton(c.explorer(o.txid), "거래 확인하기")] : [],
+    [
+      ...(o.txid ? [linkButton(c.explorer(o.txid), "거래 확인하기")] : []),
+      ...(slugOf(o.shopId) ? [styledButton(cid(slugOf(o.shopId)!, "cn_rev", o.id), "후기 남기기", ButtonStyle.SECONDARY, appEmoji("does_star"))] : []),
+    ],
   );
   void postCoinSentLog(o);
 }
 
-/** 송금 완료 로그 — 로그 채널에 이미지 카드로 올린다 (구매·충전 로그와 같은 방식, 누적 송금 건수 포함) */
+/** 대행로그 — 송금 완료를 이미지 한 장으로 (대행로그 채널 → 없으면 충전로그 · 승인 채널) */
 async function postCoinSentLog(o: CoinOrder) {
   try {
     const settings = getShopSettings(o.shopId);
-    const channelId = settings.discordChargeLogChannelId || settings.coinAdminChannelId;
-    if (!channelId) return;
+    const channelId = settings.coinLogChannelId || settings.discordChargeLogChannelId || settings.coinAdminChannelId;
     const slug = getShopById(o.shopId)?.slug;
-    if (!slug) return;
-    const stats = await coinStats(o.shopId).catch(() => null);
-    const { cardImageUrl } = await import("@/lib/discord/rank-image");
-    const url = await cardImageUrl(slug, {
-      theme: "green",
-      eyebrow: "코인대행 송금완료",
-      title: formatCoin(o.coin, o.coinAmount),
-      ...(o.discordId ? { people: [{ id: o.discordId }] } : {}),
-      subtitle: `${won(o.krw)} 결제 · ${COINS[o.coin].network}`,
-      chips: [
-        `시세 ${won(o.rate)}`,
-        `수수료 ${o.feePercent}%`,
-        ...(stats ? [`누적 ${stats.orders.toLocaleString("ko-KR")}건`, `누적 ${won(stats.volume)}`] : []),
-      ],
-      ...(o.txid ? { note: `TXID ${o.txid.slice(0, 32)}` } : {}),
-    }).catch(() => null);
-    const kids: unknown[] = url
-      ? [mediaGallery([url]), textDisplay(`-# 코인 송금 완료 · <t:${Math.floor(Date.now() / 1000)}:f>`)]
-      : [
-          textDisplay("## 코인대행 송금완료"),
-          textDisplay([`**${formatCoin(o.coin, o.coinAmount)}** → \`${shortAddr(o.address)}\``, `**결제** ${won(o.krw)} · ${COINS[o.coin].network}`].join("\n")),
-        ];
-    const body = { flags: MessageFlags.IS_COMPONENTS_V2, components: [container(kids, 0x22c55e)], allowed_mentions: { parse: [] as string[] } };
-    await postChannelMessage(channelId, body, o.shopId).catch(() => null);
+    if (!channelId || !slug) return;
+    const [stats, who] = await Promise.all([coinStats(o.shopId).catch(() => null), discordPerson(o.shopId, o.discordId)]);
+    const tx = o.txid ? (o.txid.length > 16 ? `${o.txid.slice(0, 8)}…${o.txid.slice(-6)}` : o.txid) : null;
+    const url = await coinImageUrl(slug, {
+      kind: "coin_log",
+      coin: o.coin,
+      icon: coinIcon(o.coin),
+      amount: coinNum(o.coinAmount, o.coin),
+      krw: o.krw,
+      rate: Math.round(o.rate),
+      fee: o.feePercent,
+      orders: stats?.orders ?? 0,
+      name: who.name.slice(0, 24),
+      avatar: who.avatar,
+      txid: tx,
+      time: kstTime(),
+    });
+    const mention = o.discordId ? `<@${o.discordId}>` : "회원";
+    await postImageLog(
+      o.shopId,
+      channelId,
+      url,
+      `-# ${mention} 님에게 ${formatCoin(o.coin, o.coinAmount)} 송금 완료 · <t:${Math.floor(Date.now() / 1000)}:f>`,
+      ["## 코인 송금 완료", `**${formatCoin(o.coin, o.coinAmount)}** · ${won(o.krw)} 결제`],
+      0x22c55e,
+    );
   } catch {
     /* 로그 실패는 무시 */
   }
+}
+
+/** 입고로그 — 지갑에 코인이 들어왔을 때 이미지 한 장 */
+export async function postCoinRestockLog(shopId: string, coin: CoinKey, added: number, stock: number | null) {
+  const settings = getShopSettings(shopId);
+  const channelId = settings.coinRestockChannelId;
+  const slug = getShopById(shopId)?.slug;
+  if (!channelId || !slug) return false;
+  const rate = await fetchKrwRate(coin).then((r) => r.rate).catch(() => null);
+  const url = await coinImageUrl(slug, {
+    kind: "coin_restock",
+    coin,
+    icon: coinIcon(coin),
+    amount: `+${coinNum(added, coin)}`,
+    krw: rate ? Math.round(added * rate) : null,
+    stock: stock === null ? null : coinNum(stock, coin),
+    stockKrw: rate && stock !== null ? Math.round(stock * rate) : null,
+    time: kstTime(),
+  });
+  await postImageLog(
+    shopId,
+    channelId,
+    url,
+    `-# ${COIN_EMOJI[coin] ? appEmoji(COIN_EMOJI[coin]!) : ""} ${coin.toUpperCase()} 입고 · 지금 바로 구매할 수 있어요 · <t:${Math.floor(Date.now() / 1000)}:R>`,
+    ["## 코인 입고", `**+${coinNum(added, coin)} ${coin.toUpperCase()}**${stock !== null ? ` · 현재 재고 ${coinNum(stock, coin)}` : ""}`],
+    0x3b82f6,
+  );
+  return true;
+}
+
+/** 지갑 잔액을 주기적으로 보고, 늘어난 코인이 있으면 입고로그를 올린다 (크론) */
+export async function checkCoinRestock(shopId: string) {
+  if (!getShopSettings(shopId).coinRestockChannelId) return;
+  const bal = await coinWalletBalances().catch(() => null);
+  if (!bal) return;
+  const { kvGetJson, kvPutJson } = await import("@/lib/world/kv");
+  const key = `coin-stock:v1:${shopId}`;
+  const prev = await kvGetJson<Partial<Record<CoinKey, number>>>(key).catch(() => null);
+  await kvPutJson(key, bal).catch(() => null);
+  if (!prev) return; // 처음엔 기준값만 저장
+  for (const coin of SENDABLE_COINS) {
+    const now = bal[coin] ?? 0;
+    const before = prev[coin] ?? 0;
+    const added = now - before;
+    // 아주 작은 변동(수수료 반올림 등)은 무시
+    if (added > 0 && added >= Math.max(10 ** -COINS[coin].decimals * 10, before * 0.001)) {
+      await postCoinRestockLog(shopId, coin, added, now).catch(() => null);
+    }
+  }
+}
+
+/** /코인입고 (관리자) — 직접 입고 로그를 올린다 */
+export async function handleCoinRestockCommand(shopSlug: string, roles: string[], permissions: string | undefined, coinRaw: unknown, amountRaw: unknown, stockRaw: unknown) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return errorPanel("상점을 찾을 수 없어요.");
+  if (!isDiscordAdmin(getShopSettings(shop.id), roles, permissions)) return errorPanel("관리자만 쓸 수 있어요.", "권한 없음");
+  const coin = String(coinRaw ?? "");
+  if (!isCoin(coin)) return errorPanel("코인은 LTC · TRX 중에서 골라 주세요.");
+  const added = Number(amountRaw);
+  if (!(added > 0)) return errorPanel("입고 수량을 0보다 크게 적어 주세요.");
+  const stock = stockRaw === undefined || stockRaw === null || stockRaw === "" ? null : Number(stockRaw);
+  if (!getShopSettings(shop.id).coinRestockChannelId) return errorPanel("입고로그 채널이 없어요. `/코인대행 입고채널:` 로 먼저 지정해 주세요.");
+  const ok = await postCoinRestockLog(shop.id, coin, added, stock !== null && Number.isFinite(stock) ? stock : null);
+  return plainEphemeral(ok ? `${coin.toUpperCase()} 입고로그를 올렸어요.` : "입고로그를 올리지 못했어요.");
+}
+
+/* ───────────── 후기 ───────────── */
+
+/** 송금 완료 DM 의 [후기 남기기] → 별점 · 내용 입력 창 */
+export async function handleCoinReviewButton(shopSlug: string, discordId: string, orderId: string) {
+  const shop = getShopBySlug(shopSlug);
+  const o = shop ? await getCoinOrder(shop.id, orderId) : null;
+  if (!shop || !o || o.discordId !== discordId) return plainEphemeral("주문을 찾을 수 없어요.");
+  if (o.status !== "sent") return plainEphemeral("송금이 끝난 주문만 후기를 남길 수 있어요.");
+  if (o.reviewed) return plainEphemeral("이미 후기를 남긴 주문이에요. 감사합니다!");
+  return showModal({
+    customId: cid(shopSlug, "cn_revm", orderId),
+    title: "코인대행 후기",
+    inputs: [
+      textInput({ customId: "rating", label: "별점 (1 ~ 5)", placeholder: "5", required: true, minLength: 1, maxLength: 1 }),
+      textInput({ customId: "comment", label: "후기 내용", placeholder: "이용해 보신 느낌을 적어 주세요", style: 2, required: true, minLength: 5, maxLength: 160 }),
+    ],
+  });
+}
+
+export async function handleCoinReviewSubmit(shopSlug: string, discordId: string, orderId: string, interaction: DiscordInteraction) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return plainEphemeral("상점을 찾을 수 없어요.");
+  const rating = Math.round(Number(modalFieldValue(interaction, "rating").trim()));
+  if (!(rating >= 1 && rating <= 5)) return plainEphemeral("별점은 1 ~ 5 사이 숫자로 적어 주세요.");
+  const comment = modalFieldValue(interaction, "comment").replace(/\s+/g, " ").trim().slice(0, 160);
+  if (comment.length < 5) return plainEphemeral("후기 내용을 조금만 더 적어 주세요.");
+  let o: CoinOrder;
+  try {
+    o = await updateCoinOrder(shop.id, orderId, (x) => {
+      if (x.discordId !== discordId) throw new Error("주문을 찾을 수 없어요.");
+      if (x.status !== "sent") throw new Error("송금이 끝난 주문만 후기를 남길 수 있어요.");
+      if (x.reviewed) throw new Error("이미 후기를 남긴 주문이에요.");
+      x.reviewed = true;
+    });
+  } catch (e) {
+    return plainEphemeral(e instanceof Error ? e.message : "후기를 남기지 못했어요.");
+  }
+  const settings = getShopSettings(shop.id);
+  const channelId = settings.coinReviewChannelId || settings.discordReviewLogChannelId;
+  if (channelId) {
+    const who = await discordPerson(shop.id, discordId);
+    const url = await coinImageUrl(shop.slug, {
+      kind: "coin_review",
+      coin: o.coin,
+      icon: coinIcon(o.coin),
+      amount: coinNum(o.coinAmount, o.coin),
+      krw: o.krw,
+      rating,
+      comment,
+      name: who.name.slice(0, 24),
+      avatar: who.avatar,
+      time: kstTime(),
+    });
+    await postImageLog(
+      shop.id,
+      channelId,
+      url,
+      `-# <@${discordId}> 님의 코인대행 후기 · <t:${Math.floor(Date.now() / 1000)}:f>`,
+      ["## 코인대행 후기", `${"⭐".repeat(rating)}`, `> ${comment}`],
+      0xf59e0b,
+    );
+  }
+  return plainEphemeral("후기 감사합니다! 후기 채널에 올라갔어요.");
 }
 
 export async function notifyFailed(o: CoinOrder) {

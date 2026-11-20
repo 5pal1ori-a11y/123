@@ -601,8 +601,8 @@ export async function relayBalance() {
   return (await r.json().catch(() => null)) as Record<string, { amount?: number; pendingAmount?: number }> | null;
 }
 
-/** 지갑 재고 — 보유 코인 잔액을 원화로 환산해 합산 (릴레이 또는 NOWPayments). 실패하면 null */
-export async function coinWalletKrw(): Promise<number | null> {
+/** 지갑에 있는 코인별 수량 (릴레이 또는 NOWPayments). 실패하면 null */
+export async function coinWalletBalances(): Promise<Partial<Record<CoinKey, number>> | null> {
   let bal: Record<string, number> | null = null;
   if (await coinRelayConfig()) {
     const rb = await relayBalance();
@@ -618,16 +618,26 @@ export async function coinWalletKrw(): Promise<number | null> {
       bal = null;
     }
   }
-  if (!bal || !Object.keys(bal).length) return null;
+  if (!bal) return null;
   const byCur: Record<string, CoinKey> = {};
   for (const c of Object.values(COINS)) {
     byCur[c.npCode.toLowerCase()] = c.key;
     byCur[c.key] = c.key;
   }
-  let totalKrw = 0;
+  const out: Partial<Record<CoinKey, number>> = {};
   for (const [cur, amt] of Object.entries(bal)) {
-    const key = byCur[cur] ?? (cur in COINS ? (cur as CoinKey) : null);
-    if (!key) continue;
+    const key = byCur[cur];
+    if (key) out[key] = (out[key] ?? 0) + amt;
+  }
+  return out;
+}
+
+/** 지갑 재고 — 보유 코인 잔액을 원화로 환산해 합산. 실패하면 null */
+export async function coinWalletKrw(): Promise<number | null> {
+  const bal = await coinWalletBalances();
+  if (!bal || !Object.keys(bal).length) return null;
+  let totalKrw = 0;
+  for (const [key, amt] of Object.entries(bal) as [CoinKey, number][]) {
     try {
       const { rate } = await fetchKrwRate(key);
       totalKrw += amt * rate;

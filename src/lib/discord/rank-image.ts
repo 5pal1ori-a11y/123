@@ -34,7 +34,7 @@ export type RankImageData = {
   rows: { rank: number; name: string; avatar: string | null; amount: number; count: number; share: number }[];
 };
 
-async function resolveNames(guildId: string, ids: string[]) {
+export async function resolveNames(guildId: string, ids: string[]) {
   const cache = (await kvGetJson<Record<string, Who>>(NAME_KEY).catch(() => null)) ?? {};
   const token = (await doesDiscordEnvAsync()).botToken;
   let changed = false;
@@ -657,7 +657,7 @@ async function cardSig(slug: string, body: string) {
  * 최대 1분 가까이 안 보여 502 → 디스코드가 깨진 이미지로 캐시한다. 그래서 그릴 데이터를 보낼 때 미리 만들어
  * 서명과 함께 주소에 넣고, 그리는 쪽은 저장소를 다시 읽지 않는다.
  */
-const SIGNED_KINDS = new Set(["purchase_log", "charge_log", "review", "receipt", "shop_stats", "proxy_panel", "proxy_status", "mine_panel", "mine_result", "pickaxe_card", "coin_panel"]);
+const SIGNED_KINDS = new Set(["purchase_log", "charge_log", "review", "receipt", "shop_stats", "proxy_panel", "proxy_status", "mine_panel", "mine_result", "pickaxe_card", "coin_panel", "coin_log", "coin_restock", "coin_review"]);
 const SIGNED_MAX_BODY = 1900;
 
 export async function signedDataImageUrl(shopSlug: string, data: ({ kind: string } & Record<string, unknown>) | null) {

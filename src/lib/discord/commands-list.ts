@@ -301,10 +301,23 @@ export const VENDIX_DISCORD_COMMANDS = [
   },
   {
     name: "코인대행",
-    description: "코인대행(LTC · USDT) 패널을 이 채널에 올립니다 (관리자)",
+    description: "코인대행(LTC · TRX) 패널을 이 채널에 올립니다 (관리자)",
     type: 1,
     options: [
       { name: "승인채널", description: "주문 송금·거절 카드를 받을 관리자 채널 (처음 한 번)", type: 7, channel_types: [0, 5], required: false },
+      { name: "로그채널", description: "송금 완료 대행로그(이미지)를 올릴 채널", type: 7, channel_types: [0, 5], required: false },
+      { name: "입고채널", description: "코인 입고로그(이미지)를 올릴 채널", type: 7, channel_types: [0, 5], required: false },
+      { name: "후기채널", description: "코인대행 후기(이미지)를 올릴 채널", type: 7, channel_types: [0, 5], required: false },
+    ],
+  },
+  {
+    name: "코인입고",
+    description: "코인 입고로그를 직접 올립니다 (관리자)",
+    type: 1,
+    options: [
+      { name: "코인", description: "입고된 코인", type: 3, required: true, choices: [{ name: "LTC", value: "ltc" }, { name: "TRX", value: "trx" }] },
+      { name: "수량", description: "입고된 수량", type: 10, required: true },
+      { name: "현재재고", description: "입고 후 지갑에 있는 수량 (선택)", type: 10, required: false },
     ],
   },
   {

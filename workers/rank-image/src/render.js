@@ -1203,6 +1203,11 @@ export function coinRestockTree(d) {
   );
 }
 
+const starSvg = (fill) =>
+  `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${fill}" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8z"/></svg>`)}`;
+const STAR_ON = starSvg("#fbbf24");
+const STAR_OFF = starSvg("rgba(255,255,255,0.16)");
+
 /** 후기로그 — d: { name, avatar, rating (1~5), comment, coin, amount, krw, time } */
 export function coinReviewTree(d) {
   const r = Math.max(1, Math.min(5, Math.round(Number(d.rating) || 5)));
@@ -1212,7 +1217,7 @@ export function coinReviewTree(d) {
     h("div", { ...COIN_CARD, marginTop: 26 },
       h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
         coinUser({ ...d, userSub: `${d.amount} ${String(d.coin ?? "").toUpperCase()} · ₩${fmtN(d.krw)}` }, "linear-gradient(135deg, #fbbf24, #f59e0b)"),
-        h("div", { display: "flex", fontSize: 40 }, "⭐".repeat(r) + "☆".repeat(5 - r)),
+        h("div", { display: "flex" }, ...[0, 1, 2, 3, 4].map((i) => img(i < r ? STAR_ON : STAR_OFF, { width: 42, height: 42, marginLeft: i ? 6 : 0 }))),
       ),
       h("div", { display: "flex", marginTop: 22, fontSize: comment.length > 90 ? 24 : 28, fontWeight: 700, color: "#f1f5f9", lineHeight: 1.45 }, `“${comment}”`),
     ),

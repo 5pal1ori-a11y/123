@@ -12,6 +12,7 @@ const snowflake = z.string().regex(/^\d{5,30}$/);
 const bodySchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("config") }),
   z.object({ op: z.literal("poll") }),
+  z.object({ op: z.literal("coin") }),
   z.object({
     op: z.literal("guess"),
     channelId: snowflake,
@@ -60,6 +61,14 @@ export async function POST(request: Request) {
   const shop = getShopBySlug(MFA_SHOP_SLUG);
   if (!shop) return NextResponse.json({ token: "", guildId: "", userIds: [] });
   const settings = getShopSettings(shop.id);
+
+  // 1분 크론: 코인대행 패널(재고 · 김프 · 누적) 새로 그리기 + 지갑 입고 확인
+  if (parsed.data.op === "coin") {
+    const cn = await import("@/lib/discord/coin-trade");
+    const panel = await cn.refreshCoinPanel(shop.id).then(() => "ok").catch((err) => String(err));
+    await cn.checkCoinRestock(shop.id).catch((err) => console.error("[coin-restock]", err));
+    return NextResponse.json({ ok: true, panel });
+  }
 
   if (parsed.data.op === "poll") {
     const { pollAndRefresh } = await import("@/lib/discord/server-status");
@@ -176,8 +185,6 @@ async function refreshRankingEvery10m(shopId: string) {
       if (!r.failed.length && r.added.length < 12) await kvPutJson(doneKey, { at: new Date().toISOString(), slotsFull: r.slotsFull });
     }
   }
-  // 코인대행: 지갑 잔액이 늘면 입고로그 (이미지)
-  await import("@/lib/discord/coin-trade").then(({ checkCoinRestock }) => checkCoinRestock(shopId)).catch((err) => console.error("[coin-restock]", err));
   // 체크락: 판매 중인 마크 계정 공개 정보 점검 (30분마다 몇 개씩)
   await import("@/lib/checklock").then(({ runChecklock }) => runChecklock(shopId)).catch((err) => console.error("[checklock]", err));
   // 프리미엄 플랜: 월 포인트 지급 · 만료 역할 회수

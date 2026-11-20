@@ -130,6 +130,22 @@ async function syncStatusWatch(env: Env, ctx: ExecutionContext) {
   }
 }
 
+/** 1분마다: 코인대행 패널(재고 · 김프 · 누적)을 새로 그리고, 지갑 입고를 확인한다 */
+async function refreshCoinPanel(env: Env, ctx: ExecutionContext) {
+  const secret = (env.AOS_BRIDGE_SECRET || env.AUTH_SECRET || "").trim();
+  if (secret.length < 8) return;
+  const r: Response = await handler.fetch(
+    new Request("https://vendix.team/api/discord/server-status", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-vendix-bridge-secret": secret },
+      body: JSON.stringify({ op: "coin" }),
+    }),
+    env,
+    ctx,
+  );
+  console.log("coin panel", r.status, (await r.text()).slice(0, 120));
+}
+
 /** 3분마다: /서버상황 패널이 있으면 관리자 상태를 잠깐 접속해서 확인 */
 async function pollServerStatus(env: Env, ctx: ExecutionContext) {
   const secret = (env.AOS_BRIDGE_SECRET || env.AUTH_SECRET || "").trim();
@@ -169,6 +185,10 @@ export default {
     return handler.fetch(request, env, ctx);
   },
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    if (controller.cron === "* * * * *") {
+      ctx.waitUntil(refreshCoinPanel(env, ctx));
+      return;
+    }
     if (controller.cron === "*/3 * * * *") {
       ctx.waitUntil(pollServerStatus(env, ctx));
       return;

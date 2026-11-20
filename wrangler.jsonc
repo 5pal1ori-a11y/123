@@ -62,7 +62,7 @@
     "STATUS_WATCH_ENABLED": "1"
   },
   "triggers": {
-    "crons": ["*/5 * * * *", "*/3 * * * *"]
+    "crons": ["*/5 * * * *", "*/3 * * * *", "* * * * *"]
   },
   "workers_dev": true,
   "routes": [

@@ -720,12 +720,12 @@ async function usdKrw(): Promise<{ krw: number; src: string } | null> {
 
 /**
  * 김프(%) = 업비트 BTC 원화가 ÷ (해외 BTC 달러가 × 원/달러 환율) − 1
- * 5분 동안 KV 에 기억해 두고, 실패하면 마지막으로 성공한 값을 쓴다.
+ * 1분 동안 KV 에 기억해 두고, 실패하면 마지막으로 성공한 값을 쓴다.
  */
 export async function kimchiPremiumInfo(): Promise<{ premium: number | null; source: string; at: string | null }> {
   const KEY = "coin:kimchi:v1";
   const cached = await kvGetJson<{ premium: number; source: string; at: string }>(KEY).catch(() => null);
-  if (cached && Date.now() - Date.parse(cached.at) < 5 * 60_000) return cached;
+  if (cached && Date.now() - Date.parse(cached.at) < 60_000) return cached;
   try {
     const [up, g, fx] = await Promise.all([fetchKrwRate("btc").catch(() => null), globalBtcUsd(), usdKrw()]);
     let premium: number | null = null;

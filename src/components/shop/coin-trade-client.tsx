@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Coins, Loader2, ShieldAlert, CheckCircle2, ExternalLink } from "lucide-react";
+import { Loader2, ShieldAlert, CheckCircle2, ExternalLink, Wallet, ArrowRight, Sparkles } from "lucide-react";
 
 const COIN_OPTIONS = [
   { key: "btc", label: "비트코인" },
@@ -19,13 +19,13 @@ const COIN_OPTIONS = [
 const coinIcon = (k: string) => `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${k}.svg`;
 const won = (n: number) => `${Math.round(n).toLocaleString("ko-KR")}원`;
 
-const STATUS_KO: Record<string, string> = {
-  pending: "승인 대기",
-  sending: "송금 중",
-  sent: "송금 완료",
-  failed: "실패·환불",
-  rejected: "거절·환불",
-  expired: "만료",
+const STATUS: Record<string, { ko: string; dot: string; text: string }> = {
+  pending: { ko: "승인 대기", dot: "#f59e0b", text: "text-amber-500" },
+  sending: { ko: "송금 중", dot: "#38bdf8", text: "text-sky-500" },
+  sent: { ko: "송금 완료", dot: "#22c55e", text: "text-emerald-500" },
+  failed: { ko: "실패·환불", dot: "#ef4444", text: "text-rose-500" },
+  rejected: { ko: "거절·환불", dot: "#ef4444", text: "text-rose-500" },
+  expired: { ko: "만료", dot: "#94a3b8", text: "text-slate-400" },
 };
 
 type Quote = {
@@ -56,10 +56,7 @@ export function CoinTradeClient() {
   const loadMine = useCallback(async () => {
     try {
       const res = await fetch("/api/coin-trade/mine", { credentials: "include" });
-      if (res.status === 401) {
-        setMsg("먼저 로그인해 주세요.");
-        return;
-      }
+      if (res.status === 401) return setMsg("먼저 로그인해 주세요.");
       const data = (await res.json().catch(() => null)) as { orders?: Order[]; points?: number } | null;
       if (data) {
         setOrders(data.orders ?? []);
@@ -95,8 +92,7 @@ export function CoinTradeClient() {
       }
       if (data?.needVerify) {
         setPhase("form");
-        setNeedVerify(true);
-        return;
+        return setNeedVerify(true);
       }
       if (!res.ok || !data?.id) {
         setPhase("form");
@@ -137,111 +133,258 @@ export function CoinTradeClient() {
     }
   };
 
+  const selected = COIN_OPTIONS.find((o) => o.key === coin);
+
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-10">
-      <div className="mb-6 flex flex-col items-center gap-2 text-center">
-        <div className="flex size-14 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/30">
-          <Coins className="size-7" />
+    <div className="mx-auto w-full max-w-lg px-1 py-2">
+      {/* 헤더 */}
+      <div className="glass relative mb-4 overflow-hidden p-5">
+        <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-emerald-500/20 blur-3xl" />
+        <div className="relative flex items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-500">
+              <Sparkles className="size-4" /> 코인대행
+            </div>
+            <h2 className="mt-1 text-xl font-bold" style={{ color: "var(--ad-text, #fff)" }}>
+              포인트로 코인 받기
+            </h2>
+            <p className="mt-0.5 text-xs" style={{ color: "var(--ad-muted, #94a3b8)" }}>
+              실시간 시세 · VIP 수수료 할인
+            </p>
+          </div>
+          {points !== null && (
+            <div className="flex flex-col items-end rounded-2xl bg-emerald-500/10 px-4 py-2.5 ring-1 ring-emerald-400/25">
+              <span className="flex items-center gap-1 text-[11px] text-emerald-500/80">
+                <Wallet className="size-3" /> 보유
+              </span>
+              <span className="text-lg font-extrabold text-emerald-500">{points.toLocaleString("ko-KR")}P</span>
+            </div>
+          )}
         </div>
-        <h1 className="text-xl font-bold text-white">코인대행</h1>
-        <p className="text-sm text-slate-400">포인트로 코인을 사서 내 지갑으로 받아요.</p>
-        {points !== null && <p className="text-sm font-semibold text-emerald-300">보유 {points.toLocaleString("ko-KR")}P</p>}
       </div>
 
       {needVerify && (
-        <div className="mb-4 rounded-2xl bg-amber-500/10 p-4 text-sm text-amber-200 ring-1 ring-amber-400/30">
-          <ShieldAlert className="mb-1 size-5" />
-          코인대행은 최초 1회 본인인증이 필요해요.
-          <a href="/verify-identity" className="mt-2 block rounded-xl bg-amber-500 px-4 py-2 text-center font-semibold text-white">
-            본인인증 하러 가기
-          </a>
+        <div className="glass mb-4 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 flex-none items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
+              <ShieldAlert className="size-5" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold" style={{ color: "var(--ad-text, #fff)" }}>
+                최초 1회 본인인증이 필요해요
+              </p>
+              <p className="mt-0.5 text-xs" style={{ color: "var(--ad-muted, #94a3b8)" }}>
+                안전한 거래를 위해 신분증 인증을 먼저 진행해 주세요.
+              </p>
+              <a href="/verify-identity" className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-400">
+                본인인증 하러 가기 <ArrowRight className="size-4" />
+              </a>
+            </div>
+          </div>
         </div>
       )}
 
       {phase === "done" && (
-        <div className="mb-4 rounded-2xl bg-emerald-500/10 p-5 text-center text-sm text-emerald-200 ring-1 ring-emerald-400/30">
-          <CheckCircle2 className="mx-auto mb-2 size-6" />
-          주문이 접수됐어요. 관리자 확인 후 송금하고 알려 드릴게요.
+        <div className="glass mb-4 flex flex-col items-center gap-2 p-6 text-center">
+          <div className="flex size-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
+            <CheckCircle2 className="size-8" />
+          </div>
+          <p className="text-base font-bold" style={{ color: "var(--ad-text, #fff)" }}>
+            주문이 접수됐어요
+          </p>
+          <p className="text-sm" style={{ color: "var(--ad-muted, #94a3b8)" }}>
+            관리자 확인 후 송금하고 알려 드릴게요.
+          </p>
         </div>
       )}
 
+      {/* 입력 폼 */}
       {phase !== "quoted" && phase !== "confirming" && (
-        <div className="space-y-4 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="flex flex-wrap gap-2">
-            {COIN_OPTIONS.map((o) => (
-              <button
-                key={o.key}
-                onClick={() => setCoin(o.key)}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${coin === o.key ? "bg-emerald-500 text-white" : "bg-white/5 text-slate-300 hover:bg-white/10"}`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={coinIcon(o.key)} alt="" className="size-4" loading="lazy" />
-                {o.label}
-              </button>
-            ))}
+        <div className="glass space-y-5 p-5">
+          <div>
+            <p className="mb-2.5 text-xs font-medium" style={{ color: "var(--ad-muted, #94a3b8)" }}>
+              받을 코인
+            </p>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {COIN_OPTIONS.map((o) => {
+                const on = coin === o.key;
+                return (
+                  <button
+                    key={o.key}
+                    onClick={() => setCoin(o.key)}
+                    className={`group flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 transition ${
+                      on ? "border-emerald-400/50 bg-emerald-500/10 ring-1 ring-emerald-400/30" : "border-white/8 bg-white/[0.02] hover:bg-white/[0.05]"
+                    }`}
+                    style={on ? undefined : { borderColor: "var(--ad-border, #222)" }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={coinIcon(o.key)} alt="" className={`size-7 transition ${on ? "scale-110" : "opacity-80 group-hover:opacity-100"}`} loading="lazy" />
+                    <span className={`text-[11px] font-medium ${on ? "text-emerald-500" : ""}`} style={on ? undefined : { color: "var(--ad-muted, #94a3b8)" }}>
+                      {o.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <label className="block">
-            <span className="mb-1 block text-xs text-slate-400">사용할 포인트 (원)</span>
-            <input inputMode="numeric" value={krw} onChange={(e) => setKrw(e.target.value.replace(/[^\d]/g, ""))} placeholder="50000" className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-lg font-semibold text-white outline-none focus:border-emerald-400/50" />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs text-slate-400">받을 지갑 주소</span>
-            <input value={addr} onChange={(e) => setAddr(e.target.value.trim())} placeholder="코인 받을 주소" className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 font-mono text-sm text-white outline-none focus:border-emerald-400/50" />
-          </label>
-          <button onClick={getQuote} disabled={phase === "quoting"} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-6 py-4 font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50">
-            {phase === "quoting" ? <><Loader2 className="size-4 animate-spin" /> 견적 계산 중…</> : "견적 보기"}
+
+          <div className="space-y-3">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium" style={{ color: "var(--ad-muted, #94a3b8)" }}>
+                사용할 포인트
+              </span>
+              <div className="relative">
+                <input
+                  inputMode="numeric"
+                  value={krw ? Number(krw).toLocaleString("ko-KR") : ""}
+                  onChange={(e) => setKrw(e.target.value.replace(/[^\d]/g, ""))}
+                  placeholder="50,000"
+                  className="w-full rounded-2xl border bg-transparent px-4 py-3.5 pr-10 text-lg font-bold outline-none transition focus:border-emerald-400/50"
+                  style={{ borderColor: "var(--ad-border, #222)", color: "var(--ad-text, #fff)" }}
+                />
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold" style={{ color: "var(--ad-muted, #94a3b8)" }}>
+                  P
+                </span>
+              </div>
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium" style={{ color: "var(--ad-muted, #94a3b8)" }}>
+                받을 {selected?.label} 지갑 주소
+              </span>
+              <input
+                value={addr}
+                onChange={(e) => setAddr(e.target.value.trim())}
+                placeholder="코인을 받을 지갑 주소"
+                className="w-full rounded-2xl border bg-transparent px-4 py-3.5 font-mono text-sm outline-none transition focus:border-emerald-400/50"
+                style={{ borderColor: "var(--ad-border, #222)", color: "var(--ad-text, #fff)" }}
+              />
+            </label>
+          </div>
+
+          <button
+            onClick={getQuote}
+            disabled={phase === "quoting"}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-4 font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
+          >
+            {phase === "quoting" ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> 견적 계산 중…
+              </>
+            ) : (
+              <>
+                견적 보기 <ArrowRight className="size-4" />
+              </>
+            )}
           </button>
-          {msg && <p className="text-center text-sm text-rose-300">{msg}</p>}
-          <p className="text-center text-xs text-slate-500">주소를 잘못 적으면 되돌릴 수 없어요. 네트워크를 꼭 확인하세요.</p>
+          {msg && <p className="text-center text-sm font-medium text-rose-500">{msg}</p>}
+          <p className="flex items-center justify-center gap-1 text-center text-[11px]" style={{ color: "var(--ad-muted, #94a3b8)" }}>
+            주소·네트워크를 꼭 확인하세요. 잘못 보낸 코인은 되돌릴 수 없어요.
+          </p>
         </div>
       )}
 
+      {/* 견적 카드 */}
       {(phase === "quoted" || phase === "confirming") && quote && (
-        <div className="space-y-4 rounded-3xl border border-emerald-400/20 bg-emerald-500/[0.04] p-5">
-          <div className="flex items-center gap-2">
+        <div className="glass overflow-hidden">
+          <div className="relative bg-gradient-to-br from-emerald-500/15 to-teal-500/5 p-6 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={coinIcon(quote.coin)} alt="" className="size-7" />
-            <span className="text-lg font-bold text-white">{quote.coinAmount.toLocaleString("en-US", { maximumFractionDigits: 8 })} {quote.coin.toUpperCase()}</span>
+            <img src={coinIcon(quote.coin)} alt="" className="mx-auto mb-2 size-12 drop-shadow" />
+            <p className="text-xs" style={{ color: "var(--ad-muted, #94a3b8)" }}>
+              받을 수량
+            </p>
+            <p className="mt-1 text-3xl font-extrabold" style={{ color: "var(--ad-text, #fff)" }}>
+              {quote.coinAmount.toLocaleString("en-US", { maximumFractionDigits: 8 })}
+              <span className="ml-1.5 text-lg text-emerald-500">{quote.coin.toUpperCase()}</span>
+            </p>
           </div>
-          <div className="space-y-1.5 text-sm text-slate-300">
-            <div className="flex justify-between"><span className="text-slate-500">사용 포인트</span><span>{quote.krw.toLocaleString("ko-KR")}P</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">시세</span><span>1 {quote.coin.toUpperCase()} = {won(quote.rate)} ({quote.rateSource})</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">수수료</span><span>{quote.feePercent}%</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">네트워크</span><span>{quote.network}</span></div>
-            <div className="flex justify-between gap-2"><span className="text-slate-500">받는 주소</span><span className="break-all text-right font-mono text-xs">{quote.address}</span></div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => { setPhase("form"); setQuote(null); }} disabled={phase === "confirming"} className="flex-1 rounded-2xl bg-white/5 py-3 text-sm text-slate-300 transition hover:bg-white/10 disabled:opacity-50">취소</button>
-            <button onClick={confirm} disabled={phase === "confirming"} className="flex flex-[2] items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-3 font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50">
-              {phase === "confirming" ? <><Loader2 className="size-4 animate-spin" /> 처리 중…</> : "확정하고 포인트 결제"}
-            </button>
-          </div>
-          {msg && <p className="text-center text-sm text-rose-300">{msg}</p>}
-          <p className="text-center text-xs text-slate-500">확정하면 포인트가 차감되고 관리자 승인 후 송금돼요.</p>
-        </div>
-      )}
-
-      {orders.length > 0 && (
-        <div className="mt-6">
-          <p className="mb-2 text-xs font-medium text-slate-500">내 주문</p>
-          <div className="space-y-2">
-            {orders.map((o) => (
-              <div key={o.id} className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3 text-sm">
-                <div className="flex items-center gap-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={coinIcon(o.coin)} alt="" className="size-5" loading="lazy" />
-                  <div>
-                    <div className="text-white">{o.coinAmount.toLocaleString("en-US", { maximumFractionDigits: 8 })} {o.coin.toUpperCase()}</div>
-                    <div className="text-xs text-slate-500">{o.krw.toLocaleString("ko-KR")}P · {STATUS_KO[o.status] ?? o.status}</div>
-                  </div>
-                </div>
-                {o.explorer && (
-                  <a href={o.explorer} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-emerald-300">
-                    TX <ExternalLink className="size-3" />
-                  </a>
-                )}
+          <div className="space-y-2.5 p-5 text-sm">
+            {[
+              ["사용 포인트", `${quote.krw.toLocaleString("ko-KR")}P`],
+              ["시세", `1 ${quote.coin.toUpperCase()} = ${won(quote.rate)} (${quote.rateSource})`],
+              ["수수료", `${quote.feePercent}%`],
+              ["네트워크", quote.network],
+            ].map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between gap-4">
+                <span style={{ color: "var(--ad-muted, #94a3b8)" }}>{k}</span>
+                <span className="text-right font-medium" style={{ color: "var(--ad-text, #fff)" }}>
+                  {v}
+                </span>
               </div>
             ))}
+            <div className="flex items-start justify-between gap-4 border-t pt-2.5" style={{ borderColor: "var(--ad-border, #222)" }}>
+              <span style={{ color: "var(--ad-muted, #94a3b8)" }}>받는 주소</span>
+              <span className="break-all text-right font-mono text-xs" style={{ color: "var(--ad-text, #fff)" }}>
+                {quote.address}
+              </span>
+            </div>
+          </div>
+          <div className="flex gap-2 p-5 pt-0">
+            <button
+              onClick={() => {
+                setPhase("form");
+                setQuote(null);
+              }}
+              disabled={phase === "confirming"}
+              className="flex-1 rounded-2xl border py-3.5 text-sm font-semibold transition hover:bg-white/[0.04] disabled:opacity-50"
+              style={{ borderColor: "var(--ad-border, #222)", color: "var(--ad-muted, #94a3b8)" }}
+            >
+              취소
+            </button>
+            <button
+              onClick={confirm}
+              disabled={phase === "confirming"}
+              className="flex flex-[2] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3.5 font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
+            >
+              {phase === "confirming" ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> 처리 중…
+                </>
+              ) : (
+                <>확정 · 포인트 결제</>
+              )}
+            </button>
+          </div>
+          {msg && <p className="px-5 pb-4 text-center text-sm font-medium text-rose-500">{msg}</p>}
+        </div>
+      )}
+
+      {/* 내 주문 */}
+      {orders.length > 0 && (
+        <div className="mt-5">
+          <p className="mb-2.5 px-1 text-xs font-semibold" style={{ color: "var(--ad-muted, #94a3b8)" }}>
+            내 주문
+          </p>
+          <div className="space-y-2">
+            {orders.map((o) => {
+              const st = STATUS[o.status] ?? STATUS.pending;
+              return (
+                <div key={o.id} className="glass flex items-center justify-between gap-3 p-3.5">
+                  <div className="flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={coinIcon(o.coin)} alt="" className="size-8" loading="lazy" />
+                    <div>
+                      <div className="text-sm font-semibold" style={{ color: "var(--ad-text, #fff)" }}>
+                        {o.coinAmount.toLocaleString("en-US", { maximumFractionDigits: 8 })} {o.coin.toUpperCase()}
+                      </div>
+                      <div className="text-xs" style={{ color: "var(--ad-muted, #94a3b8)" }}>
+                        {o.krw.toLocaleString("ko-KR")}P
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`flex items-center gap-1.5 text-xs font-medium ${st.text}`}>
+                      <span className="size-1.5 rounded-full" style={{ background: st.dot }} />
+                      {st.ko}
+                    </span>
+                    {o.explorer && (
+                      <a href={o.explorer} target="_blank" rel="noreferrer" className="text-emerald-500">
+                        <ExternalLink className="size-4" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

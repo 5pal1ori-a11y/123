@@ -38,6 +38,7 @@ import {
   COIN_MIN_KRW,
   COINS,
   coinRelayConfig,
+  coinPayoutMode,
   coinStats,
   confirmCoinOrder,
   createCoinQuote,
@@ -392,7 +393,8 @@ export async function handleCoinVipButton(shopSlug: string, discordId: string) {
 
 async function adminCard(shopSlug: string, o: CoinOrder, note?: string) {
   const c = COINS[o.coin];
-  const relay = await coinRelayConfig();
+  const mode = await coinPayoutMode();
+  const auto = mode !== "manual";
   const done = o.status !== "pending";
   const color =
     o.status === "sent" ? 0x22c55e : o.status === "sending" ? 0x38bdf8 : o.status === "pending" ? 0xfacc15 : o.status === "failed" || o.status === "rejected" ? 0xef4444 : 0x64748b;
@@ -415,12 +417,14 @@ async function adminCard(shopSlug: string, o: CoinOrder, note?: string) {
   if (!done) {
     kids.push(
       actionRow(
-        styledButton(cid(shopSlug, "cn_send", o.id), relay ? "송금 (자동)" : "송금 완료 처리", ButtonStyle.SUCCESS),
+        styledButton(cid(shopSlug, "cn_send", o.id), auto ? "송금 (자동)" : "송금 완료 처리", ButtonStyle.SUCCESS),
         styledButton(cid(shopSlug, "cn_rej", o.id), "거절 · 환불", ButtonStyle.DANGER),
       ),
     );
+  } else if (o.status === "sending" && o.payoutId && mode === "direct") {
+    kids.push(actionRow(styledButton(cid(shopSlug, "cn_chk", o.id), "상태 확인", ButtonStyle.SECONDARY, appEmoji("does_chart"))));
   }
-  kids.push(textDisplay(`-# 주문 ${o.id}${!done ? (relay ? " · 송금을 누르면 NOWPayments 로 바로 보내요 (TXID 를 적으면 직접 보낸 것으로 처리)" : " · 직접 보낸 뒤 TXID 를 적어 주세요") : ""}`));
+  kids.push(textDisplay(`-# 주문 ${o.id}${!done ? (auto ? " · 송금을 누르면 바로 보내요 (TXID 를 적으면 직접 보낸 것으로 처리)" : " · 직접 보낸 뒤 TXID 를 적어 주세요") : ""}`));
   return { flags: MessageFlags.IS_COMPONENTS_V2, components: [container(kids, color)], allowed_mentions: { parse: [] as string[] } };
 }
 
@@ -437,17 +441,18 @@ export async function handleCoinSendButton(shopSlug: string, id: string, roles: 
   const o = await getCoinOrder(g.shop.id, id);
   if (!o) return plainEphemeral("주문을 찾을 수 없어요.");
   if (o.status !== "pending") return plainEphemeral("이미 처리된 주문이에요.");
-  const relay = await coinRelayConfig();
+  const mode = await coinPayoutMode();
+  const auto = mode !== "manual";
   return showModal({
     customId: cid(shopSlug, "cn_sendm", id),
     title: `송금 · ${formatCoin(o.coin, o.coinAmount)}`.slice(0, 45),
     inputs: [
       textInput({
         customId: "txid",
-        label: relay ? "TXID (비우면 NOWPayments 자동 송금)" : "TXID (직접 보낸 거래 해시)",
-        placeholder: relay ? "자동 송금이면 비워 두세요" : "블록 탐색기의 거래 해시",
-        required: !relay,
-        minLength: relay ? 0 : 20,
+        label: auto ? "TXID (비우면 자동 송금)" : "TXID (직접 보낸 거래 해시)",
+        placeholder: auto ? "자동 송금이면 비워 두세요" : "블록 탐색기의 거래 해시",
+        required: !auto,
+        minLength: auto ? 0 : 20,
         maxLength: 120,
       }),
     ],
@@ -479,26 +484,92 @@ export async function handleCoinSendSubmit(shopSlug: string, id: string, adminId
     }
   }
 
-  if (!(await coinRelayConfig())) return show(current, "자동 송금 중계 서버가 없어서 TXID 를 꼭 적어야 해요.");
+  const mode = await coinPayoutMode();
+  if (mode === "manual") return show(current, "자동 송금이 설정돼 있지 않아서 TXID 를 꼭 적어야 해요.");
+
   let o: CoinOrder;
   try {
     o = await beginCoinAutoSend(shop.id, id, adminId);
   } catch (e) {
     return show(current, e instanceof Error ? e.message : "처리하지 못했어요.");
   }
-  try {
-    const r = await requestRelayPayout(o, callbackUrl(shop.slug));
-    if (r.payoutId) {
-      const { order } = await finishCoinAutoSendPayoutId(shop.id, id, r.payoutId);
-      o = order;
+
+  // 릴레이 방식 — 중계 서버가 송금 생성·2FA·상태추적까지 하고 callback 으로 알려 준다
+  if (mode === "relay") {
+    try {
+      const r = await requestRelayPayout(o, callbackUrl(shop.slug));
+      if (r.payoutId) {
+        const { order } = await finishCoinAutoSendPayoutId(shop.id, id, r.payoutId);
+        o = order;
+      }
+      return show(o, "NOWPayments 송금 요청 완료 · 블록체인 전송이 끝나면 이 카드가 바뀌고 손님에게 DM 이 가요");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "송금 요청 실패";
+      const { order } = await finishCoinAutoSend(shop.id, id, { ok: false, error: msg });
+      await persistAsync();
+      await notifyFailed(order);
+      return show(order, "송금 요청이 실패해서 손님 포인트를 돌려줬어요.");
     }
-    return show(o, "NOWPayments 송금 요청 완료 · 블록체인 전송이 끝나면 이 카드가 바뀌고 손님에게 DM 이 가요");
+  }
+
+  // 직접 방식 — Worker 가 NOWPayments 송금을 바로 생성·2FA 확인. 상태는 "상태 확인"으로 다시 본다
+  try {
+    const { createPayoutDirect, checkPayoutStatus } = await import("@/lib/coin-payout-direct");
+    const payoutId = await createPayoutDirect({ currency: COINS[o.coin].npCode, amount: o.coinAmount, address: o.address });
+    ({ order: o } = await finishCoinAutoSendPayoutId(shop.id, id, payoutId));
+    // 즉시 완료되는 경우가 있어 한 번 상태를 본다
+    const st = await checkPayoutStatus(payoutId).catch(() => null);
+    if (st?.final === "ok") {
+      const { order } = await finishCoinAutoSend(shop.id, id, { ok: true, txid: st.txid, payoutId });
+      await persistAsync();
+      await notifySent(order);
+      void refreshCoinPanel(shop.id);
+      return show(order);
+    }
+    if (st?.final === "fail") {
+      const { order } = await finishCoinAutoSend(shop.id, id, { ok: false, error: `NOWPayments ${st.status}${st.error ? ` · ${st.error}` : ""}`, payoutId });
+      await persistAsync();
+      await notifyFailed(order);
+      return show(order, "송금이 실패해서 손님 포인트를 돌려줬어요.");
+    }
+    return show(o, "자동 송금 요청 완료 · 전송 중이에요. 잠시 뒤 [상태 확인]을 눌러 결과를 확인하세요.");
   } catch (e) {
     const msg = e instanceof Error ? e.message : "송금 요청 실패";
     const { order } = await finishCoinAutoSend(shop.id, id, { ok: false, error: msg });
     await persistAsync();
     await notifyFailed(order);
     return show(order, "송금 요청이 실패해서 손님 포인트를 돌려줬어요.");
+  }
+}
+
+/** [상태 확인] — direct 방식에서 sending 상태의 송금 결과를 다시 조회 */
+export async function handleCoinCheckButton(shopSlug: string, id: string, roles: string[], permissions: string | undefined) {
+  const shop = getShopBySlug(shopSlug);
+  const current = shop ? await getCoinOrder(shop.id, id) : null;
+  if (!shop || !current) return plainEphemeral("주문을 찾을 수 없어요.");
+  if (!isDiscordAdmin(getShopSettings(shop.id), roles, permissions)) return plainEphemeral("관리자만 확인할 수 있어요.");
+  if (current.status !== "sending" || !current.payoutId) {
+    return v2Update((await adminCard(shopSlug, current)).components);
+  }
+  try {
+    const { checkPayoutStatus } = await import("@/lib/coin-payout-direct");
+    const st = await checkPayoutStatus(current.payoutId);
+    if (st.final === "ok") {
+      const { order } = await finishCoinAutoSend(shop.id, id, { ok: true, txid: st.txid, payoutId: current.payoutId });
+      await persistAsync();
+      await notifySent(order);
+      void refreshCoinPanel(shop.id);
+      return v2Update((await adminCard(shopSlug, order)).components);
+    }
+    if (st.final === "fail") {
+      const { order } = await finishCoinAutoSend(shop.id, id, { ok: false, error: `NOWPayments ${st.status}${st.error ? ` · ${st.error}` : ""}`, payoutId: current.payoutId });
+      await persistAsync();
+      await notifyFailed(order);
+      return v2Update((await adminCard(shopSlug, order)).components);
+    }
+    return v2Update((await adminCard(shopSlug, current, `아직 전송 중이에요 (상태: ${st.status || "대기"}). 잠시 뒤 다시 확인해 주세요.`)).components);
+  } catch (e) {
+    return v2Update((await adminCard(shopSlug, current, e instanceof Error ? e.message : "상태를 확인하지 못했어요.")).components);
   }
 }
 

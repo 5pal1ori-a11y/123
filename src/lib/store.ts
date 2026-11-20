@@ -3158,6 +3158,23 @@ export function changeUserPoints(
   return { ok: true, balance: user.points };
 }
 
+/** 코인대행 송금 완료 시 누적 지출액을 더하고 VIP 등급을 자동 갱신한다 */
+export function addCoinSpent(shopId: string, userId: string, krw: number): { totalCoinSpent: number; vipTier: number; upgraded: boolean } | null {
+  const store = getStore();
+  const user = store.users.find((u) => u.id === userId && u.shopId === shopId);
+  if (!user) return null;
+  const add = Math.max(0, Math.trunc(krw));
+  const prevTier = user.vipTier ?? 0;
+  user.totalCoinSpent = (user.totalCoinSpent ?? 0) + add;
+  // VIP 등급 임계값 (coin-trade.ts VIP_TIERS 와 동일하게 유지)
+  const THRESHOLDS = [0, 500_000, 2_000_000, 10_000_000, 50_000_000, 200_000_000];
+  let tier = 0;
+  for (let i = 0; i < THRESHOLDS.length; i++) if (user.totalCoinSpent >= THRESHOLDS[i]!) tier = i;
+  user.vipTier = tier;
+  persist(store);
+  return { totalCoinSpent: user.totalCoinSpent, vipTier: tier, upgraded: tier > prevTier };
+}
+
 export function resolveUserTier(shopId: string, user: ShopUser): ShopTier | null {
   const tiers = getStore()
     .tiers.filter((t) => t.shopId === shopId)

@@ -414,19 +414,31 @@ export async function rejectCoinOrder(shopId: string, id: string, adminId: strin
 
 /** 관리자가 직접 보내고 TXID 입력 */
 export async function markCoinOrderSentManually(shopId: string, id: string, adminId: string, txid: string) {
-  return mutate(shopId, (list) => {
-    const o = list.find((x) => x.id === id);
-    if (!o) throw new Error("주문을 찾을 수 없어요.");
-    if (o.status !== "pending") throw new Error("이미 처리된 주문이에요.");
+  const o = await mutate(shopId, (list) => {
+    const x = list.find((v) => v.id === id);
+    if (!x) throw new Error("주문을 찾을 수 없어요.");
+    if (x.status !== "pending") throw new Error("이미 처리된 주문이에요.");
     const now = new Date().toISOString();
-    o.status = "sent";
-    o.sendMode = "manual";
-    o.reviewedAt = now;
-    o.reviewedBy = adminId;
-    o.sentAt = now;
-    o.txid = txid.trim();
-    return { ...o };
+    x.status = "sent";
+    x.sendMode = "manual";
+    x.reviewedAt = now;
+    x.reviewedBy = adminId;
+    x.sentAt = now;
+    x.txid = txid.trim();
+    return { ...x };
   });
+  await recordCoinSpent(o);
+  return o;
+}
+
+/** 송금 완료된 주문의 금액을 손님 VIP 누적액에 더한다 (한 주문당 한 번) */
+async function recordCoinSpent(o: CoinOrder) {
+  try {
+    const { addCoinSpent } = await import("@/lib/store");
+    addCoinSpent(o.shopId, o.userId, o.krw);
+  } catch {
+    /* 집계 실패는 송금 성공에 영향 주지 않는다 */
+  }
 }
 
 /** 자동 송금 시작 (pending → sending) — 두 번 눌러도 한 번만 */
@@ -449,7 +461,7 @@ export async function finishCoinAutoSend(
   id: string,
   result: { ok: true; txid: string | null; payoutId: string | null } | { ok: false; error: string; payoutId?: string | null },
 ) {
-  return mutate(shopId, (list) => {
+  const res = await mutate(shopId, (list) => {
     const o = list.find((x) => x.id === id);
     if (!o) throw new Error("주문을 찾을 수 없어요.");
     if (o.status !== "sending") return { order: { ...o }, changed: false };
@@ -465,6 +477,8 @@ export async function finishCoinAutoSend(
     }
     return { order: { ...o }, changed: true };
   });
+  if (res.changed && result.ok) await recordCoinSpent(res.order);
+  return res;
 }
 
 export async function setCoinAdminCard(shopId: string, id: string, card: { channelId: string; messageId: string }) {
@@ -490,6 +504,18 @@ export async function coinRelayConfig() {
   url ||= process.env.COIN_RELAY_URL?.trim() || "";
   secret ||= process.env.COIN_RELAY_SECRET?.trim() || "";
   return url && secret ? { url: url.replace(/\/+$/, ""), secret } : null;
+}
+
+/** 자동송금 방식: relay(고정IP 중계) > direct(Worker 직접) > manual(관리자 수동+TXID) */
+export async function coinPayoutMode(): Promise<"relay" | "direct" | "manual"> {
+  if (await coinRelayConfig()) return "relay";
+  try {
+    const { nowpaymentsPayoutConfig } = await import("@/lib/coin-payout-direct");
+    if ((await nowpaymentsPayoutConfig()).configured) return "direct";
+  } catch {
+    /* 모듈 없음 */
+  }
+  return "manual";
 }
 
 export function relaySign(secret: string, ts: string, body: string) {

@@ -40,6 +40,7 @@ import {
   COINS,
   coinRelayConfig,
   coinPayoutMode,
+  coinWalletKrw,
   coinStats,
   confirmCoinOrder,
   createCoinQuote,
@@ -118,17 +119,17 @@ async function kimchiPremium(): Promise<number | null> {
 /** 패널 상단 통계 이미지 — 현재 재고(취급 코인) · 김프 · 누적 이용금액 */
 async function coinStatsImageUrl(shopId: string, shopSlug: string) {
   try {
-    const [s, prem] = await Promise.all([coinStats(shopId), kimchiPremium()]);
+    const [s, prem, wallet] = await Promise.all([coinStats(shopId), kimchiPremium(), coinWalletKrw().catch(() => null)]);
     const { cardImageUrl } = await import("@/lib/discord/rank-image");
     return await cardImageUrl(shopSlug, {
       theme: "green",
       eyebrow: "코인대행 실시간 현황",
-      title: won(s.volume),
-      subtitle: "누적 이용금액",
+      title: wallet !== null ? `재고 ${won(wallet)}` : won(s.volume),
+      subtitle: wallet !== null ? "지갑 보유 재고" : "누적 이용금액",
       chips: [
-        `재고 ${Object.keys(COINS).length}종`,
         prem !== null ? `김프 ${prem >= 0 ? "+" : ""}${prem.toFixed(1)}%` : "김프 집계중",
-        `누적 ${s.orders.toLocaleString("ko-KR")}건`,
+        `누적 ${won(s.volume)}`,
+        `${s.orders.toLocaleString("ko-KR")}건 송금`,
       ],
     }).catch(() => null);
   } catch {

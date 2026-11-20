@@ -594,6 +594,43 @@ export async function relayBalance() {
   return (await r.json().catch(() => null)) as Record<string, { amount?: number; pendingAmount?: number }> | null;
 }
 
+/** 지갑 재고 — 보유 코인 잔액을 원화로 환산해 합산 (릴레이 또는 NOWPayments). 실패하면 null */
+export async function coinWalletKrw(): Promise<number | null> {
+  let bal: Record<string, number> | null = null;
+  if (await coinRelayConfig()) {
+    const rb = await relayBalance();
+    if (rb) {
+      bal = {};
+      for (const [k, v] of Object.entries(rb)) if (v?.amount && v.amount > 0) bal[k.toLowerCase()] = v.amount;
+    }
+  } else {
+    try {
+      const { nowpaymentsBalance } = await import("@/lib/coin-payout-direct");
+      bal = await nowpaymentsBalance();
+    } catch {
+      bal = null;
+    }
+  }
+  if (!bal || !Object.keys(bal).length) return null;
+  const byCur: Record<string, CoinKey> = {};
+  for (const c of Object.values(COINS)) {
+    byCur[c.npCode.toLowerCase()] = c.key;
+    byCur[c.key] = c.key;
+  }
+  let totalKrw = 0;
+  for (const [cur, amt] of Object.entries(bal)) {
+    const key = byCur[cur] ?? (cur in COINS ? (cur as CoinKey) : null);
+    if (!key) continue;
+    try {
+      const { rate } = await fetchKrwRate(key);
+      totalKrw += amt * rate;
+    } catch {
+      /* 시세 실패한 코인은 건너뜀 */
+    }
+  }
+  return totalKrw > 0 ? totalKrw : null;
+}
+
 /* ───────────── 통계 ───────────── */
 
 export async function coinStats(shopId: string) {

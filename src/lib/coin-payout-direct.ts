@@ -112,6 +112,23 @@ export async function createPayoutDirect(input: { currency: string; amount: numb
   return String(batchId);
 }
 
+/** NOWPayments 커스터디 잔액 — { currency: amount } (실패하면 null) */
+export async function nowpaymentsBalance(): Promise<Record<string, number> | null> {
+  const cfg = await nowpaymentsPayoutConfig();
+  if (!cfg.configured) return null;
+  try {
+    const j = (await np(cfg, "GET", "/balance")) as Record<string, unknown>;
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(j)) {
+      const amt = typeof v === "number" ? v : Number((v as { amount?: number })?.amount);
+      if (Number.isFinite(amt) && amt > 0) out[k.toLowerCase()] = amt;
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 const DONE_OK = new Set(["FINISHED"]);
 const DONE_FAIL = new Set(["FAILED", "REJECTED", "EXPIRED"]);
 

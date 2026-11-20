@@ -315,6 +315,65 @@ export async function handleCoinMine(shopSlug: string, discordId: string) {
   ]);
 }
 
+export async function handleCoinChooseButton(shopSlug: string) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return plainEphemeral("상점을 찾을 수 없어요.");
+  const rows = [];
+  const coinList = Object.entries(COINS);
+  for (let i = 0; i < coinList.length; i += 5) {
+    rows.push(actionRow(...coinList.slice(i, i + 5).map(([k]) => styledButton(cid(shopSlug, "cn_buy", k), COINS[k as CoinKey].name.split(" ")[0], ButtonStyle.PRIMARY))));
+  }
+  return v2Ephemeral([
+    container(
+      [
+        textDisplay(`## ${plainEmoji("does_coin")} 구매할 코인을 골라주세요`),
+        textDisplay("코인을 선택하면 금액 · 주소 입력 모달이 뜸니다."),
+        separator(true, 1),
+        ...rows,
+        textDisplay("-# 이 메시지는 나에게만 보여요"),
+      ],
+      ACCENT,
+    ),
+  ]);
+}
+
+export async function handleCoinVipButton(shopSlug: string, discordId: string) {
+  const shop = getShopBySlug(shopSlug);
+  if (!shop) return plainEphemeral("상점을 찾을 수 없어요.");
+  const user = getUserByDiscordId(shop.id, discordId);
+  const vipTier = user?.vipTier ?? getVipTier(user?.totalCoinSpent ?? 0);
+  const currentTier = VIP_TIERS.find((v) => v.tier === vipTier) || VIP_TIERS[0];
+  const nextTier = VIP_TIERS[vipTier + 1];
+  const spent = user?.totalCoinSpent ?? 0;
+  const remaining = nextTier ? Math.max(0, nextTier.minSpent - spent) : 0;
+  const lines: string[] = [
+    `**현재 등급**: ${currentTier.name} (수수료 ${currentTier.feePercent}%)`,
+    `**누적 사용액**: ${won(spent)}`,
+  ];
+  if (nextTier) {
+    lines.push(`**다음 등급**: ${nextTier.name} (수수료 ${nextTier.feePercent}%)`);
+    lines.push(`**남은 금액**: ${won(remaining)}`);
+  } else {
+    lines.push("**최고 등급에 도달했어요!**");
+  }
+  lines.push("");
+  lines.push("**VIP 등급표**");
+  for (const v of VIP_TIERS) {
+    const mark = v.tier === vipTier ? "✓ " : "  ";
+    lines.push(`${mark}${v.name.padEnd(8)} · ${won(v.minSpent)} 이상 · ${v.feePercent}% 수수료`);
+  }
+  return v2Ephemeral([
+    container(
+      [
+        textDisplay(`## ${plainEmoji("does_coin")} VIP 등급 · 혜택`),
+        textDisplay(lines.join("\n")),
+        textDisplay("-# 누적 지출액에 따라 자동 등급업됩니다 · 이 메시지는 나에게만 보여요"),
+      ],
+      ACCENT,
+    ),
+  ]);
+}
+
 /* ───────────── 관리자 카드 ───────────── */
 
 async function adminCard(shopSlug: string, o: CoinOrder, note?: string) {

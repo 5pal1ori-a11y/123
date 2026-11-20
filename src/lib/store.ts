@@ -4481,6 +4481,24 @@ export function autoMatchCharge(input: {
       c.amount === input.amount &&
       new Date(c.createdAt).getTime() >= cutoff,
   );
+  /**
+   * 같은 입금 알림이 두 번 들어오는 경우(APK · 푸시불렛이 함께 보냄)
+   * 첫 알림이 최근 신청을 승인한 뒤, 두 번째 알림이 같은 사람의 예전(만료된) 신청까지 승인해 두 번 충전되던 문제 방지:
+   * 같은 사람 · 같은 금액 충전이 10분 안에 승인됐다면, 그보다 먼저 만든 신청은 남은 신청으로 보고 맞추지 않는다.
+   */
+  const recentDone = store.charges.filter(
+    (d) =>
+      d.shopId === input.shopId &&
+      d.status === "completed" &&
+      d.method === "bank" &&
+      d.amount === input.amount &&
+      d.completedAt &&
+      Date.now() - new Date(d.completedAt).getTime() < 10 * 60 * 1000,
+  );
+  const isLeftover = (c: PointCharge) =>
+    recentDone.some((d) => d.userId === c.userId && d.id !== c.id && new Date(d.createdAt).getTime() > new Date(c.createdAt).getTime());
+  for (let i = pending.length - 1; i >= 0; i--) if (isLeftover(pending[i]!)) pending.splice(i, 1);
+
   // 신청 시간(기본 10분)이 지나 만료된 뒤에 입금이 들어온 경우: 1시간 안이면 늦은 입금으로 자동 승인한다
   let late = false;
   if (!pending.length) {
@@ -4492,7 +4510,8 @@ export function autoMatchCharge(input: {
         c.method === "bank" &&
         c.amount === input.amount &&
         (c.failReason ?? "").includes("초과로 만료") &&
-        new Date(c.createdAt).getTime() >= lateCutoff,
+        new Date(c.createdAt).getTime() >= lateCutoff &&
+        !isLeftover(c),
     );
     if (expired.length) {
       pending.push(...expired);
@@ -4503,6 +4522,32 @@ export function autoMatchCharge(input: {
     return { ok: false, error: "같은 금액의 대기 중인 충전이 없어요." };
   }
   const confirmOpts = late ? { resultLabel: "자동 승인됨 (늦은 입금)", manual: true } : { resultLabel: "자동 승인됨" };
+
+  /** 승인 + 같은 사람의 같은 금액 예전 신청(대기 · 만료)은 정리해서 나중 알림에 다시 걸리지 않게 */
+  const approve = (id: string, label: string) => {
+    const r = confirmPointCharge(id, input.shopId, label, input.amount, confirmOpts);
+    if (r.ok) {
+      const done = r.charge;
+      const since = Date.now() - 2 * 60 * 60 * 1000;
+      for (const c of store.charges) {
+        if (
+          c.id !== done.id &&
+          c.shopId === input.shopId &&
+          c.userId === done.userId &&
+          c.method === "bank" &&
+          c.amount === done.amount &&
+          (c.status === "pending" || c.status === "expired") &&
+          new Date(c.createdAt).getTime() < new Date(done.createdAt).getTime() &&
+          new Date(c.createdAt).getTime() >= since
+        ) {
+          c.status = "cancelled";
+          c.failReason = "같은 입금으로 다른 신청이 처리되어 정리됨";
+        }
+      }
+      persist(store);
+    }
+    return r;
+  };
 
   const text = input.depositorText.toUpperCase().replace(/\s/g, "");
   const parsedName = input.depositorName ? normDepositorName(input.depositorName) : null;
@@ -4543,7 +4588,7 @@ export function autoMatchCharge(input: {
     );
     if (exact.length > 1) return ambiguous;
     if (exact[0]) {
-      return confirmPointCharge(exact[0].id, input.shopId, parsedName, input.amount, confirmOpts);
+      return approve(exact[0].id, parsedName);
     }
   }
 
@@ -4590,7 +4635,7 @@ export function autoMatchCharge(input: {
   }
 
   const depositorLabel = parsedName ?? match.depositorName ?? match.reference;
-  return confirmPointCharge(match.id, input.shopId, depositorLabel, input.amount, confirmOpts);
+  return approve(match.id, depositorLabel);
 }
 
 /** 1인 구매 한도 — 발급 대기 · 입금 대기 주문도 수량만큼 센다 */

@@ -139,7 +139,7 @@ const META: Record<UserTab, { title: string; sub: string }> = {
   gugo: { title: "구해드림", sub: "원하는 계정을 조건 · 예산으로 주문하면 구해 드려요" },
   buyback: { title: "계정 매입 · 보상판매", sub: "내 계정 시세 조회 · 매입 · 더 좋은 계정으로 바꾸기" },
   care: { title: "DOES 케어", sub: "계정이 잠기거나 도난 · 정지돼도 보상받는 구독" },
-  dosmarket: { title: "도스마켓", sub: "계정 매입 · 보상판매 · DOES 케어" },
+  dosmarket: { title: "도스마켓", sub: "계정 판매 · 매입 · 보상판매 · DOES 케어" },
   attendance: { title: "출석체크", sub: "매일 한 번, 랜덤 포인트 상자를 열어보세요" },
   reviews: { title: "후기내역", sub: "디스코드에 남겨진 후기를 실시간으로 모아봤어요" },
   island: { title: "내 섬", sub: "활동으로 블록을 모아 나만의 스카이블럭 섬을 꾸며보세요" },

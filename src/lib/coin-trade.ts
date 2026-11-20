@@ -313,25 +313,39 @@ export function formatCoin(coin: CoinKey, n: number) {
 
 export async function fetchKrwRate(coin: CoinKey): Promise<{ rate: number; source: string }> {
   const c = COINS[coin];
-  try {
-    const r = await fetch(`https://api.upbit.com/v1/ticker?markets=${c.upbit}`, { headers: { accept: "application/json" } });
-    if (r.ok) {
-      const j = (await r.json()) as { trade_price?: number }[];
-      const p = Number(j?.[0]?.trade_price);
-      if (Number.isFinite(p) && p > 0) return { rate: p, source: "업비트" };
-    }
-  } catch {
-    /* 아래 빗썸 */
+  const sym = coin.toUpperCase();
+  const ok = (p: unknown) => Number.isFinite(Number(p)) && Number(p) > 0;
+  // 국내 원화 거래소를 차례로 (업비트에 없는 코인도 있어서 여러 곳을 본다)
+  const domestic: [string, () => Promise<unknown>][] = [
+    ["업비트", async () => (await getJson<{ trade_price?: number }[]>(`https://api.upbit.com/v1/ticker?markets=${c.upbit}`))?.[0]?.trade_price],
+    ["빗썸", async () => (await getJson<{ trade_price?: number }[]>(`https://api.bithumb.com/v1/ticker?markets=KRW-${sym}`))?.[0]?.trade_price],
+    ["빗썸", async () => (await getJson<{ data?: { closing_price?: string } }>(`https://api.bithumb.com/public/ticker/${c.bithumb}`))?.data?.closing_price],
+    ["코인원", async () => (await getJson<{ tickers?: { last?: string }[] }>(`https://api.coinone.co.kr/public/v2/ticker_new/KRW/${sym}`))?.tickers?.[0]?.last],
+    ["코빗", async () => (await getJson<{ last?: string }>(`https://api.korbit.co.kr/v1/ticker?currency_pair=${coin}_krw`))?.last],
+  ];
+  for (const [source, f] of domestic) {
+    const p = await f().catch(() => null);
+    if (ok(p)) return { rate: Number(p), source };
   }
-  try {
-    const r = await fetch(`https://api.bithumb.com/public/ticker/${c.bithumb}`);
-    if (r.ok) {
-      const j = (await r.json()) as { data?: { closing_price?: string } };
-      const p = Number(j?.data?.closing_price);
-      if (Number.isFinite(p) && p > 0) return { rate: p, source: "빗썸" };
+  // 마지막: 해외 달러 시세 × 환율 × (1 + 김프) — 국내 시세와 비슷하게 맞춘다
+  const global: [string, () => Promise<unknown>][] = [
+    ["coinbase", async () => (await getJson<{ data?: { amount?: string } }>(`https://api.coinbase.com/v2/prices/${sym}-USD/spot`))?.data?.amount],
+    ["kraken", async () => {
+      const j = await getJson<{ result?: Record<string, { c?: string[] }> }>(`https://api.kraken.com/0/public/Ticker?pair=${sym}USD`);
+      return j?.result ? Object.values(j.result)[0]?.c?.[0] : null;
+    }],
+    ["binance", async () => (await getJson<{ price?: string }>(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT`))?.price],
+  ];
+  const fx = await usdKrw();
+  if (fx) {
+    for (const [src, f] of global) {
+      const usd = await f().catch(() => null);
+      if (ok(usd)) {
+        // BTC 는 김프 계산 자체에 쓰이므로 여기서 김프를 다시 부르지 않는다 (순환 방지)
+        const prem = coin === "btc" ? 0 : ((await kimchiPremiumInfo().catch(() => null))?.premium ?? 0);
+        return { rate: Number(usd) * fx.krw * (1 + prem / 100), source: `해외(${src})` };
+      }
     }
-  } catch {
-    /* 실패 */
   }
   throw new Error("지금 시세를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.");
 }

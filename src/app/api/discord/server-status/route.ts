@@ -187,6 +187,8 @@ async function refreshRankingEvery10m(shopId: string) {
   }
   // 체크락: 판매 중인 마크 계정 공개 정보 점검 (30분마다 몇 개씩)
   await import("@/lib/checklock").then(({ runChecklock }) => runChecklock(shopId)).catch((err) => console.error("[checklock]", err));
+  // 계정 차트: 30분마다 오늘 시세 점을 다시 계산 (날짜가 바뀌면 새 점)
+  await import("@/lib/market-index").then(({ updateMarketIndex }) => updateMarketIndex(shopId)).catch((err) => console.error("[market]", err));
   // 프리미엄 플랜: 월 포인트 지급 · 만료 역할 회수
   await import("@/lib/premium")
     .then(async ({ premiumCron }) => {

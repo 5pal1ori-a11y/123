@@ -29,6 +29,7 @@ export type UserTab =
   | "premium"
   | "charge"
   | "coin"
+  | "market"
   | "history"
   | "account"
   | "leaderboard"

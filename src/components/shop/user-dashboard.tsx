@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Coins,
   Bitcoin,
+  LineChart,
   Crown,
   Home,
   LayoutGrid,
@@ -43,6 +44,7 @@ import {
 } from "./shop-products-tab";
 import { ShopCartBar, addToCart } from "./shop-cart";
 import { CoinTradeClient } from "./coin-trade-client";
+import { MarketChartClient } from "./market-chart-client";
 import { UserHomeTab } from "./user-home-tab";
 import { UserHistoryTab } from "./user-history-tab";
 import { UserAccountTab } from "./user-account-tab";
@@ -97,6 +99,7 @@ const NAV: { id: UserTab; label: string; icon: typeof Home }[] = [
   { id: "premium", label: "프리미엄 플랜", icon: Crown },
   { id: "charge", label: "충전", icon: Coins },
   { id: "coin", label: "코인대행", icon: Bitcoin },
+  { id: "market", label: "시세", icon: LineChart },
   { id: "attendance", label: "출석", icon: CalendarCheck },
   { id: "reviews", label: "후기", icon: Star },
   { id: "island", label: "내 섬", icon: TreePine },
@@ -124,6 +127,7 @@ const META: Record<UserTab, { title: string; sub: string }> = {
   premium: { title: "프리미엄 플랜", sub: "BASIC PASS · DOES PASS+ 로 더 많은 혜택을 받아보세요" },
   charge: { title: "포인트 충전", sub: "계좌 · 문화상품권 · 코인으로 간편하게" },
   coin: { title: "코인대행", sub: "포인트로 코인을 사서 내 지갑으로 받아보세요" },
+  market: { title: "계정 차트", sub: "망토 · 계정 종류별 시세와 내일 추세" },
   attendance: { title: "출석체크", sub: "매일 한 번, 랜덤 포인트 상자를 열어보세요" },
   reviews: { title: "후기내역", sub: "디스코드에 남겨진 후기를 실시간으로 모아봤어요" },
   island: { title: "내 섬", sub: "활동으로 블록을 모아 나만의 스카이블럭 섬을 꾸며보세요" },
@@ -1015,6 +1019,12 @@ export function UserDashboard({
                     nowpaymentsEnabled={nowpaymentsEnabled}
                     embedded
                   />
+                </div>
+              )}
+
+              {tab === "market" && (
+                <div className="w-full">
+                  <MarketChartClient />
                 </div>
               )}
 

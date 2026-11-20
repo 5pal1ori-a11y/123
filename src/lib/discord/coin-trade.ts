@@ -117,6 +117,7 @@ async function panelMessage(shopId: string, shopSlug: string) {
       styledButton(cid(shopSlug, "cn_choose"), "🪙 코인 구매", ButtonStyle.PRIMARY, appEmoji("does_coin")),
       styledButton(cid(shopSlug, "cn_mine"), "📊 내 주문", ButtonStyle.SECONDARY, appEmoji("does_chart")),
       styledButton(cid(shopSlug, "cn_vip"), "💎 VIP 혜택", ButtonStyle.SECONDARY),
+      linkButton(shopUrl(shopSlug, "/coin-calculator"), "🧮 계산기"),
     ),
     textDisplay("-# 신청 → 견적 확인 → 확정(포인트 차감) → 관리자 확인 후 송금 · 결과는 DM 으로 알려 드려요\n-# 주소를 잘못 적으면 되돌릴 수 없어요. 네트워크를 꼭 확인해 주세요."),
   ];

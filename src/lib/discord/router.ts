@@ -285,6 +285,16 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         review: opt("후기채널"),
       });
     }
+    if (name === "렌탈") {
+      const v = interaction.data?.options?.find((o) => o.name === "승인채널")?.value;
+      const { handleRentalCommand } = await import("@/lib/discord/rental");
+      return handleRentalCommand(shop.slug, actor.roles, perms, interaction.channel_id, typeof v === "string" ? v : null);
+    }
+    if (name === "시즌패스") {
+      const u = interaction.member?.user ?? interaction.user;
+      const { handleSeasonPassCommand } = await import("@/lib/discord/season-pass");
+      return handleSeasonPassCommand(shop.slug, { id: actor.id, name: u?.global_name || actor.username, avatar: u?.avatar ?? null });
+    }
     if (name === "케어") {
       const v = interaction.data?.options?.find((o) => o.name === "승인채널")?.value;
       const { handleCareCommand } = await import("@/lib/discord/care");
@@ -574,6 +584,12 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       return px.handleProxyRejectSubmit(shop.slug, parsed.payload, actor.id, actor.roles, modalPerms, interaction);
     }
 
+    if (parsed.action === "rt_addm" || parsed.action === "rt_donem") {
+      const rt = await import("@/lib/discord/rental");
+      if (parsed.action === "rt_addm") return rt.handleRentalAddSubmit(shop.slug, actor.roles, interaction.member?.permissions, interaction);
+      return rt.handleRentalDoneSubmit(shop.slug, parsed.payload, actor.roles, interaction.member?.permissions, interaction);
+    }
+
     if (parsed.action === "cr_okm" || parsed.action === "cr_nom") {
       const { handleClaimSubmit } = await import("@/lib/discord/care");
       return handleClaimSubmit(shop.slug, parsed.payload, parsed.action === "cr_okm", actor.roles, interaction.member?.permissions, interaction);
@@ -749,6 +765,24 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
     if (action === "dm_paid" || action === "dm_release" || action === "dm_refund" || action === "dm_cred") {
       const { handleDosMarketButton } = await import("@/lib/dosmarket");
       return handleDosMarketButton(shop.slug, action, payload, actor.roles, perms);
+    }
+    if (action.startsWith("rt_")) {
+      const rt = await import("@/lib/discord/rental");
+      if (action === "rt_pick") return rt.handleRentalPick(shop.slug, actor.id, values[0] ?? "");
+      if (action === "rt_day") return rt.handleRentalDay(shop.slug, actor.id, payload);
+      if (action === "rt_go") return rt.handleRentalGo(shop.slug, actor.id, payload);
+      if (action === "rt_x") return v2Update([{ type: 17, components: [{ type: 10, content: "취소했어요." }] }]);
+      if (action === "rt_mine") return rt.handleRentalMine(shop.slug, actor.id);
+      if (action === "rt_ext") return rt.handleRentalExtend(shop.slug, actor.id, payload);
+      if (action === "rt_ret") return rt.handleRentalReturn(shop.slug, actor.id, payload);
+      if (action === "rt_add") return rt.handleRentalAddButton(shop.slug, actor.roles, perms);
+      if (action === "rt_done") return rt.handleRentalDoneButton(shop.slug, payload, actor.roles, perms);
+      if (action === "rt_cred" || action === "rt_hide" || action === "rt_del") return rt.handleRentalAdminButton(shop.slug, action, payload, actor.roles, perms);
+    }
+    if (action === "sp_pg" || action === "sp_claim" || action === "sp_buy") {
+      const u = interaction.member?.user ?? interaction.user;
+      const { handleSeasonPassButton } = await import("@/lib/discord/season-pass");
+      return handleSeasonPassButton(shop.slug, action, payload, { id: actor.id, name: u?.global_name || actor.username, avatar: u?.avatar ?? null });
     }
     if (action === "cr_ok" || action === "cr_no") {
       const { handleClaimButton } = await import("@/lib/discord/care");

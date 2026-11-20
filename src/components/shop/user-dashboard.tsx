@@ -34,6 +34,8 @@ import {
   TreePine,
   Trophy,
   X,
+  KeyRound,
+  Medal,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { vxTransitionMobile } from "@/lib/motion";
@@ -51,6 +53,8 @@ import { MarketChartClient } from "./market-chart-client";
 import { MockStockClient } from "./mock-stock-client";
 import { GugoClient } from "./gugo-client";
 import { DosMarketHub } from "./dosmarket-hub";
+import { RentalClient } from "./rental-client";
+import { SeasonPassClient } from "./season-pass-client";
 import { UserHomeTab } from "./user-home-tab";
 import { UserHistoryTab } from "./user-history-tab";
 import { UserAccountTab } from "./user-account-tab";
@@ -103,10 +107,12 @@ const NAV: { id: UserTab; label: string; icon: typeof Home; group?: string }[] =
   { id: "main", label: "홈", icon: Home },
   { id: "products", label: "쇼핑", icon: Package, group: "쇼핑 및 거래" },
   { id: "dosmarket", label: "도스마켓", icon: Store, group: "쇼핑 및 거래" },
+  { id: "rental", label: "렌탈", icon: KeyRound, group: "쇼핑 및 거래" },
   { id: "gugo", label: "구해드림", icon: Sparkles, group: "쇼핑 및 거래" },
   { id: "market", label: "시세", icon: LineChart, group: "쇼핑 및 거래" },
   { id: "charge", label: "충전", icon: Coins, group: "쇼핑 및 거래" },
   { id: "coin", label: "코인대행", icon: Bitcoin, group: "쇼핑 및 거래" },
+  { id: "season", label: "시즌패스", icon: Medal, group: "혜택 및 활동" },
   { id: "premium", label: "프리미엄 플랜", icon: Crown, group: "혜택 및 활동" },
   { id: "attendance", label: "출석", icon: CalendarCheck, group: "혜택 및 활동" },
   { id: "island", label: "내 섬", icon: TreePine, group: "혜택 및 활동" },
@@ -139,6 +145,8 @@ const META: Record<UserTab, { title: string; sub: string }> = {
   gugo: { title: "구해드림", sub: "원하는 계정을 조건 · 예산으로 주문하면 구해 드려요" },
   buyback: { title: "계정 매입 · 보상판매", sub: "내 계정 시세 조회 · 매입 · 더 좋은 계정으로 바꾸기" },
   care: { title: "DOES 케어", sub: "계정이 잠기거나 도난 · 정지돼도 보상받는 구독" },
+  rental: { title: "계정 렌탈", sub: "비싼 망토 · 랭크 계정을 필요한 기간만 빌려 쓰세요" },
+  season: { title: "시즌패스", sub: "활동으로 레벨을 올리고 일반 · 패스 보상을 받으세요" },
   dosmarket: { title: "도스마켓", sub: "계정 판매 · 매입 · 보상판매 · DOES 케어" },
   attendance: { title: "출석체크", sub: "매일 한 번, 랜덤 포인트 상자를 열어보세요" },
   reviews: { title: "후기내역", sub: "디스코드에 남겨진 후기를 실시간으로 모아봤어요" },
@@ -151,6 +159,7 @@ const META: Record<UserTab, { title: string; sub: string }> = {
 function normalizeTab(value: string | null): UserTab {
   if (value === "purchase") return "products";
   if (value === "buyback" || value === "care") return "dosmarket";
+  if (value === "seasonpass" || value === "pass") return "season";
   if (value !== null && TABS.includes(value as UserTab)) return value as UserTab;
   return "main";
 }
@@ -1035,6 +1044,18 @@ export function UserDashboard({
                     nowpaymentsEnabled={nowpaymentsEnabled}
                     embedded
                   />
+                </div>
+              )}
+
+              {tab === "rental" && (
+                <div className="w-full">
+                  <RentalClient />
+                </div>
+              )}
+
+              {tab === "season" && (
+                <div className="w-full">
+                  <SeasonPassClient />
                 </div>
               )}
 

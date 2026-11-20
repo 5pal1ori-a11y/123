@@ -145,6 +145,9 @@ function needsSyncModalResponse(interaction: DiscordInteraction) {
     // 케어 보상 승인 · 거절 → 입력 창(모달)
     action === "cr_ok" ||
     action === "cr_no" ||
+    // 렌탈 상품 등록 · 반납 완료 → 입력 창(모달)
+    action === "rt_add" ||
+    action === "rt_done" ||
     action === "cn_send" ||
     action === "cn_rej" ||
     action === "chg_custom" ||
@@ -180,6 +183,19 @@ async function chargeNeedsDepositorModal(interaction: DiscordInteraction) {
 
 /** 누른 메시지를 그 자리에서 고쳐 쓰는 동작 — 나머지는 버튼자판기처럼 새 ephemeral 응답 */
 const UPDATE_IN_PLACE = new Set([
+  // 렌탈: 기간 확인 · 결제 · 연장 · 반납 → 그 창을, 관리자 버튼 · 반납 모달 → 카드를 그 자리에서 바꾼다
+  "rt_day",
+  "rt_go",
+  "rt_x",
+  "rt_ext",
+  "rt_ret",
+  "rt_hide",
+  "rt_del",
+  "rt_donem",
+  // 시즌패스 ◀ ▶ · 보상 받기 · 패스 구매
+  "sp_pg",
+  "sp_claim",
+  "sp_buy",
   // 프록시 승인·거절 모달 → 관리자 채널의 신청 카드를 그 자리에서 결과로 바꾼다
   "px_okm",
   "px_nom",

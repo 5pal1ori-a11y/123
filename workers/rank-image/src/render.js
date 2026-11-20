@@ -1317,3 +1317,107 @@ export function passportTree(d) {
     ),
   );
 }
+
+/* ───────── 시즌패스 (일반 보상 · 패스 보상 두 줄 트랙) ─────────
+ * d: { s, dl, nm, av, lv, xi, xt, ps, cl, mx, t: [[level, fLabel, fType, fState, pLabel, pType, pState], ...] }
+ * state: 0 잠김 · 1 받기 가능 · 2 받음 · 3 패스 없음
+ */
+const SP_GOLD = "#fbbf24";
+const SP_FREE = "#60a5fa";
+const spSvg = (s) => `data:image/svg+xml;utf8,${encodeURIComponent(s)}`;
+const SP_ICON = {
+  p: (c) => spSvg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="${c}"/><circle cx="32" cy="32" r="20" fill="none" stroke="#0006" stroke-width="3"/><path d="M25 19h9.5a8 8 0 0 1 0 16H30.5v10H25zM30.5 24v6h4a3 3 0 0 0 0-6z" fill="#000a" fill-rule="evenodd"/></svg>`),
+  t: (c) => spSvg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M6 18h52v8a6 6 0 0 0 0 12v8H6v-8a6 6 0 0 0 0-12z" fill="${c}"/><path d="M42 20v24" stroke="#0007" stroke-width="3" stroke-dasharray="4 4"/><path d="M17 26l4-3h3v18h-5V29l-2 1z" fill="#000a"/></svg>`),
+};
+const SP_LOCK = spSvg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2" fill="#fbbf24"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="#fbbf24" stroke-width="2.4"/></svg>`);
+const SP_CHECK = spSvg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#22c55e"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`);
+
+function spCell(label, type, state, lane) {
+  const gold = lane === "pass";
+  const accent = gold ? SP_GOLD : SP_FREE;
+  const ready = state === 1;
+  const done = state === 2;
+  const dim = state === 0 || state === 3;
+  return h("div", {
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 136, height: 118, borderRadius: 22, position: "relative",
+      background: ready
+        ? `linear-gradient(160deg, ${gold ? "rgba(251,191,36,0.32)" : "rgba(96,165,250,0.30)"} 0%, rgba(255,255,255,0.04) 100%)`
+        : gold ? "linear-gradient(160deg, rgba(251,191,36,0.12) 0%, rgba(255,255,255,0.02) 100%)" : "linear-gradient(160deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)",
+      border: ready ? `2px solid ${accent}` : `1px solid ${gold ? "rgba(251,191,36,0.28)" : "rgba(255,255,255,0.12)"}`,
+      boxShadow: ready ? `0 0 26px ${gold ? "rgba(251,191,36,0.45)" : "rgba(96,165,250,0.45)"}` : "none",
+      opacity: done ? 0.55 : dim ? 0.62 : 1,
+    },
+    img(SP_ICON[type === "t" ? "t" : "p"](dim ? "#64748b" : type === "t" ? "#c084fc" : accent), { width: 50, height: 50 }),
+    h("div", { display: "flex", marginTop: 8, fontSize: 20, fontWeight: 900, color: dim ? "#94a3b8" : "#fff", letterSpacing: -0.5 }, label),
+    done ? img(SP_CHECK, { position: "absolute", top: 8, right: 8, width: 28, height: 28 }) : null,
+    state === 3 ? img(SP_LOCK, { position: "absolute", top: 9, right: 9, width: 24, height: 24 }) : null,
+    ready ? h("div", { display: "flex", position: "absolute", ...(gold ? { bottom: -12 } : { top: -12 }), padding: "3px 12px", borderRadius: 999, background: accent, color: "#0b0f1a", fontSize: 14, fontWeight: 900 }, "받기") : null,
+  );
+}
+
+export function seasonPassTree(d) {
+  const tiers = (d.t ?? []).slice(0, 6);
+  const mx = d.mx || 30;
+  const pct = Math.max(0, Math.min(100, d.lv >= mx ? 100 : d.xi || 0));
+  return h("div", { ...PAGE("#3b2a05"), padding: "36px 48px 26px" },
+    // 머리
+    h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+      h("div", { display: "flex", alignItems: "center" },
+        d.logo ? img(d.logo, { width: 64, height: 64, marginRight: 16 }) : null,
+        h("div", { display: "flex", flexDirection: "column" },
+          h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: SP_GOLD, letterSpacing: 6 }, "SEASON PASS"),
+          h("div", { display: "flex", fontSize: 44, fontWeight: 900, marginTop: 2, letterSpacing: -1.5 }, `DOES ${d.s ?? "시즌"}`),
+        ),
+      ),
+      h("div", { display: "flex", alignItems: "center" },
+        h("div", { display: "flex", padding: "10px 18px", borderRadius: 999, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)", fontSize: 20, fontWeight: 900, marginRight: 12 }, `D-${d.dl ?? 0}`),
+        h("div", { display: "flex", padding: "10px 20px", borderRadius: 999, fontSize: 20, fontWeight: 900,
+            background: d.ps ? "linear-gradient(135deg,#fde68a 0%,#f59e0b 100%)" : "rgba(255,255,255,0.07)", color: d.ps ? "#3b2300" : "#cbd5e1",
+            border: d.ps ? "none" : "1px solid rgba(255,255,255,0.14)" }, d.ps ? "★ 패스 보유" : "일반"),
+      ),
+    ),
+    // 내 레벨
+    h("div", { display: "flex", alignItems: "center", marginTop: 24, padding: "18px 22px", borderRadius: 24, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" },
+      avatar(d.av, 66, d.ps ? "linear-gradient(135deg,#fde68a,#f59e0b)" : `linear-gradient(135deg,${SP_FREE},#a78bfa)`, null),
+      h("div", { display: "flex", flexDirection: "column", marginLeft: 16, width: 230 },
+        h("div", { display: "flex", fontSize: 24, fontWeight: 900, maxWidth: 230, overflow: "hidden", whiteSpace: "nowrap" }, d.nm ?? "회원"),
+        h("div", { display: "flex", fontSize: 16, fontWeight: 500, color: "#94a3b8", marginTop: 2 }, `누적 ${fmtN(d.xt)} XP`),
+      ),
+      h("div", { display: "flex", alignItems: "baseline", marginRight: 22 },
+        h("div", { display: "flex", fontSize: 20, fontWeight: 700, color: SP_GOLD, marginRight: 6 }, "Lv."),
+        h("div", { display: "flex", fontSize: 52, fontWeight: 900, letterSpacing: -2 }, String(d.lv ?? 0)),
+        h("div", { display: "flex", fontSize: 20, fontWeight: 700, color: "#64748b", marginLeft: 4 }, `/ ${mx}`),
+      ),
+      h("div", { display: "flex", flexDirection: "column", flex: 1 },
+        h("div", { display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700, color: "#94a3b8", marginBottom: 8 },
+          h("div", { display: "flex" }, d.lv >= mx ? "최고 레벨 달성!" : `다음 레벨까지 ${100 - pct} XP`),
+          h("div", { display: "flex", color: "#e2e8f0" }, d.lv >= mx ? "MAX" : `${pct} / 100`),
+        ),
+        h("div", { display: "flex", height: 16, borderRadius: 16, background: "rgba(255,255,255,0.08)" },
+          h("div", { display: "flex", width: `${Math.max(3, pct)}%`, height: 16, borderRadius: 16, background: "linear-gradient(90deg,#f59e0b 0%,#fde68a 100%)", boxShadow: "0 0 14px rgba(251,191,36,0.6)" }),
+        ),
+      ),
+    ),
+    // 트랙
+    h("div", { display: "flex", marginTop: 22 },
+      h("div", { display: "flex", flexDirection: "column", width: 92, marginRight: 8 },
+        h("div", { display: "flex", height: 118, alignItems: "center", fontSize: 20, fontWeight: 900, color: SP_FREE }, "일반"),
+        h("div", { display: "flex", height: 44 }),
+        h("div", { display: "flex", height: 118, alignItems: "center", fontSize: 20, fontWeight: 900, color: SP_GOLD }, "패스"),
+      ),
+      ...tiers.map((t, i) =>
+        h("div", { display: "flex", flexDirection: "column", alignItems: "center", width: 148, marginLeft: i ? 8 : 0 },
+          spCell(t[1], t[2], t[3], "free"),
+          h("div", { display: "flex", alignItems: "center", justifyContent: "center", height: 44, width: 148, position: "relative" },
+            h("div", { display: "flex", position: "absolute", left: 0, right: 0, top: 20, height: 4, background: t[0] <= d.lv ? SP_GOLD : "rgba(255,255,255,0.12)" }),
+            h("div", { display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 40, fontSize: 17, fontWeight: 900,
+                background: t[0] <= d.lv ? "linear-gradient(135deg,#fde68a,#f59e0b)" : "#1e293b", color: t[0] <= d.lv ? "#3b2300" : "#94a3b8",
+                border: t[0] === (d.lv || 0) + 1 ? `2px solid ${SP_GOLD}` : "2px solid rgba(255,255,255,0.08)" }, String(t[0])),
+          ),
+          spCell(t[4], t[5], t[6], "pass"),
+        ),
+      ),
+    ),
+    footer("출석 30XP · 구매 500원당 1XP · 후기 50XP · 패스 보유 XP +25%", d.cl ? `받을 보상 ${d.cl}개!` : "doesmc.xyz"),
+  );
+}

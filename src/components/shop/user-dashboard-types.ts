@@ -34,6 +34,8 @@ export type UserTab =
   | "buyback"
   | "care"
   | "dosmarket"
+  | "rental"
+  | "season"
   | "history"
   | "account"
   | "leaderboard"

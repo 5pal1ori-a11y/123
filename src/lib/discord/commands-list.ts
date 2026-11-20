@@ -311,6 +311,19 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "렌탈",
+    description: "계정 렌탈 패널을 올립니다 (관리자)",
+    type: 1,
+    options: [
+      { name: "승인채널", description: "반납 · 등록 카드를 받을 관리자 채널", type: 7, channel_types: [0, 5], required: false },
+    ],
+  },
+  {
+    name: "시즌패스",
+    description: "내 DOES 시즌패스 (레벨 · 일반 보상 · 패스 보상)를 봅니다",
+    type: 1,
+  },
+  {
     name: "케어",
     description: "DOES 케어(계정 보장 구독) 안내 패널을 올립니다 (관리자)",
     type: 1,

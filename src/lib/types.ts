@@ -150,6 +150,9 @@ export type ShopSettings = {
   buybackAdminChannelId?: string | null;
   /** /케어 — 보상 신청 카드를 받을 관리자 채널 */
   careAdminChannelId?: string | null;
+  /** 계정 렌탈 — 반납 · 등록 카드 채널 · 패널 위치 */
+  rentalAdminChannelId?: string | null;
+  rentalPanel?: { channelId: string; messageId: string } | null;
   /** /랭킹관리 — 구매 랭킹 · 리더보드에서 뺀 디스코드 ID */
   rankingExcludedDiscordIds?: string[];
   /** /코인대행 — 숫자를 다시 그릴 패널 위치 */

@@ -1,6 +1,6 @@
 // DOES 랭킹 이미지 워커 — vendix 가 서비스 바인딩으로 POST {data} 를 보내면 PNG 를 돌려준다
 import { ImageResponse, CustomFont, cache } from "@cf-wasm/og/workerd";
-import { passportTree, coinPanelTree, coinLogTree, coinRestockTree, coinReviewTree, attShopTree, attShopHeight, attResultTree, minePanelTree, mineResultTree, pickaxeCardTree, proxyPanelTree, proxyStatusTree, proxyStatusHeight, shopStatsTree, cardTree, profileTree, receiptTree, restockTree, reviewTree, reviewHeight, welcomeTree, chargeTree, purchaseTree, queueTree, rankTree, rankHeight, statusTree, stockTree, stockHeight } from "./render.js";
+import { seasonPassTree, passportTree, coinPanelTree, coinLogTree, coinRestockTree, coinReviewTree, attShopTree, attShopHeight, attResultTree, minePanelTree, mineResultTree, pickaxeCardTree, proxyPanelTree, proxyStatusTree, proxyStatusHeight, shopStatsTree, cardTree, profileTree, receiptTree, restockTree, reviewTree, reviewHeight, welcomeTree, chargeTree, purchaseTree, queueTree, rankTree, rankHeight, statusTree, stockTree, stockHeight } from "./render.js";
 
 const fonts = {};
 async function font(w) {
@@ -33,17 +33,18 @@ export default {
     if (request.method !== "POST") return new Response("POST only", { status: 405 });
     const body = await request.json().catch(() => null);
     const d = body?.data;
-    if (!d || (!["queue", "stock", "status", "purchase_log", "charge_log", "welcome", "review", "restock", "receipt", "profile", "card", "shop_stats", "proxy_panel", "proxy_status", "mine_panel", "mine_result", "pickaxe_card", "att_shop", "att_result", "coin_panel", "coin_log", "coin_restock", "coin_review", "passport"].includes(d.kind) && !Array.isArray(d.rows))) return new Response("bad", { status: 400 });
+    if (!d || (!["queue", "stock", "status", "purchase_log", "charge_log", "welcome", "review", "restock", "receipt", "profile", "card", "shop_stats", "proxy_panel", "proxy_status", "mine_panel", "mine_result", "pickaxe_card", "att_shop", "att_result", "coin_panel", "coin_log", "coin_restock", "coin_review", "passport", "season_pass"].includes(d.kind) && !Array.isArray(d.rows))) return new Response("bad", { status: 400 });
     if (["status", "purchase_log", "charge_log", "welcome", "review", "restock", "receipt", "profile", "card", "proxy_status", "mine_result", "att_result"].includes(d.kind)) d.avatar = await toDataUrl(d.avatar);
     if (["purchase_log", "review", "restock", "receipt"].includes(d.kind)) d.img = await toDataUrl(d.img, d.imgKind === "thumb");
     if (["coin_log", "coin_review"].includes(d.kind)) d.avatar = await toDataUrl(d.avatar);
     if (["coin_log", "coin_restock", "coin_review"].includes(d.kind)) d.icon = await toDataUrl(d.icon);
     if (d.kind === "passport") d.skin = await toDataUrl(d.skin);
+    if (d.kind === "season_pass") d.av = await toDataUrl(d.av);
     if (d.kind === "coin_panel") d.coins = await Promise.all((d.coins ?? []).slice(0, 4).map(async (c) => ({ sym: String(c.sym ?? "").slice(0, 6), icon: await toDataUrl(c.icon) })));
     if (d.kind === "stock") {
       for (const g of d.groups ?? []) g.items = await Promise.all(g.items.map(async (it) => ({ ...it, img: await toDataUrl(it.img, it.imgKind === "thumb") })));
     }
-    else if (["status", "purchase_log", "charge_log", "welcome", "review", "restock", "receipt", "profile", "card", "shop_stats", "proxy_panel", "proxy_status", "mine_panel", "mine_result", "pickaxe_card", "att_shop", "att_result", "coin_panel", "coin_log", "coin_restock", "coin_review", "passport"].includes(d.kind)) {
+    else if (["status", "purchase_log", "charge_log", "welcome", "review", "restock", "receipt", "profile", "card", "shop_stats", "proxy_panel", "proxy_status", "mine_panel", "mine_result", "pickaxe_card", "att_shop", "att_result", "coin_panel", "coin_log", "coin_restock", "coin_review", "passport", "season_pass"].includes(d.kind)) {
       /* 위에서 처리 */
     } else if (d.kind === "queue") d.queue = await Promise.all((d.queue ?? []).slice(0, 8).map(async (r) => ({ ...r, avatar: await toDataUrl(r.avatar) })));
     else d.rows = await Promise.all(d.rows.slice(0, 10).map(async (r) => ({ ...r, avatar: await toDataUrl(r.avatar) })));
@@ -57,7 +58,7 @@ export default {
     const clog = d.kind === "charge_log";
     const wel = d.kind === "welcome";
     const rev = d.kind === "review";
-    const one = { restock: [restockTree, 420], receipt: [receiptTree, 470], profile: [profileTree, 380], card: [cardTree, 470], shop_stats: [shopStatsTree, 300], proxy_panel: [proxyPanelTree, 340], proxy_status: [proxyStatusTree, proxyStatusHeight(d)], mine_panel: [minePanelTree, 470], mine_result: [mineResultTree, 610], pickaxe_card: [pickaxeCardTree, 560], att_shop: [attShopTree, attShopHeight(d)], att_result: [attResultTree, 420], coin_panel: [coinPanelTree, 400], coin_log: [coinLogTree, 400], coin_restock: [coinRestockTree, 380], coin_review: [coinReviewTree, 420], passport: [passportTree, 560] }[d.kind];
+    const one = { restock: [restockTree, 420], receipt: [receiptTree, 470], profile: [profileTree, 380], card: [cardTree, 470], shop_stats: [shopStatsTree, 300], proxy_panel: [proxyPanelTree, 340], proxy_status: [proxyStatusTree, proxyStatusHeight(d)], mine_panel: [minePanelTree, 470], mine_result: [mineResultTree, 610], pickaxe_card: [pickaxeCardTree, 560], att_shop: [attShopTree, attShopHeight(d)], att_result: [attResultTree, 420], coin_panel: [coinPanelTree, 400], coin_log: [coinLogTree, 400], coin_restock: [coinRestockTree, 380], coin_review: [coinReviewTree, 420], passport: [passportTree, 560], season_pass: [seasonPassTree, 615] }[d.kind];
     return ImageResponse.async(one ? one[0](d) : rev ? reviewTree(d) : wel ? welcomeTree(d) : clog ? chargeTree(d) : plog ? purchaseTree(d) : status ? statusTree(d) : stock ? stockTree(d) : queue ? queueTree(d) : rankTree(d), {
       width: 1100,
       height: one ? one[1] : rev ? reviewHeight(d) : wel ? 440 : plog || clog ? 420 : status ? 560 : stock ? stockHeight(d) : queue ? (d.queue?.length ? 700 : 590) : rankHeight(d),

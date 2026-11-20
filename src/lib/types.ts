@@ -140,6 +140,10 @@ export type ShopSettings = {
   proxyPanel?: { channelId: string; messageId: string } | null;
   /** /코인대행 — 주문 승인 카드를 올릴 관리자 채널 */
   coinAdminChannelId?: string | null;
+  /** /코인대행 — 송금 완료 로그 · 코인 입고 로그 · 후기 채널 */
+  coinLogChannelId?: string | null;
+  coinRestockChannelId?: string | null;
+  coinReviewChannelId?: string | null;
   /** /랭킹관리 — 구매 랭킹 · 리더보드에서 뺀 디스코드 ID */
   rankingExcludedDiscordIds?: string[];
   /** /코인대행 — 숫자를 다시 그릴 패널 위치 */

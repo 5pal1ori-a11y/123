@@ -1128,3 +1128,94 @@ export function coinPanelTree(d) {
     footer("실시간 업비트 시세 · 결제하면 자동 송금", d.time ? `${d.time} 기준` : "doesmc.xyz"),
   );
 }
+
+/* ───────── 코인대행 로그 3종 (대행 · 입고 · 후기) — coin_panel 과 같은 톤 ───────── */
+const COIN_ACC = { ltc: "#a5b4fc", trx: "#f87171" };
+function coinHeader(d, eyebrow, title, color) {
+  return h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+    h("div", { display: "flex", alignItems: "center" },
+      d.logo ? img(d.logo, { width: 58, height: 58, marginRight: 16 }) : null,
+      h("div", { display: "flex", flexDirection: "column" },
+        h("div", { display: "flex", fontSize: 15, fontWeight: 700, color, letterSpacing: 5 }, eyebrow),
+        h("div", { display: "flex", fontSize: 36, fontWeight: 900, marginTop: 2, letterSpacing: -1 }, title),
+      ),
+    ),
+    d.time ? h("div", { display: "flex", fontSize: 17, fontWeight: 500, color: "#64748b" }, d.time) : null,
+  );
+}
+function coinUser(d, ring) {
+  return h("div", { display: "flex", alignItems: "center" },
+    avatar(d.avatar, 64, ring, null),
+    h("div", { display: "flex", flexDirection: "column", marginLeft: 14 },
+      h("div", { display: "flex", fontSize: 24, fontWeight: 900, maxWidth: 360, overflow: "hidden", whiteSpace: "nowrap" }, d.name ?? "회원"),
+      d.userSub ? h("div", { display: "flex", fontSize: 16, fontWeight: 500, color: "#94a3b8", marginTop: 2 }, d.userSub) : null,
+    ),
+  );
+}
+function coinPill(text, color) {
+  return h("div", { display: "flex", alignItems: "center", padding: "9px 16px", borderRadius: 999, marginRight: 10,
+      background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", fontSize: 17, fontWeight: 700, color: color ?? "#e2e8f0" }, text);
+}
+function coinAmount(d, value, sub, color) {
+  return h("div", { display: "flex", alignItems: "center" },
+    d.icon ? img(d.icon, { width: 76, height: 76, marginRight: 20 }) : null,
+    h("div", { display: "flex", flexDirection: "column" },
+      h("div", { display: "flex", fontSize: String(value).length > 16 ? 48 : 60, fontWeight: 900, color, letterSpacing: -1.5, lineHeight: 1 }, value),
+      sub ? h("div", { display: "flex", fontSize: 21, fontWeight: 700, color: "#cbd5e1", marginTop: 10 }, sub) : null,
+    ),
+  );
+}
+const COIN_CARD = { display: "flex", flexDirection: "column", padding: "26px 30px", borderRadius: 26,
+  background: "linear-gradient(160deg, rgba(255,255,255,0.075) 0%, rgba(255,255,255,0.02) 100%)", border: "1px solid rgba(255,255,255,0.10)" };
+
+/** 대행로그 — d: { name, avatar, coin, amount (문자열), krw, rate, fee, orders, txid, time } */
+export function coinLogTree(d) {
+  const acc = COIN_ACC[d.coin] ?? "#6ee7b7";
+  return h("div", { ...PAGE("#064e3b"), padding: "36px 48px 28px" },
+    coinHeader(d, "COIN SENT", "코인 송금 완료", "#34d399"),
+    h("div", { ...COIN_CARD, marginTop: 26 },
+      h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+        coinAmount(d, `${d.amount} ${String(d.coin ?? "").toUpperCase()}`, `₩${fmtN(d.krw)} 결제`, "#6ee7b7"),
+        coinUser({ ...d, userSub: "님에게 보냈어요" }, `linear-gradient(135deg, #34d399, ${acc})`),
+      ),
+      h("div", { display: "flex", marginTop: 22 },
+        coinPill(`시세 ₩${fmtN(d.rate)}`),
+        coinPill(`수수료 ${d.fee}%`),
+        coinPill(`누적 ${fmtN(d.orders)}건`, "#93c5fd"),
+      ),
+    ),
+    footer(d.txid ? `TXID ${d.txid}` : "결제하면 자동 송금", "doesmc.xyz"),
+  );
+}
+
+/** 입고로그 — d: { coin, amount (문자열, +포함), krw, stock (문자열), stockKrw, time } */
+export function coinRestockTree(d) {
+  return h("div", { ...PAGE("#1e3a8a"), padding: "36px 48px 28px" },
+    coinHeader(d, "COIN RESTOCK", "코인 입고", "#60a5fa"),
+    h("div", { ...COIN_CARD, marginTop: 26 },
+      coinAmount(d, `${d.amount} ${String(d.coin ?? "").toUpperCase()}`, d.krw ? `≈ ₩${fmtN(d.krw)} 입고` : "입고 완료", "#93c5fd"),
+      h("div", { display: "flex", marginTop: 22 },
+        coinPill(`현재 재고 ${d.stock ?? "-"} ${String(d.coin ?? "").toUpperCase()}`, "#bfdbfe"),
+        d.stockKrw ? coinPill(`≈ ₩${fmtN(d.stockKrw)}`) : null,
+      ),
+    ),
+    footer("지금 바로 구매할 수 있어요 · /코인대행", "doesmc.xyz"),
+  );
+}
+
+/** 후기로그 — d: { name, avatar, rating (1~5), comment, coin, amount, krw, time } */
+export function coinReviewTree(d) {
+  const r = Math.max(1, Math.min(5, Math.round(Number(d.rating) || 5)));
+  const comment = String(d.comment ?? "").slice(0, 160);
+  return h("div", { ...PAGE("#713f12"), padding: "36px 48px 28px" },
+    coinHeader(d, "COIN REVIEW", "코인대행 후기", "#fbbf24"),
+    h("div", { ...COIN_CARD, marginTop: 26 },
+      h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+        coinUser({ ...d, userSub: `${d.amount} ${String(d.coin ?? "").toUpperCase()} · ₩${fmtN(d.krw)}` }, "linear-gradient(135deg, #fbbf24, #f59e0b)"),
+        h("div", { display: "flex", fontSize: 40 }, "⭐".repeat(r) + "☆".repeat(5 - r)),
+      ),
+      h("div", { display: "flex", marginTop: 22, fontSize: comment.length > 90 ? 24 : 28, fontWeight: 700, color: "#f1f5f9", lineHeight: 1.45 }, `“${comment}”`),
+    ),
+    footer("DOES 코인대행 실제 이용 후기", "doesmc.xyz"),
+  );
+}

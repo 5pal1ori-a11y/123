@@ -12,6 +12,10 @@ export async function GET(request: Request) {
   const shop = requireShop(request);
   if (!isShop(shop)) return shop;
 
+  if (new URL(request.url).searchParams.get("premium") === "1") {
+    const { kimchiPremiumInfo } = await import("@/lib/coin-trade");
+    return NextResponse.json(await kimchiPremiumInfo());
+  }
   const coin = new URL(request.url).searchParams.get("coin") as CoinKey | null;
   if (!coin || !(coin in COINS)) return NextResponse.json({ error: "코인을 선택해 주세요." }, { status: 400 });
 

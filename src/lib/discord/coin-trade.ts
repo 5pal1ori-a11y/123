@@ -103,22 +103,10 @@ const STATUS_KO: Record<string, string> = {
 
 /* ───────────── 패널 ───────────── */
 
-/** 김치 프리미엄 — 업비트 BTC(원화) vs 코인게코 글로벌 BTC(원화 환산). 실패하면 null */
+/** 김치 프리미엄 — 여러 해외 시세 · 환율 출처를 차례로 시도 (5분 캐시) */
 async function kimchiPremium(): Promise<number | null> {
-  try {
-    const [upR, gkR] = await Promise.all([
-      fetch("https://api.upbit.com/v1/ticker?markets=KRW-BTC", { headers: { accept: "application/json" } }),
-      fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=krw", { headers: { accept: "application/json" } }),
-    ]);
-    const up = (await upR.json().catch(() => null)) as { trade_price?: number }[] | null;
-    const gk = (await gkR.json().catch(() => null)) as { bitcoin?: { krw?: number } } | null;
-    const upbit = Number(up?.[0]?.trade_price);
-    const global = Number(gk?.bitcoin?.krw);
-    if (!(upbit > 0) || !(global > 0)) return null;
-    return (upbit / global - 1) * 100;
-  } catch {
-    return null;
-  }
+  const { kimchiPremiumInfo } = await import("@/lib/coin-trade");
+  return (await kimchiPremiumInfo()).premium;
 }
 
 /** 패널 이미지 — 지갑 재고 · 김프 · 누적 이용금액 (전용 coin_panel 템플릿) */

@@ -220,6 +220,8 @@ export type CoinOrder = {
   failReason: string | null;
   refunded: boolean;
   adminCard: { channelId: string; messageId: string } | null;
+  /** 손님이 후기를 남겼는지 (주문당 한 번) */
+  reviewed?: boolean;
 };
 
 const key = (shopId: string) => `coin:v1:${shopId}`;
@@ -647,4 +649,80 @@ export async function coinStats(shopId: string) {
     volume: sent.reduce((n, o) => n + o.krw, 0),
     pending: list.filter((o) => o.status === "pending" || o.status === "sending").length,
   };
+}
+
+/* ───────────── 김치 프리미엄 ───────────── */
+
+const UA = { "user-agent": "Mozilla/5.0 (compatible; DOES/1.0)", accept: "application/json" };
+async function getJson<T>(url: string): Promise<T | null> {
+  try {
+    const r = await fetch(url, { headers: UA, signal: AbortSignal.timeout(6000) });
+    if (!r.ok) return null;
+    return (await r.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+/** 해외 BTC 달러 시세 — 여러 거래소를 차례로 */
+async function globalBtcUsd(): Promise<{ usd: number; src: string } | null> {
+  const tries: [string, () => Promise<number>][] = [
+    ["coinbase", async () => Number((await getJson<{ data?: { amount?: string } }>("https://api.coinbase.com/v2/prices/BTC-USD/spot"))?.data?.amount)],
+    ["kraken", async () => {
+      const j = await getJson<{ result?: Record<string, { c?: string[] }> }>("https://api.kraken.com/0/public/Ticker?pair=XBTUSD");
+      const v = j?.result ? Object.values(j.result)[0] : null;
+      return Number(v?.c?.[0]);
+    }],
+    ["binance", async () => Number((await getJson<{ price?: string }>("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"))?.price)],
+    ["bitstamp", async () => Number((await getJson<{ last?: string }>("https://www.bitstamp.net/api/v2/ticker/btcusd/"))?.last)],
+  ];
+  for (const [src, f] of tries) {
+    const usd = await f().catch(() => NaN);
+    if (Number.isFinite(usd) && usd > 1000) return { usd, src };
+  }
+  return null;
+}
+
+/** 원/달러 환율 */
+async function usdKrw(): Promise<{ krw: number; src: string } | null> {
+  const d = await getJson<{ basePrice?: number }[]>("https://quotation-api-cdn.dunamu.com/v1/forex/recent?codes=FRX.KRWUSD");
+  if (Number(d?.[0]?.basePrice) > 500) return { krw: Number(d![0]!.basePrice), src: "dunamu" };
+  const e = await getJson<{ rates?: { KRW?: number } }>("https://open.er-api.com/v6/latest/USD");
+  if (Number(e?.rates?.KRW) > 500) return { krw: Number(e!.rates!.KRW), src: "er-api" };
+  const f = await getJson<{ usd?: { krw?: number } }>("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json");
+  if (Number(f?.usd?.krw) > 500) return { krw: Number(f!.usd!.krw), src: "fawaz" };
+  return null;
+}
+
+/**
+ * 김프(%) = 업비트 BTC 원화가 ÷ (해외 BTC 달러가 × 원/달러 환율) − 1
+ * 5분 동안 KV 에 기억해 두고, 실패하면 마지막으로 성공한 값을 쓴다.
+ */
+export async function kimchiPremiumInfo(): Promise<{ premium: number | null; source: string; at: string | null }> {
+  const KEY = "coin:kimchi:v1";
+  const cached = await kvGetJson<{ premium: number; source: string; at: string }>(KEY).catch(() => null);
+  if (cached && Date.now() - Date.parse(cached.at) < 5 * 60_000) return cached;
+  try {
+    const [up, g, fx] = await Promise.all([fetchKrwRate("btc").catch(() => null), globalBtcUsd(), usdKrw()]);
+    let premium: number | null = null;
+    let source = "";
+    if (up && g && fx) {
+      premium = (up.rate / (g.usd * fx.krw) - 1) * 100;
+      source = `${up.source}/${g.src}/${fx.src}`;
+    } else if (up) {
+      const gk = await getJson<{ bitcoin?: { krw?: number } }>("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=krw");
+      if (Number(gk?.bitcoin?.krw) > 0) {
+        premium = (up.rate / Number(gk!.bitcoin!.krw) - 1) * 100;
+        source = `${up.source}/coingecko`;
+      } else source = `fail: up=${!!up} global=${g?.src ?? "x"} fx=${fx?.src ?? "x"}`;
+    } else source = "fail: upbit";
+    if (premium !== null && Number.isFinite(premium) && Math.abs(premium) < 50) {
+      const v = { premium: Math.round(premium * 100) / 100, source, at: new Date().toISOString() };
+      await kvPutJson(KEY, v).catch(() => null);
+      return v;
+    }
+    return cached ?? { premium: null, source, at: null };
+  } catch (e) {
+    return cached ?? { premium: null, source: `error ${e instanceof Error ? e.message : ""}`, at: null };
+  }
 }

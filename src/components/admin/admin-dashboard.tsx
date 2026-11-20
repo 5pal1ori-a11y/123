@@ -332,6 +332,7 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
     nowpaymentsApiKey: "",
     nowpaymentsIpnSecret: "",
     nowpaymentsPayCurrency: "usdttrc20",
+    identityVerifyEnabled: false,
   });
   const [pushbulletToken, setPushbulletToken] = useState("");
   /** True when a token is already stored (API returns masked •••• value). */
@@ -395,6 +396,7 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
         nowpaymentsApiKey: json.settings.nowpaymentsApiKey ?? "",
         nowpaymentsIpnSecret: json.settings.nowpaymentsIpnSecret ?? "",
         nowpaymentsPayCurrency: json.settings.nowpaymentsPayCurrency ?? "usdttrc20",
+        identityVerifyEnabled: json.settings.identityVerifyEnabled ?? false,
       });
       // Never put masked •••• secrets into the input — that broke saves / confused auth UX.
       const settingsAny = json.settings as typeof json.settings & {
@@ -618,6 +620,7 @@ export function AdminDashboard({ shopSlug }: { shopSlug: string }) {
         nowpaymentsApiKey: paymentApiForm.nowpaymentsApiKey.trim() || null,
         nowpaymentsIpnSecret: paymentApiForm.nowpaymentsIpnSecret.trim() || null,
         nowpaymentsPayCurrency: paymentApiForm.nowpaymentsPayCurrency.trim() || "usdttrc20",
+        identityVerifyEnabled: paymentApiForm.identityVerifyEnabled,
       },
       "충전 API 설정 저장됨",
     );

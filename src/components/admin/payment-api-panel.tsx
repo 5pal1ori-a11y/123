@@ -13,6 +13,7 @@ export type PaymentApiForm = {
   nowpaymentsApiKey: string;
   nowpaymentsIpnSecret: string;
   nowpaymentsPayCurrency: string;
+  identityVerifyEnabled: boolean;
 };
 
 type ApiTab = "culture" | "coin";
@@ -161,6 +162,23 @@ export function PaymentApiPanel({
                     className="toss-admin-field text-sm"
                   />
                 </div>
+              )}
+
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3.5">
+                <div>
+                  <p className="text-sm font-medium text-white">코인대행 본인인증</p>
+                  <p className="text-xs text-neutral-500">토스 공식 인증 · 키는 서버(TOSS_CLIENT_KEY/TOSS_SECRET_KEY)에 설정</p>
+                </div>
+                <Toggle
+                  on={form.identityVerifyEnabled}
+                  disabled={saving}
+                  onToggle={() => onChange({ ...form, identityVerifyEnabled: !form.identityVerifyEnabled })}
+                />
+              </div>
+              {form.identityVerifyEnabled && (
+                <p className="rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-300/90 ring-1 ring-amber-400/20">
+                  켜면 코인대행 첫 주문 전에 토스 본인인증을 요구해요. 토스 가맹점 키(env)가 없으면 자동으로 비활성화됩니다.
+                </p>
               )}
             </motion.div>
           )}

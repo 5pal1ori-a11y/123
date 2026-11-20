@@ -232,10 +232,24 @@ export async function handleCoinBuySubmit(shopSlug: string, discordId: string, c
       ]),
     ]);
   }
+  // 본인인증 게이트 — 켜져 있고 아직 인증 안 했으면 인증 링크 안내
+  const { identityVerifyRequired, isUserVerified } = await import("@/lib/identity-verify");
+  if (await identityVerifyRequired(shop.id)) {
+    if (!(await isUserVerified(shop.id, user.id))) {
+      return v2Ephemeral([
+        container([
+          textDisplay("## 🪪 먼저 본인인증이 필요해요"),
+          textDisplay("안전한 거래를 위해 코인대행은 **최초 1회 본인인증**이 필요해요.\n토스 공식 인증 창에서 1분이면 끝나요."),
+          actionRow(linkButton(shopUrl(shop.slug, "/verify-identity"), "토스로 본인인증 하기")),
+          textDisplay("-# 인증 후 다시 구매를 눌러 주세요 · 이 메시지는 나에게만 보여요"),
+        ]),
+      ]);
+    }
+  }
   const krw = Number(modalFieldValue(interaction, "krw").replace(/[,\s원₩P]/gi, ""));
   const addr = modalFieldValue(interaction, "addr").replace(/\s/g, "");
   try {
-    const o = await createCoinQuote(shop.id, { id: user.id, discordId }, coin, krw, addr);
+    const o = await createCoinQuote(shop.id, { id: user.id, discordId, totalCoinSpent: user.totalCoinSpent, vipTier: user.vipTier }, coin, krw, addr);
     if (user.points < o.krw) {
       return plainEphemeral(`포인트가 부족해요. 필요 ${o.krw.toLocaleString("ko-KR")}P · 보유 ${user.points.toLocaleString("ko-KR")}P\n먼저 충전해 주세요.`);
     }

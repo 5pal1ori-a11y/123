@@ -174,6 +174,7 @@ function defaultSettings(shopId: string): ShopSettings {
     nowpaymentsApiKey: null,
     nowpaymentsIpnSecret: null,
     nowpaymentsPayCurrency: "usdttrc20",
+    identityVerifyEnabled: false,
     depositSuffixPhrase: "",
     adminIpWhitelist: [],
     lowStockThreshold: 5,

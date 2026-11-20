@@ -156,6 +156,7 @@ function DemoBillingPanel({ onMessage }: { onMessage: (msg: string) => void }) {
     nowpaymentsApiKey: "",
     nowpaymentsIpnSecret: "",
     nowpaymentsPayCurrency: "usdttrc20",
+    identityVerifyEnabled: false,
   });
   const [licenseKey, setLicenseKey] = useState("");
 

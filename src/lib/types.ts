@@ -100,6 +100,8 @@ export type ShopSettings = {
   nowpaymentsApiKey: string | null;
   nowpaymentsIpnSecret: string | null;
   nowpaymentsPayCurrency: string | null;
+  /** 본인인증 (토스 공식 KYC) — 켜면 코인대행 첫 주문 전에 인증을 요구한다. 키는 env(TOSS_CLIENT_KEY/TOSS_SECRET_KEY) */
+  identityVerifyEnabled?: boolean;
   depositSuffixPhrase: string;
   /** 관리자 로그인 허용 IP (비어 있으면 전체 허용, * 와일드카드 지원) */
   adminIpWhitelist: string[];

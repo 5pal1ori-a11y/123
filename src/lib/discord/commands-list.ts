@@ -311,6 +311,37 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "vip",
+    description: "내 VIP 등급 · 다음 등급 · 전용 채널 · 맞춤 계정 요청",
+    type: 1,
+  },
+  {
+    name: "vip설정",
+    description: "VIP 전용 채널 카테고리 · 매니저 역할을 정합니다 (관리자)",
+    type: 1,
+    options: [
+      { name: "카테고리", description: "VIP 전용 채널을 만들 카테고리", type: 7, channel_types: [4], required: false },
+      { name: "매니저역할", description: "VIP 채널에 같이 들어갈 · 호출될 역할", type: 8, required: false },
+    ],
+  },
+  {
+    name: "도스야설정",
+    description: "채팅에서 '도스야' 부르면 답하는 봇을 켜고 끕니다 (관리자)",
+    type: 1,
+    options: [
+      {
+        name: "동작",
+        description: "켜기 또는 끄기",
+        type: 3,
+        required: true,
+        choices: [
+          { name: "켜기", value: "on" },
+          { name: "끄기", value: "off" },
+        ],
+      },
+    ],
+  },
+  {
     name: "전광판",
     description: "DOES 거래소 전광판을 채널에 고정합니다 (관리자 · 5분마다 갱신)",
     type: 1,

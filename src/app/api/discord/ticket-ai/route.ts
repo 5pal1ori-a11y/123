@@ -11,6 +11,14 @@ const snowflake = z.string().regex(/^\d{5,30}$/);
 const bodySchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("config") }),
   z.object({
+    op: z.literal("chat"),
+    guildId: snowflake,
+    channelId: snowflake,
+    messageId: snowflake,
+    authorId: snowflake,
+    content: z.string().max(4000),
+  }),
+  z.object({
     op: z.literal("message"),
     guildId: snowflake,
     channelId: snowflake,
@@ -26,6 +34,10 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "bad_request" }, { status: 400 });
 
   if (parsed.data.op === "config") return NextResponse.json(await ticketAiBridgeConfig());
+  if (parsed.data.op === "chat") {
+    const { handleDosyaChat } = await import("@/lib/discord/dosya");
+    return NextResponse.json(await handleDosyaChat(parsed.data).catch((e) => ({ ok: false, error: String(e) })));
+  }
   const { guildId, channelId, messageId, authorId, content } = parsed.data;
   return NextResponse.json(await handleTicketAiMessage({ guildId, channelId, messageId, authorId, content }));
 }

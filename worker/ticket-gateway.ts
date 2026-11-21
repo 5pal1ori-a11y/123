@@ -2,9 +2,12 @@ import { DurableObject } from "cloudflare:workers";
 
 type Env = { WORKER_SELF_REFERENCE?: Fetcher; AOS_BRIDGE_SECRET?: string; AUTH_SECRET?: string };
 
-type Config = { token: string; channels: string[]; syncedAt: number };
+type Config = { token: string; channels: string[]; syncedAt: number; chat?: boolean };
 
-type MessageEvent = { guildId: string; channelId: string; messageId: string; authorId: string; content: string };
+type MessageEvent = { guildId: string; channelId: string; messageId: string; authorId: string; content: string; op?: "message" | "chat" };
+
+/** 채팅에서 "도스야 ~" 로 부르면 (어느 채널이든) 도스 답장으로 넘긴다 */
+const DOSYA_RE = /^\s*도스\s*야/;
 
 const GATEWAY = "https://gateway.discord.gg/?v=10&encoding=json";
 /** GUILD_MESSAGES | MESSAGE_CONTENT */
@@ -34,7 +37,8 @@ export class TicketGateway extends DurableObject<Env> {
   async fetch(request: Request) {
     const body = (await request.json().catch(() => ({}))) as Partial<Config> & { stop?: boolean };
     const channels = Array.isArray(body.channels) ? body.channels.map(String) : [];
-    if (body.stop || !channels.length) {
+    const chat = body.chat === true;
+    if (body.stop || (!channels.length && !chat)) {
       await this.shutdown();
       return Response.json({ ok: true, stopped: true });
     }
@@ -42,7 +46,7 @@ export class TicketGateway extends DurableObject<Env> {
     if (token.length < 20) return Response.json({ ok: false }, { status: 400 });
 
     const prev = this.config ?? (await this.ctx.storage.get<Config>("config")) ?? null;
-    this.config = { token, channels, syncedAt: Date.now() };
+    this.config = { token, channels, syncedAt: Date.now(), chat };
     this.channels = new Set(channels);
     await this.ctx.storage.put("config", this.config);
     if (prev && prev.token !== token) {
@@ -57,7 +61,7 @@ export class TicketGateway extends DurableObject<Env> {
   async alarm() {
     this.config ??= (await this.ctx.storage.get<Config>("config")) ?? null;
     if (!this.config) return;
-    if (Date.now() - this.config.syncedAt > ORPHAN_MS || !this.config.channels.length) {
+    if (Date.now() - this.config.syncedAt > ORPHAN_MS || (!this.config.channels.length && !this.config.chat)) {
       await this.shutdown();
       return;
     }
@@ -189,8 +193,14 @@ export class TicketGateway extends DurableObject<Env> {
       author?: { id?: string; bot?: boolean };
       webhook_id?: string;
     };
-    if (!d?.channel_id || !this.channels.has(d.channel_id) || !d.guild_id || !d.id) return;
+    if (!d?.channel_id || !d.guild_id || !d.id) return;
     if (d.author?.bot || d.webhook_id || !d.author?.id) return;
+    if (!this.channels.has(d.channel_id)) {
+      if (this.config?.chat && DOSYA_RE.test(d.content ?? "")) {
+        this.ctx.waitUntil(this.forward({ op: "chat", guildId: d.guild_id, channelId: d.channel_id, messageId: d.id, authorId: d.author.id, content: (d.content ?? "").slice(0, 1000) }));
+      }
+      return;
+    }
     this.enqueue({
       guildId: d.guild_id,
       channelId: d.channel_id,
@@ -227,7 +237,7 @@ export class TicketGateway extends DurableObject<Env> {
     const req = new Request("https://vendix.team/api/discord/ticket-ai", {
       method: "POST",
       headers: { "content-type": "application/json", "x-vendix-bridge-secret": secret },
-      body: JSON.stringify({ op: "message", ...event }),
+      body: JSON.stringify({ ...event, op: event.op ?? "message" }),
     });
     try {
       const res = await (this.env.WORKER_SELF_REFERENCE?.fetch(req) ?? fetch(req));

@@ -54,6 +54,7 @@ export async function POST(request: Request) {
       shopId: shop.id,
       query: parsed.data.body,
       messages: inquiry.messages,
+      userId: session.user.id,
     });
     appendInquiryAiMessage(shop.id, inquiry.id, aiText);
   }

@@ -1,7 +1,7 @@
 import { container, mediaGallery, MessageFlags, textDisplay } from "@/lib/discord/components";
 import { doesDiscordEnvAsync } from "@/lib/discord/does-env";
 import { generateShopInquiryReply } from "@/lib/shop-inquiry-ai";
-import { getShopBySlug, getShopSettings, initStore, MFA_DISCORD_GUILD_ID, MFA_SHOP_SLUG } from "@/lib/store";
+import { getShopBySlug, getShopSettings, getUserByDiscordId, initStore, MFA_DISCORD_GUILD_ID, MFA_SHOP_SLUG } from "@/lib/store";
 import { fetchChannelMessages, postTicketChannelMessage, ticketBotRest, withTicketBotToken } from "@/lib/ticket-bot/rest";
 import {
   getTicketByChannel,
@@ -56,9 +56,11 @@ function aiTickets(shopId: string) {
 /** 게이트웨이가 지켜볼 채널 목록 (없으면 연결을 닫는다) */
 export async function ticketAiBridgeConfig() {
   const shop = await boot();
-  if (!shop) return { token: "", channels: [] as string[] };
+  if (!shop) return { token: "", channels: [] as string[], chat: false };
   const channels = aiTickets(shop.id).map((t) => t.channelId);
-  return { token: channels.length ? (await doesDiscordEnvAsync()).botToken : "", channels };
+  // "도스야" 채팅 봇이 켜져 있으면 티켓이 없어도 게이트웨이를 붙여 둔다
+  const chat = !getShopSettings(shop.id).dosyaDisabled;
+  return { token: channels.length || chat ? (await doesDiscordEnvAsync()).botToken : "", channels, chat };
 }
 
 async function greetNewTickets(shopId: string, token: string) {
@@ -94,7 +96,7 @@ export async function kickTicketGateway() {
     if (!ns) return;
     await ns.get(ns.idFromName("does")).fetch("https://ticket-gateway/", {
       method: "POST",
-      body: JSON.stringify(config.channels.length ? config : { stop: true }),
+      body: JSON.stringify(config.token ? config : { stop: true }),
     });
   } catch (err) {
     console.log("ticket gateway kick failed", String(err));
@@ -146,6 +148,7 @@ export async function handleTicketAiMessage(event: TicketAiEvent) {
       shopId: shop.id,
       query,
       messages: threadFrom(history, ticket.openerId),
+      userId: getUserByDiscordId(shop.id, ticket.openerId)?.id ?? null,
     });
     await postTicketChannelMessage(event.channelId, {
       content: `${reply.slice(0, 2000 - AI_FOOTER.length - 1)}\n${AI_FOOTER}`,

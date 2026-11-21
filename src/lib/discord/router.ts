@@ -285,6 +285,28 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         review: opt("후기채널"),
       });
     }
+    if (name === "vip") {
+      const { handleVipCommand } = await import("@/lib/discord/vip");
+      return handleVipCommand(shop.slug, actor.id);
+    }
+    if (name === "vip설정") {
+      const opt = (n: string) => {
+        const v = interaction.data?.options?.find((o) => o.name === n)?.value;
+        return typeof v === "string" ? v : null;
+      };
+      const { handleVipSettingsCommand } = await import("@/lib/discord/vip");
+      return handleVipSettingsCommand(shop.slug, actor.roles, perms, opt("카테고리"), opt("매니저역할"));
+    }
+    if (name === "도스야설정") {
+      const { isDiscordAdmin } = await import("@/lib/discord/handlers");
+      if (!isDiscordAdmin(getShopSettings(shop.id), actor.roles, perms)) return plainEphemeral("관리자만 바꿀 수 있어요.");
+      const on = interaction.data?.options?.find((o) => o.name === "동작")?.value !== "off";
+      const { setDosyaEnabled } = await import("@/lib/discord/dosya");
+      await setDosyaEnabled(shop.id, on);
+      const { kickTicketGateway } = await import("@/lib/discord/ticket-ai");
+      await kickTicketGateway();
+      return plainEphemeral(on ? "도스야 채팅 봇을 켰어요. 채팅에서 `도스야 ~` 하고 불러 보세요. (연결까지 최대 몇 분 걸릴 수 있어요)" : "도스야 채팅 봇을 껐어요.");
+    }
     if (name === "전광판") {
       const { handleBoardCommand } = await import("@/lib/discord/board");
       return handleBoardCommand(shop.slug, actor.roles, perms, interaction.channel_id);
@@ -602,6 +624,10 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       return px.handleProxyRejectSubmit(shop.slug, parsed.payload, actor.id, actor.roles, modalPerms, interaction);
     }
 
+    if (parsed.action === "vp_reqm") {
+      const { handleVipRequestSubmit } = await import("@/lib/discord/vip");
+      return handleVipRequestSubmit(shop.slug, actor.id, interaction);
+    }
     if (parsed.action === "sx_modal") {
       const { handleSafeSubmit } = await import("@/lib/discord/safe-trade");
       return handleSafeSubmit(shop.slug, { id: actor.id, name: actor.username }, interaction);
@@ -795,6 +821,10 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
     if (action === "dm_paid" || action === "dm_release" || action === "dm_refund" || action === "dm_cred") {
       const { handleDosMarketButton } = await import("@/lib/dosmarket");
       return handleDosMarketButton(shop.slug, action, payload, actor.roles, perms);
+    }
+    if (action === "vp_ch" || action === "vp_req") {
+      const vp = await import("@/lib/discord/vip");
+      return action === "vp_ch" ? vp.handleVipChannelButton(shop.slug, actor.id) : vp.handleVipRequestButton(shop.slug);
     }
     if (action.startsWith("sx_")) {
       const sx = await import("@/lib/discord/safe-trade");

@@ -54,7 +54,9 @@ export async function lookupPlayer(query: string): Promise<LookupResult> {
   const resolved = await resolveMcProfile(name);
   uuid = uuid ?? resolved?.uuid ?? null;
   if (!uuid) return { found: false, name: q, available: /^[A-Za-z0-9_]{3,16}$/.test(q) };
-  const [profile, hyp] = await Promise.all([profileByUuid(uuid), hypixelStats(uuid).catch(() => null)]);
+  const [profile0, hyp] = await Promise.all([profileByUuid(uuid).catch(() => null), hypixelStats(uuid).catch(() => null)]);
+  // 모장 세션 서버가 Cloudflare 를 막으면 playerdb 미러로 스킨을 받는다
+  const profile = profile0?.skinUrl ? profile0 : ((await skinFromPlayerDb(uuid)) ?? profile0);
   const realName = profile?.name ?? resolved?.name ?? name;
   const history = await record(uuid, realName, profile?.skinUrl ?? null, Boolean(profile?.slim));
   return {
@@ -69,6 +71,22 @@ export async function lookupPlayer(query: string): Promise<LookupResult> {
     hypixel: hyp ? { rank: hyp.rank, rankColor: hyp.rankColor, level: hyp.level, bedwarsStars: hyp.bedwars.stars, lastLogin: hyp.lastLogin } : null,
     history,
   };
+}
+
+async function skinFromPlayerDb(uuid: string): Promise<{ name: string; skinUrl: string | null; slim: boolean } | null> {
+  try {
+    const res = await fetch(`https://playerdb.co/api/player/minecraft/${uuid}`, { headers: { "User-Agent": "DOES-namemc/1.0", Accept: "application/json" }, signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return null;
+    const p = ((await res.json()) as { data?: { player?: { username?: string; properties?: { name: string; value: string }[] } } }).data?.player;
+    const tex = p?.properties?.find((x) => x.name === "textures");
+    if (!p?.username || !tex) return null;
+    const bin = atob(tex.value);
+    const t = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)))) as { textures?: { SKIN?: { url?: string; metadata?: { model?: string } } } };
+    const url = t.textures?.SKIN?.url ?? null;
+    return { name: p.username, skinUrl: url ? url.replace(/^http:/, "https:") : null, slim: t.textures?.SKIN?.metadata?.model === "slim" };
+  } catch {
+    return null;
+  }
 }
 
 /** 조회할 때마다 닉네임 · 스킨 이력과 인기 순위를 기록한다 */

@@ -72,7 +72,7 @@ async function syncDiscordCommands(env: Env, ctx: ExecutionContext) {
   console.log("discord command sync", res.status, (await res.text()).slice(0, 200));
 }
 
-/** AI 가 켜진 열린 티켓이 있으면 TicketGateway 를 붙여 두고, 없으면 닫는다 */
+/** AI 가 켜진 열린 티켓이 있거나 "도스야" 채팅 봇이 켜져 있으면 TicketGateway 를 붙여 두고, 없으면 닫는다 */
 async function syncTicketGateway(env: Env, ctx: ExecutionContext) {
   const secret = (env.AOS_BRIDGE_SECRET || env.AUTH_SECRET || "").trim();
   if (secret.length < 8) return;
@@ -89,13 +89,14 @@ async function syncTicketGateway(env: Env, ctx: ExecutionContext) {
     console.log("ticket gateway config failed", res.status);
     return;
   }
-  const config = (await res.json()) as { token?: string; channels?: string[] };
+  const config = (await res.json()) as { token?: string; channels?: string[]; chat?: boolean };
   const stub = env.TICKET_GW.get(env.TICKET_GW.idFromName("does"));
+  // 티켓 AI 채널이 있거나 "도스야" 채팅 봇이 켜져 있으면 붙여 둔다
   const r = await stub.fetch("https://ticket-gateway/", {
     method: "POST",
-    body: JSON.stringify(config.channels?.length ? config : { stop: true }),
+    body: JSON.stringify(config.token && (config.channels?.length || config.chat) ? config : { stop: true }),
   });
-  console.log("ticket gateway sync", config.channels?.length ?? 0, r.status);
+  console.log("ticket gateway sync", config.channels?.length ?? 0, config.chat ? "chat" : "", r.status);
 }
 
 /** /서버상황 패널이 있으면 StatusWatch 를 붙여 두고, 없으면 닫는다 */

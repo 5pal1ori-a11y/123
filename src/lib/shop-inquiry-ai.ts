@@ -329,7 +329,14 @@ const SHOP_FACTS = `상점 기본 사실 (이 내용과 다른 답은 하지 마
 - 결제는 포인트로 합니다. 먼저 충전한 뒤 구매합니다. 문화상품권 자동충전은 현재 일시 중단 상태입니다 (계좌이체 등 다른 방법 안내).
 - 마인크래프트 계정 상품은 '마인크래프트 계정' 탭에서 보고, 상세에서 스킨·망토·하이픽셀 정보를 볼 수 있습니다. 구매 후 24시간 안에 비밀번호·복구 이메일 등 보안 정보를 바꾸라고 안내하세요.
 - 출석체크는 하루 한 번, 랜덤박스도 하루 한 번입니다. 둘 다 계정 연동이 필요합니다.
-- 추천인 코드는 /추천인 패널의 버튼으로 내 코드를 볼 수 있고, 친구가 결제하면 일부가 포인트로 들어옵니다.`;
+- 추천인 코드는 /추천인 패널의 버튼으로 내 코드를 볼 수 있고, 친구가 결제하면 일부가 포인트로 들어옵니다.
+- 계좌이체 충전은 입금자명과 금액이 신청한 것과 정확히 같아야 자동 반영됩니다. 다르면 관리자가 확인해야 합니다. 충전 신청은 10분 안에 입금해야 하고, 지나면 만료되어 다시 신청해야 합니다.
+- 지급 정보(계정 아이디·비밀번호)는 사이트 '내역' 탭에서 언제든 다시 볼 수 있습니다.
+- 도스마켓: 내 계정을 DOES가 대신 팔아 주는 곳. 판매 등록 → 관리자 확인 → 공개 → 팔리면 구매자 보호 24시간 뒤 수수료(기본 10%, PASS+ 7%) 빼고 포인트·계좌로 정산.
+- 안전거래 링크: DOES 밖에서 만난 거래도 DOES가 돈을 맡아 줌. 수수료 5%(PASS+ 3%), 구매자 보호 24시간.
+- 계정 렌탈: 비싼 계정을 1·3·7·30일 빌림. 대여료+보증금, 반납 확인 뒤 보증금 환불.
+- 시즌패스: 출석·구매·후기로 레벨업, 일반 보상과 패스(9,900P) 보상. 도스플랜: BASIC PASS 4,900원, DOES PASS+ 9,900원 (30일).
+- 매입·보상판매, DOES 케어(계정 보장 구독), 구해드림(원하는 계정 주문), 코인대행(LTC·TRX)도 있습니다. 모두 사이트 대시보드 메뉴에서 이용합니다.`;
 
 function systemPrompt(shopName: string) {
   return `당신은 ${shopName}(DOES)에서 일하는 안내 담당입니다. 사람 직원처럼 자연스럽고 정확하게 한국어로 답하세요.
@@ -341,7 +348,10 @@ ${SHOP_FACTS}
 - 보통 2~4문장, 단계가 필요하면 번호로 짧게. 어려운 말은 쉬운 말로.
 - 가격·재고·할인·확률 같은 숫자는 아래 '검색 자료'와 '판매 상품'에 있는 것만 말하세요. 자료에 없으면 지어내지 말고 "정확한 건 확인이 필요해요"라고 하세요.
 - 질문이 애매하면 되물을 것을 딱 한 가지만 물으세요 (여러 개를 한꺼번에 묻지 마세요).
-- 환불, 결제·충전이 반영되지 않음, 계정 정보 오류, 제재·차단, 개인정보 문제는 직접 처리하지 말고 "관리자가 확인해야 해요"라고 말한 뒤 필요한 정보(주문 번호나 입금자명·금액·시간, 스크린샷)를 한 번에 정리해서 요청하세요.
+- '손님 정보'가 있으면 그 사람의 실제 주문·충전·거래 상태를 보고 구체적으로 답하세요 (예: "11/21 14:02 계좌이체 10,000원 충전은 아직 입금 확인 대기예요"). 손님 정보에 없는 건 지어내지 마세요.
+- '처리 결과'가 있으면 이미 서버가 처리한 것이니, 그 결과를 그대로 알려 주세요.
+- 비밀번호·지급 코드 내용은 절대 채팅에 쓰지 마세요 (DM·'내역' 탭으로 안내).
+- 환불, 손님 정보로도 해결이 안 되는 결제·충전 미반영, 계정 정보 오류, 제재·차단, 개인정보 문제는 직접 처리하지 말고 "관리자가 확인해야 해요"라고 말한 뒤 필요한 정보(주문 번호나 입금자명·금액·시간, 스크린샷)를 한 번에 정리해서 요청하세요.
 - 사용자가 화났거나 불편해 보이면 먼저 한 문장으로 공감하고 해결책을 말하세요.
 - 사용자가 정정하면 바로 맞추세요. 같은 말을 반복하지 마세요.
 - 함수명, web_search, search_shop, JSON, 코드블록, 도구 호출은 절대 쓰지 마세요. 사람에게 하는 말만 쓰세요.
@@ -362,6 +372,8 @@ export async function generateShopInquiryReply(input: {
   shopId: string;
   query: string;
   messages: ShopInquiryMessage[];
+  /** 로그인한 손님 (있으면 주문 · 충전 상태를 보고 답하고, 재전송 같은 간단한 처리는 직접 한다) */
+  userId?: string | null;
 }): Promise<string> {
   const shop = getShopById(input.shopId);
   const settings = getShopSettings(input.shopId);
@@ -386,7 +398,16 @@ export async function generateShopInquiryReply(input: {
     .map((m) => `${m.from === "user" ? "구매자" : m.from === "admin" ? "관리자" : "AI"}: ${m.body}`)
     .join("\n");
 
+  let customer = "";
+  let action: { note: string; say: string } | null = null;
+  if (input.userId) {
+    const ctx = await import("@/lib/inquiry-context");
+    [customer, action] = await Promise.all([ctx.userContextFor(input.shopId, input.userId).catch(() => ""), ctx.maybeHandleAction(input.shopId, input.userId, query).catch(() => null)]);
+  }
+
   const notes = [
+    customer ? `손님 정보 (이 사람의 실제 기록):\n${customer}` : "",
+    action?.note ?? "",
     `상점 검색:\n${formatHits(hits)}`,
     guide ? `이용 안내:\n${guide}` : "",
     web ? `웹 검색:\n${web}` : "",
@@ -395,7 +416,7 @@ export async function generateShopInquiryReply(input: {
     .filter(Boolean)
     .join("\n\n");
 
-  const fallback = () => fallbackReply(shopName, hits, query, web);
+  const fallback = () => action?.say ?? fallbackReply(shopName, hits, query, web);
 
   const userBlob = `최근 대화:
 ${thread || "(없음)"}
@@ -434,4 +455,39 @@ ${notes}
     }
   }
   return fallback();
+}
+
+export { SHOP_FACTS };
+
+/** 짧은 대화용 — Claude 키가 있으면 Claude, 없으면 Workers AI. 실패하면 null */
+export async function chatCompletion(system: string, user: string, opts: { maxTokens?: number; temperature?: number } = {}): Promise<string | null> {
+  const { key, model } = await getAnthropicKey();
+  if (key.startsWith("sk-ant-")) {
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({ model, max_tokens: opts.maxTokens ?? 300, temperature: opts.temperature ?? 0.9, system, messages: [{ role: "user", content: user }] }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+        const t = data.content?.filter((c) => c.type === "text").map((c) => c.text ?? "").join("").trim();
+        if (t) return stripThink(t);
+      }
+    } catch {
+      /* Workers AI 로 */
+    }
+  }
+  const ai = await getAiBinding();
+  if (!ai) return null;
+  for (const m of [CHAT_MODEL, FAST_MODEL]) {
+    try {
+      const t = stripThink(extractText(await ai.run(m, { messages: [{ role: "system", content: system }, { role: "user", content: user }], max_tokens: opts.maxTokens ?? 300, temperature: opts.temperature ?? 0.9 })));
+      if (t) return t;
+    } catch {
+      /* next */
+    }
+  }
+  return null;
 }

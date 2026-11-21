@@ -55,6 +55,7 @@ import { GugoClient } from "./gugo-client";
 import { DosMarketHub } from "./dosmarket-hub";
 import { RentalClient } from "./rental-client";
 import { SeasonPassClient } from "./season-pass-client";
+import { VipCard } from "./vip-card";
 import { UserHomeTab } from "./user-home-tab";
 import { UserHistoryTab } from "./user-history-tab";
 import { UserAccountTab } from "./user-account-tab";
@@ -1143,6 +1144,7 @@ export function UserDashboard({
 
               {tab === "reviews" && <UserReviewsTab shopSlug={shopSlug} />}
 
+              {tab === "premium" && user ? <VipCard /> : null}
               {tab === "premium" && (
                 <UserPremiumTab
                   shopSlug={shopSlug}

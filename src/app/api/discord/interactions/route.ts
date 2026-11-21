@@ -152,6 +152,7 @@ function needsSyncModalResponse(interaction: DiscordInteraction) {
     action === "rt_done" ||
     // 안전거래 링크 만들기 · 도스마켓 문제 신고 · 도스플랜 키 입력 → 입력 창(모달)
     action === "sx_new" ||
+    action === "vp_req" ||
     action === "dm_rep" ||
     action === "pl_key" ||
     action === "cn_send" ||

@@ -54,7 +54,7 @@ export function BoardClient() {
               <span key={i} className="flex items-center gap-2">
                 <span className="text-slate-300">{m.label}</span>
                 <span className="font-bold">{won(m.price)}</span>
-                <span className={m.changePct >= 0 ? "text-rose-400" : "text-sky-400"}>{m.changePct >= 0 ? "▲" : "▼"} {Math.abs(m.changePct).toFixed(1)}%</span>
+                <span className={m.changePct > 0 ? "text-rose-400" : m.changePct < 0 ? "text-sky-400" : "text-slate-500"}>{m.changePct > 0 ? "▲" : m.changePct < 0 ? "▼" : "−"} {Math.abs(m.changePct).toFixed(1)}%</span>
               </span>
             ))}
           </div>
@@ -108,7 +108,7 @@ export function BoardClient() {
               <p className="mb-3 text-sm font-bold">오늘 시간대별 거래액</p>
               <div className="flex h-32 items-end gap-[3px]">
                 {d.hourly.map((v, h) => (
-                  <div key={h} className="flex flex-1 flex-col items-center justify-end" title={`${h}시 ${won(v)}`}>
+                  <div key={h} className="flex h-full flex-1 flex-col items-center justify-end" title={`${h}시 ${won(v)}`}>
                     <div className={`w-full rounded-t ${h === nowH ? "bg-emerald-400" : h > nowH ? "bg-white/5" : "bg-emerald-500/50"}`} style={{ height: `${Math.max(2, (v / maxH) * 100)}%` }} />
                   </div>
                 ))}
@@ -124,8 +124,8 @@ export function BoardClient() {
                     <span className="truncate font-sans text-slate-300">{m.label}</span>
                     <span className="flex items-center gap-2">
                       <span className="font-bold">{won(m.price)}</span>
-                      <span className={`flex w-16 items-center justify-end gap-0.5 text-xs font-bold ${m.changePct >= 0 ? "text-rose-400" : "text-sky-400"}`}>
-                        {m.changePct >= 0 ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
+                      <span className={`flex w-16 items-center justify-end gap-0.5 text-xs font-bold ${m.changePct > 0 ? "text-rose-400" : m.changePct < 0 ? "text-sky-400" : "text-slate-500"}`}>
+                        {m.changePct > 0 ? <ArrowUpRight className="size-3" /> : m.changePct < 0 ? <ArrowDownRight className="size-3" /> : null}
                         {Math.abs(m.changePct).toFixed(1)}%
                       </span>
                     </span>

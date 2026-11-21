@@ -146,8 +146,8 @@ export function NameMcProfile({ q }: { q: string }) {
                 {d.capes.length ? (
                   <div className="flex flex-wrap gap-2">
                     {d.capes.map((c) => (
-                      <div key={c.url} className="flex items-center gap-2 rounded-xl px-2.5 py-1.5" style={{ background: "rgba(127,127,127,0.1)" }}>
-                        <span className="block h-8 w-5 overflow-hidden rounded-sm" style={{ backgroundImage: `url(${c.url})`, backgroundSize: c.source === "optifine" ? "460% auto" : "640% auto", backgroundPosition: "1.5% 3%", imageRendering: "pixelated" }} />
+                      <div key={c.title} className="flex items-center gap-2 rounded-xl px-2.5 py-1.5" style={{ background: "rgba(127,127,127,0.1)" }}>
+                        {c.url ? <span className="block h-8 w-5 overflow-hidden rounded-sm" style={{ backgroundImage: `url(${c.url})`, backgroundSize: "640% 200%", backgroundPosition: "1.85% 6.25%", imageRendering: "pixelated" }} /> : <span className="flex h-8 w-5 items-center justify-center rounded-sm text-[9px] font-black text-white" style={{ background: c.source === "optifine" ? "#7c3aed" : "#475569" }}>{c.source === "optifine" ? "OF" : "?"}</span>}
                         <span className="text-xs font-semibold" style={text}>{c.title}</span>
                       </div>
                     ))}

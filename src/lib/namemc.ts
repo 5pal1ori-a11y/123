@@ -67,7 +67,12 @@ export async function lookupPlayer(query: string): Promise<LookupResult> {
     slim: Boolean(profile?.slim),
     renderUrl: `https://doesmc.xyz/api/discord/skin/${uuid}.png`,
     headUrl: `https://mc-heads.net/avatar/${uuid}/64`,
-    capes: (resolved?.capes ?? []).map((c) => ({ title: c.title ?? (c.source === "optifine" ? "OptiFine" : "망토"), url: c.url, source: c.source === "optifine" ? "optifine" : "minecraft" })),
+    // capes.me 는 바로 불러오기를 막아서, 망토 그림은 공식 텍스처(textures.minecraft.net)로 보여준다
+    capes: (resolved?.capes ?? []).map((c) => ({
+      title: c.title ?? (c.source === "optifine" ? "OptiFine" : "망토"),
+      url: c.source === "optifine" ? "" : c.hash ? `https://textures.minecraft.net/texture/${c.hash}` : /textures\.minecraft\.net/.test(c.url) ? c.url.replace(/^http:/, "https:") : "",
+      source: c.source === "optifine" ? "optifine" : "minecraft",
+    })),
     hypixel: hyp ? { rank: hyp.rank, rankColor: hyp.rankColor, level: hyp.level, bedwarsStars: hyp.bedwars.stars, lastLogin: hyp.lastLogin } : null,
     history,
   };

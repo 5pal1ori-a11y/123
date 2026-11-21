@@ -44,7 +44,7 @@ export const PREMIUM_PLANS: Record<PremiumPlanId, PremiumPlan> = {
       "모든 대상 제품 5% 추가 할인",
       "프리미엄 전용 월간 이벤트",
       "신규 상품 1시간 우선 구매",
-      "대리판매 수수료 할인 (10% → 7%)",
+      "도스마켓 판매 수수료 할인 (10% → 7%)",
       "매월 2,500원 포인트 지급",
     ],
     extraDiscountPercent: 5,

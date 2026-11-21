@@ -311,6 +311,25 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "도스마켓",
+    description: "도스마켓 패널(판매 등록 · 매물 · 내 구매 · 안전거래)을 올립니다 (관리자)",
+    type: 1,
+    options: [
+      { name: "승인채널", description: "판매 신청 · 정산 · 신고 카드를 받을 관리자 채널", type: 7, channel_types: [0, 5], required: false },
+    ],
+  },
+  {
+    name: "안전거래",
+    description: "DOES가 돈을 맡아 주는 안전거래 링크를 만듭니다",
+    type: 1,
+  },
+  {
+    name: "도스플랜",
+    description: "도스플랜(BASIC PASS · DOES PASS+) 혜택을 보고 구독합니다",
+    type: 1,
+    options: [{ name: "공개", description: "채널에 패널로 올리기 (관리자)", type: 5, required: false }],
+  },
+  {
     name: "렌탈",
     description: "계정 렌탈 패널을 올립니다 (관리자)",
     type: 1,

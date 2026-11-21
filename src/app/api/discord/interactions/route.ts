@@ -110,6 +110,8 @@ function needsSyncModalResponse(interaction: DiscordInteraction) {
   }
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
     if (interaction.data?.name === "버튼") return true;
+    // /안전거래 → 링크 만들기 모달 즉시 오픈
+    if (interaction.data?.name === "안전거래") return true;
     // /충전 (금액 없음) → 모달 즉시 오픈
     if (interaction.data?.name === "충전") {
       const opts = interaction.data.options;
@@ -148,6 +150,10 @@ function needsSyncModalResponse(interaction: DiscordInteraction) {
     // 렌탈 상품 등록 · 반납 완료 → 입력 창(모달)
     action === "rt_add" ||
     action === "rt_done" ||
+    // 안전거래 링크 만들기 · 도스마켓 문제 신고 · 도스플랜 키 입력 → 입력 창(모달)
+    action === "sx_new" ||
+    action === "dm_rep" ||
+    action === "pl_key" ||
     action === "cn_send" ||
     action === "cn_rej" ||
     action === "chg_custom" ||
@@ -192,6 +198,13 @@ const UPDATE_IN_PLACE = new Set([
   "rt_hide",
   "rt_del",
   "rt_donem",
+  // 안전거래 취소 · 관리자 처리 / 도스마켓 매물 상세 / 도스플랜 구독 확정
+  "sx_cancel",
+  "sx_rel",
+  "sx_ref",
+  "sx_paid",
+  "dm_pick",
+  "pl_ok",
   // 시즌패스 ◀ ▶ · 보상 받기 · 패스 구매
   "sp_pg",
   "sp_claim",

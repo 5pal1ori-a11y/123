@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Repeat, ShieldCheck, Store } from "lucide-react";
+import { Link2, Repeat, ShieldCheck, Store } from "lucide-react";
+import { DosMarketSafe } from "./dosmarket-safe";
 import { DosMarketSell } from "./dosmarket-sell";
 import { BuybackClient } from "./buyback-client";
 import { CareClient } from "./care-client";
 
-type Sub = "market" | "buyback" | "care";
+type Sub = "market" | "safe" | "buyback" | "care";
 
 /** 도스마켓 — DOES 가 직접 하는 거래 · 보장 서비스 모음 (매입 · 보상판매 / DOES 케어) */
 export function DosMarketHub({ shopSlug }: { shopSlug: string }) {
@@ -18,17 +19,19 @@ export function DosMarketHub({ shopSlug }: { shopSlug: string }) {
     const v = sp.get("sub") ?? sp.get("tab");
     if (v === "care") setSub("care");
     else if (v === "buyback") setSub("buyback");
+    else if (v === "safe") setSub("safe");
   }, []);
 
   const tabs: { id: Sub; label: string; icon: typeof Repeat }[] = [
     { id: "market", label: "마켓 판매", icon: Store },
+    { id: "safe", label: "안전거래", icon: Link2 },
     { id: "buyback", label: "매입 · 보상판매", icon: Repeat },
     { id: "care", label: "DOES 케어", icon: ShieldCheck },
   ];
 
   return (
     <div className="w-full space-y-4">
-      <div className="mx-auto grid w-full max-w-xl grid-cols-3 gap-1 rounded-2xl p-1" style={{ background: "var(--mf-surface-2, rgba(127,127,127,0.12))" }}>
+      <div className="mx-auto grid w-full max-w-2xl grid-cols-2 sm:grid-cols-4 gap-1 rounded-2xl p-1" style={{ background: "var(--mf-surface-2, rgba(127,127,127,0.12))" }}>
         {tabs.map((t) => {
           const on = sub === t.id;
           const Icon = t.icon;
@@ -44,7 +47,7 @@ export function DosMarketHub({ shopSlug }: { shopSlug: string }) {
           );
         })}
       </div>
-      {sub === "market" ? <DosMarketSell shopSlug={shopSlug} /> : sub === "buyback" ? <BuybackClient /> : <CareClient />}
+      {sub === "market" ? <DosMarketSell shopSlug={shopSlug} /> : sub === "safe" ? <DosMarketSafe /> : sub === "buyback" ? <BuybackClient /> : <CareClient />}
     </div>
   );
 }

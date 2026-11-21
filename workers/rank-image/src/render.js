@@ -815,9 +815,9 @@ export function shopStatsTree(d) {
 export function proxyPanelTree(d) {
   const top = Math.max(d.registrants || 0, d.selling || 0, d.sold || 0, 1);
   return h("div", PAGE("#1e1b4b"),
-    brandHeader(d, "PROXY RESALE", "DOES 프록시 대리판매", "누적 판매액", `₩${fmtN(d.soldAmount)}`),
+    brandHeader(d, "DOES MARKET", "도스마켓", "누적 판매액", `₩${fmtN(d.soldAmount)}`),
     h("div", { display: "flex", marginTop: 34 },
-      bigStat("프록시 등록자", fmtN(d.registrants), "명", "#c7d2fe", (d.registrants || 0) / top),
+      bigStat("판매자", fmtN(d.registrants), "명", "#c7d2fe", (d.registrants || 0) / top),
       bigStat("판매 중", fmtN(d.selling), "개", "#67e8f9", (d.selling || 0) / top),
       bigStat("판매 완료", fmtN(d.sold), "개", "#86efac", (d.sold || 0) / top, true),
     ),
@@ -844,7 +844,7 @@ export function proxyStatusTree(d) {
   const t = d.totals ?? {};
   const max = Math.max(1, ...rows.map((r) => r.price || 0));
   return h("div", PAGE("#1e1b4b"),
-    brandHeader(d, "MY PROXY", `${d.name ?? "회원"} 님의 프록시`, `판매 중 ${fmtN(t.selling)} · 판매 완료 ${fmtN(t.sold)}`, `정산 예정 ₩${fmtN(t.payoutDue)}`, { avatar: d.avatar ?? null, titleSize: 40 }),
+    brandHeader(d, "MY SALES", `${d.name ?? "회원"} 님의 도스마켓`, `판매 중 ${fmtN(t.selling)} · 판매 완료 ${fmtN(t.sold)}`, `정산 예정 ₩${fmtN(t.payoutDue)}`, { avatar: d.avatar ?? null, titleSize: 40 }),
     h("div", { display: "flex", marginTop: 30 }, glowLine()),
     h("div", { display: "flex", flexDirection: "column", marginTop: 14 },
       ...(rows.length
@@ -866,9 +866,9 @@ export function proxyStatusTree(d) {
               ),
             );
           })
-        : [h("div", { display: "flex", justifyContent: "center", padding: "26px 0", fontSize: 22, fontWeight: 700, color: "#64748b" }, "아직 등록한 프록시가 없어요")]),
+        : [h("div", { display: "flex", justifyContent: "center", padding: "26px 0", fontSize: 22, fontWeight: 700, color: "#64748b" }, "아직 등록한 판매가 없어요")]),
     ),
-    footer("판매되면 관리자가 확인 후 등록한 계좌로 정산해 드려요", "doesmc.xyz"),
+    footer("판매되면 구매자 보호 24시간 뒤 포인트 · 계좌로 정산해 드려요", "doesmc.xyz"),
   );
 }
 
@@ -1420,4 +1420,64 @@ export function seasonPassTree(d) {
     ),
     footer("출석 30XP · 구매 500원당 1XP · 후기 50XP · 패스 보유 XP +25%", d.cl ? `받을 보상 ${d.cl}개!` : "doesmc.xyz"),
   );
+}
+
+/* ───────── 도스플랜 (프리미엄 플랜 비교) ─────────
+ * d: { me?: { plan: "basic"|"plus"|null, left?: number }, plans: [{ id, name, price, tag, perks: [] }] }
+ */
+const PL_CHECK = (c) => spSvg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${c}"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#0b0f1a" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`);
+function planCard(p, mine) {
+  const gold = p.id === "plus";
+  const c = gold ? "#fbbf24" : "#60a5fa";
+  return h("div", {
+      display: "flex", flexDirection: "column", flex: 1, padding: "28px 30px", borderRadius: 30, position: "relative",
+      background: gold ? "linear-gradient(160deg, rgba(251,191,36,0.20) 0%, rgba(255,255,255,0.03) 70%)" : "linear-gradient(160deg, rgba(96,165,250,0.16) 0%, rgba(255,255,255,0.03) 70%)",
+      border: gold ? "2px solid rgba(251,191,36,0.75)" : "1px solid rgba(96,165,250,0.40)",
+      boxShadow: gold ? "0 0 40px rgba(251,191,36,0.22)" : "none",
+    },
+    gold ? h("div", { display: "flex", position: "absolute", top: -16, right: 26, padding: "6px 16px", borderRadius: 999, background: "linear-gradient(135deg,#fde68a,#f59e0b)", color: "#3b2300", fontSize: 16, fontWeight: 900 }, "BEST") : null,
+    h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+      h("div", { display: "flex", fontSize: 30, fontWeight: 900, color: c, letterSpacing: -0.5 }, p.name),
+      mine ? h("div", { display: "flex", padding: "5px 12px", borderRadius: 999, background: c, color: "#0b0f1a", fontSize: 15, fontWeight: 900 }, "이용 중") : null,
+    ),
+    h("div", { display: "flex", fontSize: 17, fontWeight: 600, color: "#94a3b8", marginTop: 4 }, p.tag ?? ""),
+    h("div", { display: "flex", alignItems: "baseline", marginTop: 14 },
+      h("div", { display: "flex", fontSize: 46, fontWeight: 900, letterSpacing: -1.5 }, `${fmtN(p.price)}원`),
+      h("div", { display: "flex", fontSize: 18, fontWeight: 700, color: "#94a3b8", marginLeft: 6 }, "/ 30일"),
+    ),
+    h("div", { display: "flex", height: 1, background: "rgba(255,255,255,0.10)", marginTop: 16, marginBottom: 12 }),
+    ...(p.perks ?? []).slice(0, 7).map((t) =>
+      h("div", { display: "flex", alignItems: "center", marginTop: 9 },
+        img(PL_CHECK(c), { width: 22, height: 22, marginRight: 10 }),
+        h("div", { display: "flex", fontSize: 19, fontWeight: 600, color: "#e2e8f0" }, t),
+      ),
+    ),
+  );
+}
+export function planPanelTree(d) {
+  const plans = (d.plans ?? []).slice(0, 2);
+  const me = d.me;
+  const meText = me ? (me.plan ? `내 플랜 ${me.plan === "plus" ? "DOES PASS+" : "BASIC PASS"}${typeof me.left === "number" ? ` · ${me.left}일 남음` : ""}` : "아직 플랜이 없어요") : null;
+  return h("div", { ...PAGE("#3b2a05"), padding: "38px 50px 28px" },
+    h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+      h("div", { display: "flex", alignItems: "center" },
+        d.logo ? img(d.logo, { width: 66, height: 66, marginRight: 16 }) : null,
+        h("div", { display: "flex", flexDirection: "column" },
+          h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: "#fbbf24", letterSpacing: 6 }, "DOES PLAN"),
+          h("div", { display: "flex", fontSize: 46, fontWeight: 900, marginTop: 2, letterSpacing: -1.5 }, "도스플랜"),
+        ),
+      ),
+      meText ? h("div", { display: "flex", padding: "12px 20px", borderRadius: 999, fontSize: 19, fontWeight: 900,
+          background: me.plan ? "linear-gradient(135deg,#fde68a 0%,#f59e0b 100%)" : "rgba(255,255,255,0.07)", color: me.plan ? "#3b2300" : "#cbd5e1",
+          border: me.plan ? "none" : "1px solid rgba(255,255,255,0.14)" }, meText) : null,
+    ),
+    h("div", { display: "flex", marginTop: 34 },
+      ...plans.map((p, i) => h("div", { display: "flex", flex: 1, marginLeft: i ? 22 : 0 }, planCard(p, me && me.plan === p.id))),
+    ),
+    footer("포인트로 바로 구독 · 30일 단위 · 라이선스 키로도 사용 가능", "doesmc.xyz · /도스플랜"),
+  );
+}
+export function planPanelHeight(d) {
+  const n = Math.max(...(d.plans ?? []).map((p) => Math.min(7, (p.perks ?? []).length)), 4);
+  return 460 + n * 31;
 }

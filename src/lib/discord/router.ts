@@ -263,7 +263,7 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       const { handleTemplateCommand } = await import("@/lib/discord/template-panels");
       return handleTemplateCommand(shop.slug, actor.roles, perms, { kind: o("종류"), link1: o("링크1"), link2: o("링크2"), channelId: interaction.channel_id });
     }
-    if (name === "프록시등록") {
+    if (name === "프록시등록" || name === "도스마켓") {
       const ch = interaction.data?.options?.find((o) => o.name === "승인채널")?.value;
       const { handleProxyCommand } = await import("@/lib/discord/proxy-sale");
       return handleProxyCommand(shop.slug, actor.roles, perms, interaction.channel_id, typeof ch === "string" ? ch : null);
@@ -284,6 +284,15 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         restock: opt("입고채널"),
         review: opt("후기채널"),
       });
+    }
+    if (name === "안전거래") {
+      const { handleSafeCommand } = await import("@/lib/discord/safe-trade");
+      return handleSafeCommand(shop.slug);
+    }
+    if (name === "도스플랜") {
+      const pub = interaction.data?.options?.find((o) => o.name === "공개")?.value === true;
+      const { handlePlanCommand } = await import("@/lib/discord/plan");
+      return handlePlanCommand(shop.slug, actor.id, actor.roles, perms, interaction.channel_id, pub);
     }
     if (name === "렌탈") {
       const v = interaction.data?.options?.find((o) => o.name === "승인채널")?.value;
@@ -584,6 +593,18 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
       return px.handleProxyRejectSubmit(shop.slug, parsed.payload, actor.id, actor.roles, modalPerms, interaction);
     }
 
+    if (parsed.action === "sx_modal") {
+      const { handleSafeSubmit } = await import("@/lib/discord/safe-trade");
+      return handleSafeSubmit(shop.slug, { id: actor.id, name: actor.username }, interaction);
+    }
+    if (parsed.action === "dm_repm") {
+      const { handleDmReportSubmit } = await import("@/lib/discord/dosmarket-panel");
+      return handleDmReportSubmit(shop.slug, actor.id, parsed.payload, interaction);
+    }
+    if (parsed.action === "pl_keym") {
+      const { handlePlanKeySubmit } = await import("@/lib/discord/plan");
+      return handlePlanKeySubmit(shop.slug, actor.id, interaction);
+    }
     if (parsed.action === "rt_addm" || parsed.action === "rt_donem") {
       const rt = await import("@/lib/discord/rental");
       if (parsed.action === "rt_addm") return rt.handleRentalAddSubmit(shop.slug, actor.roles, interaction.member?.permissions, interaction);
@@ -765,6 +786,24 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
     if (action === "dm_paid" || action === "dm_release" || action === "dm_refund" || action === "dm_cred") {
       const { handleDosMarketButton } = await import("@/lib/dosmarket");
       return handleDosMarketButton(shop.slug, action, payload, actor.roles, perms);
+    }
+    if (action.startsWith("sx_")) {
+      const sx = await import("@/lib/discord/safe-trade");
+      if (action === "sx_new") return sx.handleSafeCommand(shop.slug);
+      return sx.handleSafeButton(shop.slug, action, payload, { id: actor.id, roles: actor.roles }, perms, interaction.channel_id);
+    }
+    if (action === "dm_list" || action === "dm_pick" || action === "dm_buys" || action === "dm_rep") {
+      const dm = await import("@/lib/discord/dosmarket-panel");
+      if (action === "dm_list") return dm.handleDmList(shop.slug);
+      if (action === "dm_pick") return dm.handleDmPick(shop.slug, values[0] ?? payload);
+      if (action === "dm_buys") return dm.handleDmBuys(shop.slug, actor.id);
+      return dm.handleDmReportButton(shop.slug, payload);
+    }
+    if (action.startsWith("pl_")) {
+      const pl = await import("@/lib/discord/plan");
+      if (action === "pl_buy") return pl.handlePlanBuyButton(shop.slug, actor.id, payload);
+      if (action === "pl_ok") return pl.handlePlanConfirm(shop.slug, actor.id, payload);
+      if (action === "pl_key") return pl.handlePlanKeyButton(shop.slug);
     }
     if (action.startsWith("rt_")) {
       const rt = await import("@/lib/discord/rental");

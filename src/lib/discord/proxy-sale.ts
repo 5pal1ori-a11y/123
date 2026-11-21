@@ -97,22 +97,25 @@ async function panelMessage(shopId: string, shopSlug: string) {
   const image = await signedImage(shopId, { kind: "proxy_panel", ...s, time: kst() });
   const kids: unknown[] = [
     ...(image ? [mediaGallery([image])] : []),
-    textDisplay(`## ${plainEmoji("does_gem")} 프록시 대리판매 등록`),
+    textDisplay(`## ${plainEmoji("does_gem")} 도스마켓`),
     textDisplay(
       [
-        "가지고 있는 마인크래프트 계정을 DOES 에서 대신 팔아 드려요.",
-        "> 신청 → 관리자 승인 → 상점 **대리판매** 탭에 등록 → 판매되면 정산",
+        "내 마인크래프트 계정을 DOES가 대신 안전하게 팔아 드려요. 구매자 돈은 DOES가 보관했다가 정산해요.",
+        "> 판매 등록 → 관리자 확인 → 마켓 공개 → 구매 · 자동 전달 → 구매자 보호 24시간 → 수수료 빼고 정산",
       ].join("\n"),
     ),
     ...(image
       ? []
-      : [textDisplay(`프록시 등록자 **${s.registrants}명** · 판매 중 **${s.selling}개** · 판매 완료 **${s.sold}개** · 누적 **${won(s.soldAmount)}**`)]),
+      : [textDisplay(`판매자 **${s.registrants}명** · 판매 중 **${s.selling}개** · 판매 완료 **${s.sold}개** · 누적 **${won(s.soldAmount)}**`)]),
     separator(true, 1),
     actionRow(
-      styledButton(cid(shopSlug, "px_reg"), "프록시 등록하기", ButtonStyle.PRIMARY, appEmoji("does_plus")),
-      styledButton(cid(shopSlug, "px_mine"), "내 프록시 현황", ButtonStyle.SECONDARY, appEmoji("does_chart")),
+      styledButton(cid(shopSlug, "px_reg"), "판매 등록", ButtonStyle.PRIMARY, appEmoji("does_plus")),
+      styledButton(cid(shopSlug, "px_mine"), "내 판매", ButtonStyle.SECONDARY, appEmoji("does_chart")),
+      styledButton(cid(shopSlug, "dm_list"), "매물 보기", ButtonStyle.SECONDARY),
+      styledButton(cid(shopSlug, "dm_buys"), "내가 산 계정", ButtonStyle.SECONDARY),
     ),
-    textDisplay("-# 승인·거절·판매 소식은 DM 으로 알려 드려요 · 정산 계좌는 관리자만 볼 수 있어요"),
+    actionRow(styledButton(cid(shopSlug, "sx_new"), "안전거래 링크 만들기", ButtonStyle.SUCCESS)),
+    textDisplay("-# 등록 · 판매 · 정산 소식은 DM으로 알려 드려요 · 안전거래 링크는 DOES 밖에서 만난 거래에 써요"),
   ];
   return { flags: MessageFlags.IS_COMPONENTS_V2, components: [container(kids, 0x6366f1)], allowed_mentions: { parse: [] as string[] } };
 }
@@ -128,7 +131,7 @@ export async function handleProxyCommand(
   const shop = getShopBySlug(shopSlug);
   if (!shop) return errorPanel("상점을 찾을 수 없어요.");
   const settings = getShopSettings(shop.id);
-  if (!isDiscordAdmin(settings, roles, permissions)) return errorPanel("프록시 패널은 관리자만 올릴 수 있어요.", "권한 없음");
+  if (!isDiscordAdmin(settings, roles, permissions)) return errorPanel("도스마켓 패널은 관리자만 올릴 수 있어요.", "권한 없음");
   if (!channelId) return errorPanel("채널에서 다시 써 주세요.");
   const adminCh = adminChannelId || settings.proxyAdminChannelId || settings.stockRequestChannelId || null;
   if (!adminCh) return errorPanel("신청을 받을 관리자 채널을 `승인채널` 옵션으로 한 번 지정해 주세요.");
@@ -138,7 +141,7 @@ export async function handleProxyCommand(
   if (!posted.ok || !messageId) return errorPanel("패널을 올리지 못했어요. 봇이 이 채널에 글을 쓸 수 있는지 확인해 주세요.");
   updateShopSettings(shop.id, { proxyAdminChannelId: adminCh, proxyPanel: { channelId, messageId } });
   await persistAsync();
-  return plainEphemeral(`프록시 패널을 올렸어요. 신청 카드는 <#${adminCh}> 채널로 갑니다.`);
+  return plainEphemeral(`도스마켓 패널을 올렸어요. 판매 신청 · 정산 · 신고 카드는 <#${adminCh}> 채널로 갑니다.`);
 }
 
 /** 숫자가 바뀌면 패널을 다시 그린다 (등록 · 승인 · 거절 · 판매 때) */
@@ -182,7 +185,7 @@ export async function handleProxyRegisterSubmit(shopSlug: string, discordUser: {
     return v2Ephemeral([
       container([
         textDisplay("## 먼저 사이트 계정을 연결해 주세요"),
-        textDisplay("프록시 등록은 정산 때문에 사이트 계정이 필요해요.\n사이트에서 **디스코드로 로그인**하면 자동으로 연결돼요. 연결한 뒤 다시 눌러 주세요."),
+        textDisplay("도스마켓 판매는 정산 때문에 사이트 계정이 필요해요.\n사이트에서 **디스코드로 로그인**하면 자동으로 연결돼요. 연결한 뒤 다시 눌러 주세요."),
         actionRow(styledLink(shopUrl(shop.slug, "/dashboard"), "사이트에서 로그인")),
       ]),
     ]);
@@ -213,7 +216,7 @@ export async function handleProxyRegisterSubmit(shopSlug: string, discordUser: {
   } catch (e) {
     return plainEphemeral(e instanceof Error ? e.message : "신청하지 못했어요.");
   }
-  pushAdminNotification(shop.id, "resale_request", "대리판매 신청 (디스코드)", `${req.userName} · ${req.ign} · ${won(req.price)}`);
+  pushAdminNotification(shop.id, "resale_request", "도스마켓 판매 신청 (디스코드)", `${req.userName} · ${req.ign} · ${won(req.price)}`);
   await persistAsync();
 
   const adminCh = getShopSettings(shop.id).proxyAdminChannelId || getShopSettings(shop.id).stockRequestChannelId;
@@ -371,8 +374,8 @@ export async function handleProxyMine(shopSlug: string, discordUser: { id: strin
         ...(image
           ? []
           : [
-              textDisplay(`## 내 프록시 현황`),
-              textDisplay(rows.length ? rows.map((x) => `· ${x.ign} — ${won(x.price)} · ${STATUS_KO[x.status] ?? x.status}`).join("\n") : "아직 등록한 프록시가 없어요."),
+              textDisplay(`## 내 도스마켓 판매`),
+              textDisplay(rows.length ? rows.map((x) => `· ${x.ign} — ${won(x.price)} · ${STATUS_KO[x.status] ?? x.status}`).join("\n") : "아직 등록한 판매가 없어요."),
             ]),
         textDisplay(user ? "-# 이 메시지는 나에게만 보여요" : "-# 사이트 계정이 연결돼 있지 않아요 · 사이트에서 디스코드로 로그인해 주세요"),
       ],

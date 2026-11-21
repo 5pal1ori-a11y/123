@@ -82,6 +82,11 @@ function Handover({ id, onDone }: { id: string; onDone: (m: string) => void }) {
 
 export function BuybackClient() {
   const [nick, setNick] = useState("");
+  // 닉네임 조회(/mc)에서 '감정받기'로 오면 닉네임을 미리 채운다
+  useEffect(() => {
+    const ign = new URLSearchParams(window.location.search).get("ign");
+    if (ign && /^[A-Za-z0-9_]{3,16}$/.test(ign)) setNick(ign);
+  }, []);
   const [ap, setAp] = useState<Appraisal | null>(null);
   const [kind, setKind] = useState<"buyback" | "tradein">("buyback");
   const [payout, setPayout] = useState<"points" | "cash">("points");

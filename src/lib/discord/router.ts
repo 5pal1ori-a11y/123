@@ -285,6 +285,15 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
         review: opt("후기채널"),
       });
     }
+    if (name === "전광판") {
+      const { handleBoardCommand } = await import("@/lib/discord/board");
+      return handleBoardCommand(shop.slug, actor.roles, perms, interaction.channel_id);
+    }
+    if (name === "닉네임") {
+      const v = interaction.data?.options?.find((o) => o.name === "이름")?.value;
+      const { handleNameCommand } = await import("@/lib/discord/board");
+      return handleNameCommand(typeof v === "string" ? v : "");
+    }
     if (name === "안전거래") {
       const { handleSafeCommand } = await import("@/lib/discord/safe-trade");
       return handleSafeCommand(shop.slug);

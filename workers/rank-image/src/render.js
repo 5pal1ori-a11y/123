@@ -1481,3 +1481,61 @@ export function planPanelHeight(d) {
   const n = Math.max(...(d.plans ?? []).map((p) => Math.min(7, (p.perks ?? []).length)), 4);
   return 460 + n * 31;
 }
+
+/* ───────── 거래소 전광판 ─────────
+ * d: { time, k: [오늘거래액, 오늘체결, 판매중, 누적], vs, tape: [[상품, 가격, 구매자, "3분 전"]], mv: [[이름, 가격, 등락%]] }
+ */
+export function boardTree(d) {
+  const tape = (d.tape ?? []).slice(0, 7);
+  const mv = (d.mv ?? []).slice(0, 6);
+  const k = d.k ?? [0, 0, 0, 0];
+  const tile = (label, value, sub, color, last) =>
+    h("div", { display: "flex", flexDirection: "column", flex: 1, padding: "18px 22px", marginRight: last ? 0 : 14, borderRadius: 20, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)" },
+      h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: "#94a3b8" }, label),
+      h("div", { display: "flex", fontSize: 32, fontWeight: 900, marginTop: 4, letterSpacing: -1 }, value),
+      h("div", { display: "flex", fontSize: 14, fontWeight: 600, color: color ?? "#64748b", marginTop: 2 }, sub),
+    );
+  const up = (p) => (p >= 0 ? "#fb7185" : "#38bdf8");
+  return h("div", { ...PAGE("#052e1c"), padding: "34px 44px 24px" },
+    h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
+      h("div", { display: "flex", alignItems: "center" },
+        d.logo ? img(d.logo, { width: 60, height: 60, marginRight: 16 }) : null,
+        h("div", { display: "flex", flexDirection: "column" },
+          h("div", { display: "flex", alignItems: "center", fontSize: 15, fontWeight: 700, color: "#34d399", letterSpacing: 6 },
+            h("div", { display: "flex", width: 10, height: 10, borderRadius: 10, background: "#34d399", boxShadow: "0 0 12px #34d399", marginRight: 10 }), "LIVE · DOES EXCHANGE"),
+          h("div", { display: "flex", fontSize: 42, fontWeight: 900, marginTop: 2, letterSpacing: -1.5 }, "DOES 거래소 전광판"),
+        ),
+      ),
+      h("div", { display: "flex", fontSize: 17, fontWeight: 600, color: "#64748b" }, d.time ? `${d.time} 기준` : ""),
+    ),
+    h("div", { display: "flex", marginTop: 24 },
+      tile("오늘 거래액", `₩${fmtN(k[0])}`, d.vs === null || d.vs === undefined ? "어제 기록 없음" : `어제 같은 시간 대비 ${d.vs >= 0 ? "+" : ""}${d.vs}%`, d.vs === null || d.vs === undefined ? null : up(d.vs)),
+      tile("오늘 체결", `${fmtN(k[1])}건`, "실시간 집계"),
+      tile("판매 중 매물", `${fmtN(k[2])}개`, "지금 살 수 있는 계정"),
+      tile("누적 체결", `${fmtN(k[3])}건`, "DOES 전체 거래", null, true),
+    ),
+    h("div", { display: "flex", marginTop: 18, flex: 1 },
+      h("div", { display: "flex", flexDirection: "column", flex: 1.35, marginRight: 14, padding: "16px 20px", borderRadius: 20, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" },
+        h("div", { display: "flex", fontSize: 18, fontWeight: 900, marginBottom: 8 }, "실시간 체결"),
+        ...(tape.length ? tape : [["아직 체결이 없어요", 0, "", ""]]).map((t, i) =>
+          h("div", { display: "flex", alignItems: "center", padding: "7px 10px", borderRadius: 10, background: i === 0 ? "rgba(52,211,153,0.14)" : i % 2 ? "rgba(255,255,255,0.025)" : "transparent" },
+            h("div", { display: "flex", flex: 1, fontSize: 17, fontWeight: 600, color: "#e2e8f0", overflow: "hidden", whiteSpace: "nowrap", maxWidth: 330 }, t[0]),
+            t[1] ? h("div", { display: "flex", fontSize: 18, fontWeight: 900, color: "#fda4af", marginLeft: 10 }, `₩${fmtN(t[1])}`) : null,
+            h("div", { display: "flex", width: 120, justifyContent: "flex-end", fontSize: 14, fontWeight: 500, color: "#64748b" }, t[2] ? `${t[2]} · ${t[3]}` : ""),
+          ),
+        ),
+      ),
+      h("div", { display: "flex", flexDirection: "column", flex: 1, padding: "16px 20px", borderRadius: 20, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" },
+        h("div", { display: "flex", fontSize: 18, fontWeight: 900, marginBottom: 8 }, "시세 등락"),
+        ...(mv.length ? mv : [["시세 데이터 쌓는 중", 0, 0]]).map((m) =>
+          h("div", { display: "flex", alignItems: "center", padding: "8px 4px", borderBottom: "1px solid rgba(255,255,255,0.05)" },
+            h("div", { display: "flex", flex: 1, fontSize: 17, fontWeight: 600, color: "#cbd5e1", overflow: "hidden", whiteSpace: "nowrap", maxWidth: 200 }, m[0]),
+            m[1] ? h("div", { display: "flex", fontSize: 17, fontWeight: 800, marginLeft: 8 }, `₩${fmtN(m[1])}`) : null,
+            m[1] ? h("div", { display: "flex", width: 82, justifyContent: "flex-end", fontSize: 16, fontWeight: 900, color: up(m[2]) }, `${m[2] >= 0 ? "▲" : "▼"} ${Math.abs(m[2]).toFixed(1)}%`) : null,
+          ),
+        ),
+      ),
+    ),
+    footer("실제 주문 · 계정 차트 기준 · 5분마다 갱신", "doesmc.xyz/board"),
+  );
+}

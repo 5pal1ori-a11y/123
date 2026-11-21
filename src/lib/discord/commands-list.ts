@@ -311,6 +311,17 @@ export const VENDIX_DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "전광판",
+    description: "DOES 거래소 전광판을 채널에 고정합니다 (관리자 · 5분마다 갱신)",
+    type: 1,
+  },
+  {
+    name: "닉네임",
+    description: "마크 닉네임 · UUID로 스킨 · 망토 · 닉네임 이력 · 하이픽셀을 조회합니다",
+    type: 1,
+    options: [{ name: "이름", description: "닉네임 또는 UUID", type: 3, required: true, max_length: 36 }],
+  },
+  {
     name: "도스마켓",
     description: "도스마켓 패널(판매 등록 · 매물 · 내 구매 · 안전거래)을 올립니다 (관리자)",
     type: 1,

@@ -153,6 +153,13 @@ export type ShopSettings = {
   /** 계정 렌탈 — 반납 · 등록 카드 채널 · 패널 위치 */
   rentalAdminChannelId?: string | null;
   rentalPanel?: { channelId: string; messageId: string } | null;
+  /** /전광판 — 5분마다 다시 그리는 거래소 전광판 위치 */
+  boardPanel?: { channelId: string; messageId: string } | null;
+  /** /vip설정 — VIP 전용 채널 카테고리 · 매니저 역할 */
+  vipCategoryId?: string | null;
+  vipManagerRoleId?: string | null;
+  /** 도스야 채팅 봇 끄기 */
+  dosyaDisabled?: boolean;
   /** /랭킹관리 — 구매 랭킹 · 리더보드에서 뺀 디스코드 ID */
   rankingExcludedDiscordIds?: string[];
   /** /코인대행 — 숫자를 다시 그릴 패널 위치 */

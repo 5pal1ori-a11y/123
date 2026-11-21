@@ -286,7 +286,10 @@ export async function middleware(request: Request) {
         pathname.startsWith("/coin-trade/") ||
         pathname === "/passport" ||
         pathname.startsWith("/passport/") ||
-        pathname.startsWith("/safe/"))
+        pathname.startsWith("/safe/") ||
+        pathname === "/mc" ||
+        pathname.startsWith("/mc/") ||
+        pathname === "/board")
     ) {
       return withSessionRefresh(NextResponse.next(), request, slug);
     }

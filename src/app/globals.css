@@ -5097,3 +5097,9 @@ html.mfa-dark.mfa-light .support-chat-bubble--human { border-color: rgba(34, 197
   color: var(--mf-muted);
   opacity: 0.85;
 }
+
+/* 거래소 전광판 시세 흐름 */
+@keyframes board-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}

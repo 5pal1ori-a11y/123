@@ -198,6 +198,8 @@ async function refreshRankingEvery10m(shopId: string) {
   // 렌탈: 끝나기 1시간 전 알림 · 기간 끝난 대여 반납 대기 / 안전거래: 만료 · 보호 끝난 거래 정산
   await import("@/lib/rental").then(({ runRentalSweep }) => runRentalSweep(shopId)).catch((err) => console.error("[rental]", err));
   await import("@/lib/safe-trade").then(({ runSafeTradeSweep }) => runSafeTradeSweep(shopId)).catch((err) => console.error("[safetrade]", err));
+  // 거래소 전광판 다시 그리기
+  await import("@/lib/discord/board").then(({ refreshBoardPanel }) => refreshBoardPanel(shopId)).catch((err) => console.error("[board]", err));
   // 프리미엄 플랜: 월 포인트 지급 · 만료 역할 회수
   await import("@/lib/premium")
     .then(async ({ premiumCron }) => {

@@ -55,6 +55,17 @@ function securityHeaders(response: NextResponse) {
   return response;
 }
 
+/** 디스코드 액티비티 — 디스코드 앱 안(iframe)에서만 열리도록 허용한다 */
+function activityHeaders(response: NextResponse) {
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set(
+    "Content-Security-Policy",
+    "frame-ancestors https://discord.com https://*.discord.com https://*.discordsays.com https://discordapp.com https://*.discordapp.com",
+  );
+  return response;
+}
+
 function withSessionRefresh(response: NextResponse, request: Request, shopSlug?: string | null) {
   try {
     const cookieHeader = request.headers.get("cookie") ?? "";
@@ -154,6 +165,12 @@ export async function middleware(request: Request) {
     target.protocol = "https:";
     target.host = customDomain;
     return securityHeaders(NextResponse.redirect(target, 308));
+  }
+
+  // 디스코드 액티비티: 디스코드가 URL 매핑 루트(/)를 frame_id · instance_id 와 함께 열면 /activity 로 보낸다
+  const activityLaunch = pathname === "/" && url.searchParams.has("frame_id") && url.searchParams.has("instance_id");
+  if (activityLaunch || pathname === "/activity") {
+    return activityHeaders(activityLaunch ? NextResponse.rewrite(new URL(`/activity${url.search}`, request.url)) : NextResponse.next());
   }
 
   // Discord interaction validation is latency-sensitive — skip KV/session work

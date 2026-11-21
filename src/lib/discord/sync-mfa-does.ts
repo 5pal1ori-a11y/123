@@ -50,10 +50,26 @@ export function syncDoesCommandsOnce() {
 /** 전역 명령 등록 (PUT 은 목록 전체를 덮어쓴다) */
 async function putCommands(path: string, commands: unknown[], botToken: string) {
   if (!botToken) return { ok: false as const, error: "Bot Token이 없어요.", commands: [] as { name?: string }[] };
+  // 디스코드 액티비티를 켜면 디스코드가 'Launch' 진입 명령(type 4)을 만든다.
+  // 목록 전체를 덮어쓸 때 그걸 빼면 디스코드가 거절하므로, 있으면 그대로 붙여서 보낸다.
+  let body = commands;
+  try {
+    const cur = await fetch(`${DISCORD_API}${path}`, { headers: { Authorization: `Bot ${botToken}` } });
+    const list = cur.ok ? ((await cur.json()) as { id: string; type?: number; name: string; description?: string; handler?: number; integration_types?: number[]; contexts?: number[] }[]) : [];
+    const entry = list.find((c) => c.type === 4);
+    if (entry && !commands.some((c) => (c as { type?: number }).type === 4)) {
+      body = [
+        ...commands,
+        { id: entry.id, type: 4, name: entry.name, description: entry.description ?? "", handler: entry.handler ?? 2, ...(entry.integration_types ? { integration_types: entry.integration_types } : {}), ...(entry.contexts ? { contexts: entry.contexts } : {}) },
+      ];
+    }
+  } catch {
+    /* 조회 실패 — 원래 목록대로 보낸다 */
+  }
   const res = await fetch(`${DISCORD_API}${path}`, {
     method: "PUT",
     headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify(commands),
+    body: JSON.stringify(body),
   });
   const json = (await res.json().catch(() => null)) as unknown;
   if (!res.ok) {

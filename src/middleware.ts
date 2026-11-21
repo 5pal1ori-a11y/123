@@ -252,7 +252,9 @@ export async function middleware(request: Request) {
         pathname === "/api/manage-bot/interactions" ||
         pathname.startsWith("/api/manage-bot/") ||
         pathname.startsWith("/api/manage/") ||
-        pathname.startsWith("/api/auth/admin/discord/");
+        pathname.startsWith("/api/auth/admin/discord/") ||
+        // 디스코드 액티비티는 discordsays.com 에서 부르고, 쿠키가 아닌 Authorization 헤더 세션을 쓴다
+        pathname.startsWith("/api/discord-activity/");
       if (!skipCsrf) {
         const csrf = assertSameOrigin(request);
         if (csrf) return securityHeaders(csrf);

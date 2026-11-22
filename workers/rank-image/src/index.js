@@ -38,6 +38,20 @@ async function galmuri() {
   return pixelFont;
 }
 
+async function toDataUrl(url, any = false) {
+  if (!url || !(any ? /^https:\/\//.test(url) : /^https:\/\/((cdn|media)\.discordapp\.(com|net)|doesmc\.xyz|([a-z]+\.)?xn--hq1b35z\.com)\//.test(url))) return null;
+  try {
+    const r = await fetch(url);
+    if (!r.ok || Number(r.headers.get("content-length") || 0) > 3_000_000) return null;
+    const buf = new Uint8Array(await r.arrayBuffer());
+    let s = "";
+    for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+    return `data:${r.headers.get("content-type") || "image/png"};base64,${btoa(s)}`;
+  } catch {
+    return null;
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     cache.setExecutionContext(ctx);

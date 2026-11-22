@@ -24,52 +24,114 @@ function avatar(src, size, ring, glow) {
   );
 }
 
-function crown(color) {
-  // 1위 왕관 (SVG)
+/* ───────── 마크 스타일 공용 조각 ───────── */
+export const MC_PURPLE = "#a78bfa";
+export const MC_EYEBROW = "#b9a8ff";
+let MC_LOGO = null;
+/** index.js 가 그리기 전에 잔디 블록 로고를 넣어 준다 (footer 등에서 씀) */
+export function setMcLogo(src) {
+  MC_LOGO = src || null;
+}
+const svgData = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+
+/** 돌 블록(벽돌) 질감 — 단상 앞면 */
+function brickSvg(w, hgt, base, seed) {
+  let x = seed * 9301 + 49297;
+  const rnd = () => ((x = (x * 9301 + 49297) % 233280) / 233280);
+  const [r, g, b] = base;
+  const rows = [];
+  const bh = 26;
+  for (let y = 0, row = 0; y < hgt; y += bh, row++) {
+    const off = row % 2 ? -34 : 0;
+    for (let bx = off; bx < w; bx += 68) {
+      const k = 0.78 + rnd() * 0.32;
+      const c = `rgb(${Math.round(r * k)},${Math.round(g * k)},${Math.round(b * k)})`;
+      rows.push(`<rect x="${bx + 2}" y="${y + 2}" width="64" height="${bh - 4}" fill="${c}"/>`);
+      // 블록 안 얼룩 (픽셀)
+      for (let i = 0; i < 3; i++) {
+        const k2 = 0.7 + rnd() * 0.5;
+        rows.push(`<rect x="${Math.round(bx + 6 + rnd() * 48)}" y="${Math.round(y + 5 + rnd() * 12)}" width="8" height="6" fill="rgb(${Math.round(r * k2)},${Math.round(g * k2)},${Math.round(b * k2)})"/>`);
+      }
+    }
+  }
+  return svgData(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${hgt}" viewBox="0 0 ${w} ${hgt}"><rect width="${w}" height="${hgt}" fill="rgb(${Math.round(r * 0.45)},${Math.round(g * 0.45)},${Math.round(b * 0.45)})"/>${rows.join("")}<rect width="${w}" height="${hgt}" fill="url(#s)"/><defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.45"/></linearGradient></defs></svg>`);
+}
+
+function crown(color, w = 64) {
   return img(
-    `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 40"><path d="M4 12l14 12L32 2l14 22 14-12-6 26H10z" fill="${color}" stroke="#7c4a03" stroke-width="2.5" stroke-linejoin="round"/><circle cx="32" cy="27" r="4" fill="#fff7"/></svg>`)}`,
-    { width: 64, height: 40, marginBottom: -6 },
+    svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 40"><path d="M4 12l14 12L32 2l14 22 14-12-6 26H10z" fill="${color}" stroke="#00000066" stroke-width="2.5" stroke-linejoin="round"/><circle cx="32" cy="27" r="4" fill="#fff8"/><rect x="10" y="32" width="44" height="6" fill="#00000033"/></svg>`),
+    { width: w, height: Math.round(w * 0.625), marginBottom: 4 },
   );
 }
 
+/** 각진 아바타 (목업처럼 둥근 사각형 + 메달색 테두리) */
+function squareAvatar(src, size, border, glow) {
+  return h("div", { display: "flex", width: size, height: size, borderRadius: Math.round(size * 0.18), padding: Math.max(3, Math.round(size * 0.05)), background: border, boxShadow: glow ? `0 0 30px ${glow}` : "0 6px 16px rgba(0,0,0,0.45)" },
+    src
+      ? img(src, { width: size - 2 * Math.max(3, Math.round(size * 0.05)), height: size - 2 * Math.max(3, Math.round(size * 0.05)), borderRadius: Math.round(size * 0.14), objectFit: "cover" })
+      : h("div", { display: "flex", width: "100%", height: "100%", borderRadius: Math.round(size * 0.14), background: "#5865f2" }),
+  );
+}
+
+const PODIUM = [
+  { stone: [118, 104, 92], top: "linear-gradient(180deg,#fde68a,#f59e0b 60%,#b45309)", num: "#facc15", amount: "#fcd34d", crown: "#fbbf24", border: "linear-gradient(135deg,#fde68a,#f59e0b)" },
+  { stone: [120, 124, 136], top: "linear-gradient(180deg,#f1f5f9,#cbd5e1 60%,#64748b)", num: "#e2e8f0", amount: "#c4b5fd", crown: "#e2e8f0", border: "linear-gradient(135deg,#ffffff,#94a3b8)" },
+  { stone: [138, 88, 60], top: "linear-gradient(180deg,#fed7aa,#fb923c 60%,#9a3412)", num: "#fdba74", amount: "#fbbf24", crown: "#fb923c", border: "linear-gradient(135deg,#fed7aa,#ea580c)" },
+];
+
 function column(row, i, t) {
-  const m = MEDAL[i];
+  const pd = PODIUM[i];
   const first = i === 0;
-  const size = first ? 150 : 120;
+  const size = first ? 136 : 116;
   const ped = [190, 140, 105][i];
   return h(
     "div",
     { display: "flex", flexDirection: "column", alignItems: "center", width: 310 },
-    first ? crown(m.ring) : null,
-    avatar(row?.avatar, size, m.grad, m.glow),
-    h("div", { display: "flex", marginTop: 16, fontSize: first ? 30 : 25, fontWeight: 700, color: "#fff", maxWidth: 290, overflow: "hidden", whiteSpace: "nowrap" }, row ? row.name : "—"),
-    h("div", { display: "flex", marginTop: 2, fontSize: first ? 40 : 31, fontWeight: 900, color: m.ring, letterSpacing: -1 }, row ? t.value(row) : ""),
-    h("div", { display: "flex", marginTop: 2, marginBottom: 18, fontSize: 16, fontWeight: 500, color: "#94a3b8" }, row ? t.sub(row) : ""),
-    // 단상 (윗면 + 앞면)
-    h("div", { display: "flex", flexDirection: "column", width: 300 },
-      h("div", { display: "flex", height: 16, borderRadius: "14px 14px 0 0", background: m.grad, opacity: 0.95 }),
-      h(
-        "div",
-        { display: "flex", height: ped, alignItems: "flex-start", justifyContent: "center", paddingTop: 10, background: `linear-gradient(180deg, ${m.glow.replace(/0\.\d+\)/, "0.55)")} 0%, rgba(255,255,255,0.02) 100%)` },
-        h("div", { display: "flex", fontSize: first ? 96 : 76, fontWeight: 900, color: "rgba(255,255,255,0.16)", letterSpacing: -4 }, String(i + 1)),
+    crown(pd.crown, first ? 84 : 56),
+    squareAvatar(row?.avatar, size, pd.border, first ? "rgba(251,191,36,0.35)" : null),
+    h("div", { display: "flex", marginTop: 14, fontSize: first ? 30 : 25, fontWeight: 700, color: "#fff", maxWidth: 290, overflow: "hidden", whiteSpace: "nowrap" }, row ? row.name : "—"),
+    h("div", { display: "flex", marginTop: 2, fontSize: first ? 40 : 32, fontWeight: 900, color: pd.amount, letterSpacing: -1 }, row ? t.value(row) : ""),
+    row ? h("div", { display: "flex", marginTop: 6, marginBottom: 16, padding: "5px 14px", borderRadius: 10, background: "rgba(0,0,0,0.38)", fontSize: 16, fontWeight: 600, color: "#cbd5e1" }, t.sub(row)) : h("div", { display: "flex", height: 44 }),
+    // 돌 블록 단상
+    h("div", { display: "flex", flexDirection: "column", width: 300, boxShadow: "0 18px 40px rgba(0,0,0,0.55)" },
+      h("div", { display: "flex", height: 18, background: pd.top, borderRadius: "6px 6px 0 0" }),
+      h("div", { display: "flex", position: "relative", width: 300, height: ped, alignItems: "center", justifyContent: "center" },
+        img(brickSvg(300, ped, pd.stone, i + 3), { position: "absolute", left: 0, top: 0, width: 300, height: ped }),
+        h("div", { display: "flex", fontFamily: "Galmuri, Pretendard", fontSize: first ? 96 : 78, fontWeight: 700, color: pd.num, textShadow: "0 6px 0 rgba(0,0,0,0.6)" }, String(i + 1)),
       ),
     ),
   );
 }
 
-function line(row, t, last) {
+function line(row, t) {
   return h(
     "div",
-    { display: "flex", alignItems: "center", width: "100%", padding: "16px 8px", borderBottom: last ? "none" : "1px solid rgba(255,255,255,0.07)" },
-    h("div", { display: "flex", width: 64, fontSize: 26, fontWeight: 900, color: "#475569" }, String(row.rank).padStart(2, "0")),
-    avatar(row.avatar, 54, "rgba(255,255,255,0.14)"),
+    { display: "flex", alignItems: "center", width: "100%", padding: "14px 22px", marginTop: 10, borderRadius: 16, background: "rgba(10,12,28,0.62)", border: "1px solid rgba(255,255,255,0.09)" },
+    h("div", { display: "flex", width: 58, fontSize: 26, fontWeight: 900, color: "#94a3b8" }, String(row.rank).padStart(2, "0")),
+    squareAvatar(row.avatar, 50, "rgba(255,255,255,0.14)"),
     h("div", { display: "flex", flexDirection: "column", marginLeft: 18, flexGrow: 1 },
-      h("div", { display: "flex", fontSize: 24, fontWeight: 700, color: "#f1f5f9", maxWidth: 460, overflow: "hidden", whiteSpace: "nowrap" }, row.name),
-      h("div", { display: "flex", marginTop: 11 }, premiumBar(460, row.barShare, [t.accent, t.accent === "#fbbf24" ? "#fb923c" : "#a78bfa", t.accent2], 10)),
+      h("div", { display: "flex", fontSize: 23, fontWeight: 700, color: "#f1f5f9", maxWidth: 460, overflow: "hidden", whiteSpace: "nowrap" }, row.name),
+      h("div", { display: "flex", marginTop: 10 }, premiumBar(430, row.barShare, ["#a78bfa", "#8b5cf6", "#60a5fa"], 10)),
     ),
     h("div", { display: "flex", flexDirection: "column", alignItems: "flex-end" },
       h("div", { display: "flex", fontSize: 27, fontWeight: 900, color: "#fff", letterSpacing: -0.5 }, t.value(row)),
-      h("div", { display: "flex", marginTop: 2, fontSize: 15, fontWeight: 500, color: "#64748b" }, t.sub(row)),
+      h("div", { display: "flex", marginTop: 2, fontSize: 15, fontWeight: 500, color: "#94a3b8" }, t.sub(row)),
+    ),
+  );
+}
+
+const DIAMOND = svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M8 4h16l6 8-14 17L2 12z" fill="#22d3ee"/><path d="M8 4h16l6 8H2z" fill="#67e8f9"/><path d="M12 12h8l-4 14z" fill="#a5f3fc"/><path d="M8 4l4 8M24 4l-4 8" stroke="#0e7490" stroke-width="1.5"/></svg>`);
+
+/** 목업 공통 꼬리말 — 구분선 + 잔디 블록 + 왼쪽 글 · 오른쪽 시각 */
+export function mcFooter(left, right) {
+  return h("div", { display: "flex", flexDirection: "column", marginTop: "auto", paddingTop: 18 },
+    h("div", { display: "flex", height: 1, background: "linear-gradient(90deg, rgba(255,255,255,0.22), rgba(255,255,255,0.05))", marginBottom: 14 }),
+    h("div", { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 16, fontWeight: 500, color: "#94a3b8" },
+      h("div", { display: "flex", alignItems: "center" },
+        MC_LOGO ? img(MC_LOGO, { width: 26, height: 26, marginRight: 10 }) : null,
+        left,
+      ),
+      h("div", { display: "flex", color: "#64748b" }, right),
     ),
   );
 }
@@ -80,45 +142,39 @@ export function rankTree(d) {
   const max = rows[0]?.amount || 1;
   const rest = rows.slice(3).map((r) => ({ ...r, barShare: r.amount / max }));
   const top = [rows[1], rows[0], rows[2]];
+  const title = (d.title ?? "랭킹").split(" ");
+  const last = title.pop();
   return h(
     "div",
-    {
-      display: "flex",
-      flexDirection: "column",
-      width: "100%",
-      height: "100%",
-      padding: "48px 60px 36px",
-      background: `radial-gradient(ellipse 60% 45% at 50% 30%, ${t.bg1} 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)`,
-      fontFamily: "Pretendard",
-      color: "#fff",
-    },
+    { display: "flex", flexDirection: "column", width: "100%", height: "100%", padding: "44px 48px 32px", fontFamily: "Pretendard", color: "#fff" },
     h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" },
       h("div", { display: "flex", alignItems: "center" },
-        d.logo ? img(d.logo, { width: 76, height: 76, marginRight: 18 }) : null,
+        d.logo ? img(d.logo, { width: 84, height: 84, marginRight: 18 }) : null,
         h("div", { display: "flex", flexDirection: "column" },
-          h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: t.accent, letterSpacing: 5 }, t.eyebrow),
-          h("div", { display: "flex", fontSize: 48, fontWeight: 900, marginTop: 2, letterSpacing: -1.5 }, d.title ?? "랭킹"),
+          h("div", { display: "flex", fontSize: 18, fontWeight: 700, color: MC_EYEBROW, letterSpacing: 4 }, t.eyebrow),
+          h("div", { display: "flex", alignItems: "baseline" },
+            title.length ? h("div", { display: "flex", fontSize: 50, fontWeight: 900, marginRight: 16 }, title.join(" ")) : null,
+            h("div", { display: "flex", fontSize: 50, fontWeight: 900, color: MC_PURPLE }, last),
+          ),
         ),
       ),
-      h("div", { display: "flex", flexDirection: "column", alignItems: "flex-end" },
-        h("div", { display: "flex", fontSize: 17, fontWeight: 500, color: "#94a3b8" }, d.statLabel ?? ""),
-        h("div", { display: "flex", fontSize: 32, fontWeight: 900, marginTop: 2, letterSpacing: -0.5 }, d.statValue ?? ""),
-      ),
+      d.statValue
+        ? h("div", { display: "flex", alignItems: "center", padding: "12px 20px", borderRadius: 14, background: "rgba(12,14,32,0.72)", border: "1.5px solid rgba(165,180,252,0.35)" },
+            img(DIAMOND, { width: 30, height: 30, marginRight: 12 }),
+            h("div", { display: "flex", fontSize: 20, fontWeight: 600, color: "#cbd5e1", marginRight: 10 }, d.statLabel ?? ""),
+            h("div", { display: "flex", fontSize: 28, fontWeight: 900, color: "#5eead4" }, d.statValue),
+          )
+        : null,
     ),
-    h("div", { display: "flex", justifyContent: "center", alignItems: "flex-end", marginTop: 36 }, ...top.map((r, k) => column(r, [1, 0, 2][k], t))),
-    // 단상 아래 바닥선
-    h("div", { display: "flex", height: 2, background: `linear-gradient(90deg, rgba(255,255,255,0), ${t.accent}88, rgba(255,255,255,0))` }),
-    h("div", { display: "flex", flexDirection: "column", marginTop: 14 }, ...rest.map((r, k) => line(r, t, k === rest.length - 1))),
-    h("div", { display: "flex", justifyContent: "space-between", marginTop: "auto", paddingTop: 20, fontSize: 15, fontWeight: 500, color: "#475569" },
-      h("div", { display: "flex" }, d.note ?? ""),
-      h("div", { display: "flex" }, d.updated ?? ""),
-    ),
+    h("div", { display: "flex", justifyContent: "center", alignItems: "flex-end", marginTop: 26 }, ...top.map((r, k) => column(r, [1, 0, 2][k], t))),
+    h("div", { display: "flex", flexDirection: "column", marginTop: 8 }, ...rest.map((r) => line(r, t))),
+    mcFooter(d.note ?? "더 많은 혜택과 함께하는 DOES", d.updated ?? ""),
   );
 }
 
 export function rankHeight(d) {
   const n = Math.max(0, (d.rows?.length ?? 0) - 3);
-  return 130 + 36 + 570 + 16 + n * 87 + 60;
+  return 840 + n * 88;
 }
 
 /* ───────── 문의 대기 현황 ───────── */
@@ -300,112 +356,120 @@ export function stockHeight(d) {
   return hgt;
 }
 
-/* ───────── 관리자 상황 ───────── */
+/* ───────── 관리자 상황 (서버 상태) ───────── */
+const PICKAXE = svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><path fill="#7dd3fc" d="M3 2h6v1H3zM9 3h2v1H9zM11 4h1v2h-1zM12 6h1v3h-1zM2 3h1v1H2z"/><path fill="#0ea5e9" d="M4 3h5v1H4zM10 5h1v1h-1z"/><path fill="#92400e" d="M8 7h1v1H8zM7 8h1v1H7zM6 9h1v1H6zM5 10h1v1H5zM4 11h1v1H4zM3 12h1v1H3zM2 13h1v1H2z"/><path fill="#b45309" d="M9 6h1v1H9z"/></svg>`);
+const CHEST = svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><path fill="#7c4a1e" d="M1 4h14v10H1z"/><path fill="#a16207" d="M2 5h12v3H2zM2 9h12v4H2z"/><path fill="#3f2a14" d="M1 8h14v1H1z"/><path fill="#e5e7eb" d="M7 7h2v3H7z"/><path fill="#9ca3af" d="M7 9h2v1H7z"/></svg>`);
+const CLOCK = svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`);
+
 export function statusTree(d) {
   const a = ADMIN[d.status] ?? ADMIN.offline;
   const online = d.status !== "offline";
+  const icon = online
+    ? svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${a.color}"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`)
+    : svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#e2e8f0"/><rect x="6" y="10.5" width="12" height="3" rx="1.5" fill="#334155"/></svg>`);
+  const svcIcon = (label) => (/봇|디스코드/.test(label) ? MC_LOGO : /웹|사이트/.test(label) ? PICKAXE : CHEST);
   return h(
     "div",
-    {
-      display: "flex",
-      flexDirection: "column",
-      width: "100%",
-      height: "100%",
-      padding: "44px 60px 34px",
-      background: `radial-gradient(ellipse 50% 60% at 50% 55%, ${a.color}40 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)`,
-      fontFamily: "Pretendard",
-      color: "#fff",
-    },
+    { display: "flex", flexDirection: "column", width: "100%", height: "100%", padding: "40px 56px 30px", fontFamily: "Pretendard", color: "#fff" },
     h("div", { display: "flex", alignItems: "center" },
-      d.logo ? img(d.logo, { width: 62, height: 62, marginRight: 16 }) : null,
+      d.logo ? img(d.logo, { width: 72, height: 72, marginRight: 18 }) : null,
       h("div", { display: "flex", flexDirection: "column" },
-        h("div", { display: "flex", fontSize: 15, fontWeight: 700, color: a.color, letterSpacing: 5 }, "ADMIN STATUS"),
-        h("div", { display: "flex", fontSize: 38, fontWeight: 900, marginTop: 2, letterSpacing: -1.2 }, d.title ?? "관리자 상황"),
+        h("div", { display: "flex", fontSize: 17, fontWeight: 700, color: MC_PURPLE, letterSpacing: 4 }, "ADMIN STATUS"),
+        h("div", { display: "flex", fontSize: 44, fontWeight: 900, marginTop: 4 }, d.title ?? "DOES 서버 상태"),
       ),
     ),
-    h("div", { display: "flex", alignItems: "center", justifyContent: "center", marginTop: 26 },
+    h("div", { display: "flex", alignItems: "center", justifyContent: "center", marginTop: 22 },
       h("div", { display: "flex", position: "relative" },
-        h("div", { display: "flex", width: 196, height: 196, borderRadius: 196, padding: 6, background: `linear-gradient(135deg, ${a.color}, ${a.color}55)`, boxShadow: `0 0 60px ${a.color}88` },
+        h("div", { display: "flex", width: 200, height: 200, borderRadius: 200, padding: 6, background: "linear-gradient(135deg,#a78bfa,#6d28d9)", boxShadow: "0 0 50px rgba(139,92,246,0.45)" },
           d.avatar
-            ? img(d.avatar, { width: 184, height: 184, borderRadius: 184, objectFit: "cover", filter: online ? "none" : "grayscale(0.85) brightness(0.7)" })
-            : h("div", { display: "flex", width: 184, height: 184, borderRadius: 184, background: "#1f2937" }),
+            ? img(d.avatar, { width: 188, height: 188, borderRadius: 188, objectFit: "cover", filter: online ? "none" : "grayscale(0.7) brightness(0.8)" })
+            : h("div", { display: "flex", width: 188, height: 188, borderRadius: 188, background: "#4b5563" }),
         ),
-        h("div", { display: "flex", position: "absolute", right: 6, bottom: 6, width: 46, height: 46, borderRadius: 46, background: a.color, border: "7px solid #0b0f1a" }),
+        h("div", { display: "flex", position: "absolute", right: 4, bottom: 8, width: 48, height: 48, borderRadius: 48, background: online ? a.color : "#22c55e", border: "7px solid #0b0d1a", opacity: online ? 1 : 0 }),
       ),
-      h("div", { display: "flex", flexDirection: "column", marginLeft: 44 },
-        h("div", { display: "flex", fontSize: 26, fontWeight: 700, color: "#cbd5e1" }, d.name ?? "관리자"),
-        h("div", { display: "flex", fontSize: 64, fontWeight: 900, letterSpacing: -2.5, marginTop: 2, color: "#fff" }, a.label.replace("관리자 ", "")),
-        h("div", { display: "flex", alignItems: "center", marginTop: 10, padding: "8px 16px", borderRadius: 30, background: `${a.color}22`, border: `1.5px solid ${a.color}77`, fontSize: 19, fontWeight: 700, color: "#fff" }, a.sub),
-        d.since ? h("div", { display: "flex", marginTop: 12, fontSize: 18, fontWeight: 500, color: "#94a3b8" }, d.since) : null,
+      h("div", { display: "flex", flexDirection: "column", marginLeft: 48 },
+        h("div", { display: "flex", fontSize: 28, fontWeight: 700, color: "#cbd5e1" }, d.name ?? "DOES"),
+        h("div", { display: "flex", fontSize: 72, fontWeight: 900, marginTop: 2, color: "#fff" }, a.label.replace("관리자 ", "")),
+        h("div", { display: "flex", alignItems: "center", marginTop: 10, padding: "9px 20px 9px 12px", borderRadius: 40, background: "rgba(10,12,28,0.6)", border: "1.5px solid rgba(255,255,255,0.22)", fontSize: 20, fontWeight: 700, color: "#f1f5f9" },
+          img(icon, { width: 26, height: 26, marginRight: 10 }),
+          a.sub,
+        ),
+        d.since
+          ? h("div", { display: "flex", alignItems: "center", marginTop: 14, fontSize: 18, fontWeight: 500, color: "#94a3b8" }, img(CLOCK, { width: 22, height: 22, marginRight: 8 }), d.since)
+          : null,
       ),
     ),
-    (d.services && d.services.length)
-      ? h("div", { display: "flex", justifyContent: "center", gap: 12, marginTop: 30, flexWrap: "wrap" },
-          ...d.services.map((sv) =>
-            h("div", { display: "flex", alignItems: "center", gap: 10, padding: "12px 20px", borderRadius: 16, background: "rgba(255,255,255,0.045)", border: `1px solid ${sv.ok ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.35)"}` },
-              h("div", { display: "flex", width: 12, height: 12, borderRadius: 12, background: sv.ok ? "#22c55e" : "#ef4444", boxShadow: `0 0 12px ${sv.ok ? "#22c55e" : "#ef4444"}` }),
+    d.services && d.services.length
+      ? h("div", { display: "flex", justifyContent: "center", marginTop: 26 },
+          ...d.services.slice(0, 4).map((sv, k) =>
+            h("div", { display: "flex", alignItems: "center", marginLeft: k ? 14 : 0, padding: "14px 22px", borderRadius: 18, background: "rgba(10,12,28,0.62)", border: "1.5px solid rgba(255,255,255,0.12)" },
+              h("div", { display: "flex", width: 14, height: 14, borderRadius: 14, marginRight: 14, background: sv.ok ? "#22c55e" : "#ef4444", boxShadow: `0 0 12px ${sv.ok ? "#22c55e" : "#ef4444"}` }),
+              svcIcon(sv.label) ? img(svcIcon(sv.label), { width: 38, height: 38, marginRight: 12 }) : null,
               h("div", { display: "flex", flexDirection: "column" },
-                h("div", { display: "flex", fontSize: 18, fontWeight: 700, color: "#e2e8f0" }, sv.label),
-                h("div", { display: "flex", fontSize: 14, fontWeight: 500, color: sv.ok ? "#4ade80" : "#f87171" }, sv.ok ? "정상 작동" : "점검 중"),
+                h("div", { display: "flex", fontSize: 19, fontWeight: 700, color: "#f1f5f9" }, sv.label),
+                h("div", { display: "flex", fontSize: 15, fontWeight: 600, color: sv.ok ? "#4ade80" : "#f87171" }, sv.ok ? "정상 작동" : "점검 중"),
               ),
             ),
           ),
         )
       : null,
-    h("div", { display: "flex", justifyContent: "space-between", marginTop: "auto", paddingTop: 18, fontSize: 15, fontWeight: 500, color: "#475569" },
-      h("div", { display: "flex" }, "문의는 티켓으로 남겨 주세요 · 돌아오면 순서대로 답변해요"),
-      h("div", { display: "flex" }, d.updated ?? ""),
-    ),
+    mcFooter("문의는 티켓으로 남겨 주세요 · 돌아오면 순서대로 답변해요", d.updated ?? ""),
   );
 }
 
 /* ───────── 구매 로그 ───────── */
+const GRASS_ROW = svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 16" shape-rendering="crispEdges">${Array.from({ length: 3 }, (_, i) => `<rect x="${i * 16}" y="0" width="16" height="4" fill="${["#4d8a2e", "#5a9a34", "#447d28"][i]}"/><rect x="${i * 16}" y="4" width="16" height="12" fill="${["#6b4a2e", "#5c3f27", "#74512f"][i]}"/><rect x="${i * 16 + 3}" y="4" width="3" height="2" fill="#4d8a2e"/><rect x="${i * 16 + 10}" y="9" width="3" height="2" fill="#4a3220"/>`).join("")}</svg>`);
+
 export function purchaseTree(d) {
   const art = (() => {
     if (d.img && d.imgKind === "cape")
-      return h("div", { display: "flex", width: 150, height: 240, overflow: "hidden", borderRadius: 8, boxShadow: "0 20px 50px rgba(0,0,0,0.5)" },
+      return h("div", { display: "flex", width: 150, height: 240, overflow: "hidden", borderRadius: 8, boxShadow: "0 20px 50px rgba(0,0,0,0.5)", marginBottom: 20 },
         img(d.img, { width: 960, height: 480, marginLeft: -15, marginTop: -15 }));
-    if (d.img && d.imgKind === "skin") return img(d.img, { width: 250, height: 290, objectFit: "contain" });
-    if (d.img) return img(d.img, { width: 230, height: 230, borderRadius: 36, objectFit: "cover", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" });
-    return h("div", { display: "flex", width: 200, height: 200, borderRadius: 40, background: "rgba(255,255,255,0.08)" });
+    if (d.img && d.imgKind === "skin") return img(d.img, { width: 300, height: 360, objectFit: "contain" });
+    if (d.img) return img(d.img, { width: 250, height: 250, borderRadius: 32, objectFit: "cover", boxShadow: "0 20px 50px rgba(0,0,0,0.5)", marginBottom: 24 });
+    return h("div", { display: "flex", width: 220, height: 220, borderRadius: 36, background: "rgba(255,255,255,0.08)", marginBottom: 24 });
   })();
-  const dots = [[70, 40, "#f472b6"], [330, 70, "#facc15"], [40, 300, "#22d3ee"], [360, 330, "#a78bfa"], [120, 360, "#4ade80"], [300, 20, "#fb923c"]];
+  const sparks = [[60, 90, "#facc15", 14], [330, 70, "#facc15", 10], [40, 380, "#a78bfa", 14], [350, 300, "#a78bfa", 10], [90, 230, "#facc15", 9], [300, 160, "#c4b5fd", 8]];
   return h(
     "div",
-    {
-      display: "flex",
-      width: "100%",
-      height: "100%",
-      background: "radial-gradient(ellipse 40% 70% at 20% 50%, rgba(99,102,241,0.38) 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)",
-      fontFamily: "Pretendard",
-      color: "#fff",
-    },
-    // 왼쪽: 상품 그림
-    h("div", { display: "flex", position: "relative", width: 420, alignItems: "center", justifyContent: "center" },
-      ...dots.map(([x, y, c]) => h("div", { display: "flex", position: "absolute", left: x, top: y, width: 12, height: 12, borderRadius: 3, background: c, transform: "rotate(30deg)", opacity: 0.8 })),
+    { display: "flex", width: "100%", height: "100%", fontFamily: "Pretendard", color: "#fff" },
+    // 왼쪽: 잔디 위 캐릭터 · 상품
+    h("div", { display: "flex", position: "relative", width: 430, flexDirection: "column", alignItems: "center", justifyContent: "flex-end", paddingBottom: 34 },
+      ...sparks.map(([x, y, c, z]) => h("div", { display: "flex", position: "absolute", left: x, top: y, width: z, height: z, background: c, boxShadow: `0 0 10px ${c}` })),
       art,
+      img(GRASS_ROW, { width: 330, height: 110, marginTop: -6 }),
     ),
     // 오른쪽: 내용
     h("div", { display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, padding: "40px 56px 40px 10px" },
       h("div", { display: "flex", alignItems: "center" },
-        d.logo ? img(d.logo, { width: 40, height: 40, marginRight: 12 }) : null,
-        h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: "#a5b4fc", letterSpacing: 5 }, "NEW PURCHASE"),
+        d.logo ? img(d.logo, { width: 40, height: 40, marginRight: 14 }) : null,
+        h("div", { display: "flex", fontSize: 18, fontWeight: 700, color: MC_EYEBROW, letterSpacing: 4 }, "NEW PURCHASE"),
+        h("div", { display: "flex", flexGrow: 1, height: 2, marginLeft: 16, background: "linear-gradient(90deg, rgba(185,168,255,0.5), rgba(185,168,255,0))" }),
       ),
-      h("div", { display: "flex", fontSize: 46, fontWeight: 900, marginTop: 10, letterSpacing: -1.5 }, "구매 감사합니다!"),
+      h("div", { display: "flex", alignItems: "baseline", marginTop: 12 },
+        h("div", { display: "flex", fontSize: 56, fontWeight: 900, marginRight: 16 }, "구매"),
+        h("div", { display: "flex", fontSize: 56, fontWeight: 900, color: MC_PURPLE }, "감사합니다!"),
+      ),
+      h("div", { display: "flex", alignItems: "center", alignSelf: "flex-start", marginTop: 18, padding: "8px 26px 8px 8px", borderRadius: 60, background: "rgba(10,12,28,0.6)", border: "1.5px solid rgba(255,255,255,0.12)" },
+        avatar(d.avatar, 60, "linear-gradient(135deg,#a78bfa,#6d28d9)"),
+        h("div", { display: "flex", marginLeft: 16, fontSize: 28, fontWeight: 700, color: "#f1f5f9", maxWidth: 380, overflow: "hidden", whiteSpace: "nowrap" }, d.buyer ?? "회원"),
+        h("div", { display: "flex", marginLeft: 10, fontSize: 22, fontWeight: 500, color: "#94a3b8" }, "님"),
+      ),
+      h("div", { display: "flex", flexDirection: "column", marginTop: 18, padding: "18px 26px", borderRadius: 24, background: "rgba(10,12,28,0.62)", border: "1.5px solid rgba(255,255,255,0.14)" },
+        h("div", { display: "flex", fontSize: 32, fontWeight: 800, maxWidth: 560, overflow: "hidden", whiteSpace: "nowrap" }, d.product ?? ""),
+        h("div", { display: "flex", alignItems: "baseline", marginTop: 6 },
+          h("div", { display: "flex", fontSize: 26, fontWeight: 600, color: "#cbd5e1" }, `${d.quantity ?? 1}개`),
+          d.amount ? h("div", { display: "flex", marginLeft: 22, fontSize: 44, fontWeight: 900, color: "#facc15" }, `₩${num(d.amount)}`) : null,
+        ),
+      ),
       h("div", { display: "flex", alignItems: "center", marginTop: 18 },
-        avatar(d.avatar, 52, "linear-gradient(135deg,#a5b4fc,#6366f1)"),
-        h("div", { display: "flex", marginLeft: 14, fontSize: 24, fontWeight: 700, color: "#e2e8f0", maxWidth: 420, overflow: "hidden", whiteSpace: "nowrap" }, d.buyer ?? "회원"),
-        h("div", { display: "flex", marginLeft: 8, fontSize: 20, fontWeight: 500, color: "#94a3b8" }, "님"),
-      ),
-      h("div", { display: "flex", height: 1, marginTop: 22, background: "linear-gradient(90deg, rgba(255,255,255,0.18), rgba(255,255,255,0))" }),
-      h("div", { display: "flex", marginTop: 20, fontSize: 30, fontWeight: 900, letterSpacing: -0.8, maxWidth: 600, overflow: "hidden", whiteSpace: "nowrap" }, d.product ?? ""),
-      h("div", { display: "flex", alignItems: "baseline", marginTop: 8 },
-        h("div", { display: "flex", fontSize: 22, fontWeight: 700, color: "#cbd5e1" }, `${d.quantity ?? 1}개`),
-        d.amount ? h("div", { display: "flex", marginLeft: 14, fontSize: 30, fontWeight: 900, color: "#facc15" }, `₩${num(d.amount)}`) : null,
-      ),
-      h("div", { display: "flex", alignItems: "center", marginTop: 20 },
-        h("div", { display: "flex", padding: "7px 14px", borderRadius: 30, background: "rgba(34,197,94,0.14)", border: "1px solid rgba(34,197,94,0.35)", fontSize: 16, fontWeight: 700, color: "#4ade80" }, `누적 판매 ${num(d.totalSold ?? 0)}개`),
-        h("div", { display: "flex", marginLeft: 14, fontSize: 16, fontWeight: 500, color: "#64748b" }, d.time ?? ""),
+        h("div", { display: "flex", alignItems: "center", padding: "9px 18px 9px 10px", borderRadius: 40, background: "rgba(34,197,94,0.14)", border: "1.5px solid rgba(34,197,94,0.45)", fontSize: 19, fontWeight: 700, color: "#4ade80" },
+          img(svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#22c55e"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`), { width: 24, height: 24, marginRight: 8 }),
+          "구매 완료",
+        ),
+        h("div", { display: "flex", width: 1, height: 24, marginLeft: 16, marginRight: 16, background: "rgba(255,255,255,0.22)" }),
+        h("div", { display: "flex", fontSize: 19, fontWeight: 500, color: "#94a3b8" }, d.time ?? ""),
+        d.totalSold ? h("div", { display: "flex", marginLeft: 14, fontSize: 16, fontWeight: 500, color: "#64748b" }, `누적 판매 ${num(d.totalSold)}개`) : null,
       ),
     ),
   );
@@ -781,10 +845,7 @@ function bigStat(label, value, unit, color, share, last) {
 }
 
 function footer(left, right) {
-  return h("div", { display: "flex", justifyContent: "space-between", marginTop: "auto", paddingTop: 18, fontSize: 15, fontWeight: 500, color: "#475569" },
-    h("div", { display: "flex" }, left),
-    h("div", { display: "flex" }, right),
-  );
+  return mcFooter(left, right);
 }
 
 const PAGE = (bg) => ({

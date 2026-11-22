@@ -1,7 +1,7 @@
 // DOES 랭킹 이미지 워커 — vendix 가 서비스 바인딩으로 POST {data} 를 보내면 PNG 를 돌려준다
 import { ImageResponse, CustomFont, cache } from "@cf-wasm/og/workerd";
 import { pixelize, withScene } from "./theme.js";
-import { boardTree, planPanelTree, planPanelHeight, seasonPassTree, passportTree, coinPanelTree, coinLogTree, coinRestockTree, coinReviewTree, attShopTree, attShopHeight, attResultTree, minePanelTree, mineResultTree, pickaxeCardTree, proxyPanelTree, proxyStatusTree, proxyStatusHeight, shopStatsTree, cardTree, profileTree, receiptTree, restockTree, reviewTree, reviewHeight, welcomeTree, chargeTree, purchaseTree, queueTree, rankTree, rankHeight, statusTree, stockTree, stockHeight } from "./render.js";
+import { setMcLogo, boardTree, planPanelTree, planPanelHeight, seasonPassTree, passportTree, coinPanelTree, coinLogTree, coinRestockTree, coinReviewTree, attShopTree, attShopHeight, attResultTree, minePanelTree, mineResultTree, pickaxeCardTree, proxyPanelTree, proxyStatusTree, proxyStatusHeight, shopStatsTree, cardTree, profileTree, receiptTree, restockTree, reviewTree, reviewHeight, welcomeTree, chargeTree, purchaseTree, queueTree, rankTree, rankHeight, statusTree, stockTree, stockHeight } from "./render.js";
 
 const fonts = {};
 async function font(w) {
@@ -71,7 +71,10 @@ export default {
     const wel = d.kind === "welcome";
     const rev = d.kind === "review";
     const one = { restock: [restockTree, 420], receipt: [receiptTree, 470], profile: [profileTree, 380], card: [cardTree, 470], shop_stats: [shopStatsTree, 300], proxy_panel: [proxyPanelTree, 340], proxy_status: [proxyStatusTree, proxyStatusHeight(d)], mine_panel: [minePanelTree, 470], mine_result: [mineResultTree, 610], pickaxe_card: [pickaxeCardTree, 560], att_shop: [attShopTree, attShopHeight(d)], att_result: [attResultTree, 420], coin_panel: [coinPanelTree, 400], coin_log: [coinLogTree, 400], coin_restock: [coinRestockTree, 380], coin_review: [coinReviewTree, 420], passport: [passportTree, 560], season_pass: [seasonPassTree, 615], plan_panel: [planPanelTree, planPanelHeight(d)], board: [boardTree, 680] }[d.kind];
-    const height = one ? one[1] : rev ? reviewHeight(d) : wel ? 440 : plog || clog ? 420 : status ? 560 : stock ? stockHeight(d) : queue ? (d.queue?.length ? 700 : 590) : rankHeight(d);
+    // 목업 스타일 꼬리말(구분선 + 잔디 블록)이 들어가는 이미지는 조금 더 길게
+    const FOOTER_KINDS = ["card", "shop_stats", "proxy_panel", "proxy_status", "mine_panel", "mine_result", "pickaxe_card", "att_shop", "att_result", "coin_panel", "coin_log", "coin_restock", "coin_review", "season_pass", "plan_panel", "board"];
+    const height = (one ? one[1] : rev ? reviewHeight(d) : wel ? 440 : plog ? 560 : clog ? 420 : status ? 620 : stock ? stockHeight(d) : queue ? (d.queue?.length ? 700 : 590) : rankHeight(d)) + (FOOTER_KINDS.includes(d.kind) ? 28 : 0);
+    setMcLogo(d.logo);
     let tree = one ? one[0](d) : rev ? reviewTree(d) : wel ? welcomeTree(d) : clog ? chargeTree(d) : plog ? purchaseTree(d) : status ? statusTree(d) : stock ? stockTree(d) : queue ? queueTree(d) : rankTree(d);
     if (pixel) pixelize(tree);
     const tall = height / 1100 > 0.95;

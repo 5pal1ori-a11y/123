@@ -14,7 +14,8 @@ export function pixelize(node) {
     const ls = Number(st.letterSpacing) || 0;
     const title = fs >= 30 && fw >= 800 && !/[0-9₩%,]/.test(text);
     const eyebrow = ls >= 3 && fs <= 24;
-    if (title || eyebrow) p.style = { ...st, fontFamily: "Galmuri", fontWeight: 700, letterSpacing: eyebrow ? Math.min(ls, 4) : 0 };
+    // 영문 소제목은 목업처럼 연보라로 통일
+    if (title || eyebrow) p.style = { ...st, fontFamily: "Galmuri", fontWeight: 700, letterSpacing: eyebrow ? Math.min(ls, 4) : 0, ...(eyebrow ? { color: "#b9a8ff" } : {}) };
   }
   for (const k of kids) pixelize(k);
 }

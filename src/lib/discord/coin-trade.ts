@@ -31,7 +31,7 @@ import {
 import { sendDiscordDm } from "@/lib/discord/dm";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
 import { discordRest, postChannelMessage } from "@/lib/discord/rest";
-import { shopUrl } from "@/lib/domain";
+import { shopUrl, MFA_SITE_ORIGIN } from "@/lib/domain";
 import {
   beginCoinAutoSend,
   cancelCoinQuote,
@@ -79,7 +79,7 @@ function kstTime() {
     .replace(/\.$/, "");
 }
 const coinNum = (n: number, coin: CoinKey) => n.toLocaleString("en-US", { maximumFractionDigits: COINS[coin].decimals > 6 ? 6 : COINS[coin].decimals });
-const coinIcon = (coin: CoinKey) => `https://doesmc.xyz/emoji/does_${coin}.png`;
+const coinIcon = (coin: CoinKey) => `${MFA_SITE_ORIGIN}/emoji/does_${coin}.png`;
 
 /** 서명 데이터 이미지 주소 (이미지 워커가 없으면 null) */
 async function coinImageUrl(shopSlug: string, data: { kind: string } & Record<string, unknown>) {
@@ -167,7 +167,7 @@ async function coinStatsImageUrl(shopId: string, shopSlug: string) {
       premium: prem === null ? null : Math.round(prem * 100) / 100,
       volume: s.volume,
       orders: s.orders,
-      coins: SENDABLE_COINS.map((c) => ({ sym: c.toUpperCase(), icon: `https://doesmc.xyz/emoji/does_${c}.png` })),
+      coins: SENDABLE_COINS.map((c) => ({ sym: c.toUpperCase(), icon: `${MFA_SITE_ORIGIN}/emoji/does_${c}.png` })),
       time,
     });
   } catch {

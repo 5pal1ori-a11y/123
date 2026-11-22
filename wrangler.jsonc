@@ -76,6 +76,12 @@
     // MFA MARKET 전용 도메인 (/check 는 mc-account-delivery 워커가 처리)
     { "pattern": "doesmc.xyz", "custom_domain": true },
     { "pattern": "www.doesmc.xyz", "custom_domain": true },
-    { "pattern": "verify.doesmc.xyz", "custom_domain": true }
+    { "pattern": "verify.doesmc.xyz", "custom_domain": true },
+    // 도스.com (xn--hq1b35z.com) — 소개 · shop 상점 · mc 웹마크 · admin 어드민
+    { "pattern": "xn--hq1b35z.com", "custom_domain": true },
+    { "pattern": "www.xn--hq1b35z.com", "custom_domain": true },
+    { "pattern": "shop.xn--hq1b35z.com", "custom_domain": true },
+    { "pattern": "mc.xn--hq1b35z.com", "custom_domain": true },
+    { "pattern": "admin.xn--hq1b35z.com", "custom_domain": true }
   ]
 }

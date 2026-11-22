@@ -3,6 +3,7 @@
  * 그림은 public/emoji/ 에 있고, 사이트 주소에서 읽어 base64 로 올린다.
  * 이미 같은 이름이 있으면 건너뛰고, 서버 슬롯이 꽉 차면(30008) 그 종류(정지/움직이는)는 멈춘다.
  */
+import { MFA_SITE_ORIGIN } from "@/lib/domain";
 import { doesDiscordEnvAsync } from "@/lib/discord/does-env";
 import { MFA_DISCORD_GUILD_ID } from "@/lib/store";
 
@@ -121,7 +122,7 @@ function toBase64(buf: ArrayBuffer) {
 }
 
 /** v3: does_* 는 2D 고퀄 그림 — 서버에 예전 픽셀 그림이 있으면 지우고 다시 올린다 (replaced 에 있는 이름은 이미 교체됨) */
-export async function uploadGuildEmojis(max = 12, replaced: Set<string> = new Set(), origin = "https://doesmc.xyz", guildId = MFA_DISCORD_GUILD_ID): Promise<GuildEmojiResult> {
+export async function uploadGuildEmojis(max = 12, replaced: Set<string> = new Set(), origin = `${MFA_SITE_ORIGIN}`, guildId = MFA_DISCORD_GUILD_ID): Promise<GuildEmojiResult> {
   const token = (await doesDiscordEnvAsync()).botToken;
   const result: GuildEmojiResult = { added: [], removed: [], existed: 0, failed: [], slotsFull: [] };
   if (!token) {

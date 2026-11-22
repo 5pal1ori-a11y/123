@@ -18,7 +18,7 @@ const NAV = [
 export function PlatformHeader({ brandOnly = false }: { brandOnly?: boolean } = {}) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  // doesmc.xyz(DOES 상점 주소)에서는 플랫폼 소개 메뉴·상점 등록이 없으므로 상점 가기만 보여 준다
+  // DOES 상점 주소(shop.도스.com · doesmc.xyz)에서는 플랫폼 소개 메뉴·상점 등록이 없으므로 상점 가기만 보여 준다
   const [shopHost, setShopHost] = useState(false);
   useEffect(() => {
     setShopHost(/(^|\.)doesmc\.xyz$/i.test(location.hostname));

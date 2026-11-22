@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
-import { getOAuthRedirectOrigin, MFA_SITE_ORIGIN } from "@/lib/domain";
+import { getOAuthRedirectOrigin, LEGACY_SITE_ORIGIN } from "@/lib/domain";
 import { verifyDiscordEnvAsync } from "@/lib/verify-bot/env";
 
 function authSecret() {
@@ -74,7 +74,8 @@ export function getVerifyOAuthRedirectUri() {
   if (root === "localhost") {
     return `${getOAuthRedirectOrigin().replace(/\/$/, "")}/api/verify-bot/oauth/callback`;
   }
-  return `${MFA_SITE_ORIGIN}/api/verify-bot/oauth/callback`;
+  // 디스코드에 등록된 예전 주소 그대로 (바꾸면 멤버 인증이 끊긴다)
+  return `${LEGACY_SITE_ORIGIN}/api/verify-bot/oauth/callback`;
 }
 
 function verifyScopes(includeEmail: boolean) {

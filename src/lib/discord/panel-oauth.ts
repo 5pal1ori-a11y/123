@@ -11,7 +11,8 @@ import { discordEnvAsync } from "@/lib/discord/verify";
 import {
   getRootDomain,
   manageOrigin,
-  MFA_SITE_ORIGIN,
+  LEGACY_SITE_ORIGIN,
+  mfaOAuthOrigin,
   MFA_VERIFY_PANEL_ORIGIN,
   securityOrigin,
   ticketOrigin,
@@ -139,13 +140,14 @@ export function verifyPanelOAuthState(token: string): StatePayload | null {
   }
 }
 
-export function panelOAuthRedirectUri(product: PanelOAuthProduct, shopSlug?: string) {
+export function panelOAuthRedirectUri(product: PanelOAuthProduct, shopSlug?: string, requestOrigin?: string) {
   if (product === "security") return `${securityOrigin()}/api/security/oauth/callback`;
   if (product === "ticket") return `${ticketOrigin()}/api/ticket/oauth/callback`;
-  if (product === "verify") return `${MFA_SITE_ORIGIN}/api/verify/oauth/callback`;
+  // 인증봇 OAuth 는 디스코드에 등록된 예전 주소 그대로 (바꾸면 멤버 인증이 끊긴다)
+  if (product === "verify") return `${LEGACY_SITE_ORIGIN}/api/verify/oauth/callback`;
   if (product === "manage") return `${manageOrigin()}/api/manage/oauth/callback`;
   if (isMfaShopSlug(shopSlug)) {
-    return `${MFA_SITE_ORIGIN}/api/auth/admin/discord/callback`;
+    return `${mfaOAuthOrigin(requestOrigin)}/api/auth/admin/discord/callback`;
   }
   const app = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://vendix.team";
   return `${app}/api/auth/admin/discord/callback`;

@@ -15,11 +15,11 @@ import { escapeMd } from "@/lib/discord/components";
 import { appEmoji } from "@/lib/discord/app-emojis";
 import { discordRest, postChannelMessage } from "@/lib/discord/rest";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
-import { shopUrl } from "@/lib/domain";
+import { shopUrl, MFA_SITE_ORIGIN } from "@/lib/domain";
 import { randomBoxGifUrl } from "@/lib/random-box-gif";
 import { getShopById, getShopSettings, MFA_SHOP_SLUG } from "@/lib/store";
 
-const DOES_PURCHASE_BANNER = "https://doesmc.xyz/brand/purchase-3d.gif";
+const DOES_PURCHASE_BANNER = `${MFA_SITE_ORIGIN}/brand/purchase-3d.gif`;
 import { formatKRW } from "@/lib/utils";
 
 export type DiscordLogKind =
@@ -230,7 +230,7 @@ export function postReviewLog(
       return postV2Log(shopId, "review", [
         mediaGallery([
           (await import("@/lib/discord/rank-image").then((m) => m.reviewImageUrl(shopId, input.reviewId!)).catch(() => null)) ??
-            `https://doesmc.xyz/api/discord/rank-image/${slug}-review-${input.reviewId}.png`,
+            `${MFA_SITE_ORIGIN}/api/discord/rank-image/${slug}-review-${input.reviewId}.png`,
         ]),
         textDisplay(`-# ${input.authorMention} 님 후기 감사합니다 · <t:${Math.floor(Date.now() / 1000)}:f>`),
       ]);
@@ -335,7 +335,7 @@ export function postRestockLog(
       ]);
       const kids = ready
         ? [
-            mediaGallery([`https://doesmc.xyz/api/discord/rank-image/${file}`]),
+            mediaGallery([`${MFA_SITE_ORIGIN}/api/discord/rank-image/${file}`]),
             textDisplay(`**${escapeMd(input.productName)}** 상품이 입고되었어요 · <t:${Math.floor(Date.now() / 1000)}:R>`),
             actionRow(
               button({ label: "재고현황", customId: cid(slug, "stock_view") }),

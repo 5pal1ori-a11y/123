@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { customShopDomain, getRootDomain, isManageHost, isMfaSiteHost, isSecurityHost, isTicketHost, isVerifyHost, MFA_SITE_HOST, MFA_VERIFY_HOST, slugFromHost } from "@/lib/domain";
+import { customShopDomain, DOES_ADMIN_HOST, DOES_MC_HOST, DOES_ROOT, DOES_SHOP_HOST, getRootDomain, isDoesDomainHost, isManageHost, isMfaSiteHost, isSecurityHost, isTicketHost, isVerifyHost, MFA_VERIFY_HOST, slugFromHost } from "@/lib/domain";
 import { findShopBySlugEdge } from "@/lib/store-edge";
 import { initStoreKvOnly } from "@/lib/store-init";
 import { refreshSessionCookies } from "@/lib/session-cookie";
@@ -173,6 +173,31 @@ export async function middleware(request: Request) {
     return activityHeaders(activityLaunch ? NextResponse.rewrite(new URL(`/activity${url.search}`, request.url)) : NextResponse.next());
   }
 
+  // ───────── 도스.com 주소별 역할 ─────────
+  const hn = host.split(":")[0]?.toLowerCase() ?? "";
+  const isPage = request.method === "GET" && !pathname.startsWith("/api/") && !pathname.startsWith("/_next/") && !/\.[a-z0-9]{2,5}$/i.test(pathname);
+  const toHost = (h: string, path = pathname) => {
+    const dest = new URL(url);
+    dest.protocol = "https:";
+    dest.host = h;
+    dest.port = "";
+    dest.pathname = path;
+    return securityHeaders(NextResponse.redirect(dest, 308));
+  };
+  // 도스.com · www.도스.com → 소개 페이지 (그 밖의 페이지는 상점으로)
+  if (hn === DOES_ROOT || hn === `www.${DOES_ROOT}`) {
+    if (pathname === "/") return securityHeaders(NextResponse.rewrite(new URL(`/does-intro${url.search}`, request.url)));
+    if (pathname === "/does-intro" || !isPage) return securityHeaders(NextResponse.next());
+    return toHost(DOES_SHOP_HOST);
+  }
+  // admin.도스.com → 어드민만 (다른 페이지는 상점으로)
+  if (hn === DOES_ADMIN_HOST && isPage) {
+    if (pathname === "/") return toHost(DOES_ADMIN_HOST, "/admin");
+    if (!(pathname === "/admin" || pathname.startsWith("/admin/"))) return toHost(DOES_SHOP_HOST);
+  }
+  // shop.도스.com/admin → admin.도스.com
+  if (hn === DOES_SHOP_HOST && isPage && (pathname === "/admin" || pathname.startsWith("/admin/"))) return toHost(DOES_ADMIN_HOST);
+
   // Discord interaction validation is latency-sensitive — skip KV/session work
   if (
     pathname === "/api/manage-bot/interactions" ||
@@ -280,7 +305,8 @@ export async function middleware(request: Request) {
     if (hostname === MFA_VERIFY_HOST && !pathname.startsWith("/api/") && !pathname.startsWith("/_next/")) {
       const dest = new URL(url);
       dest.protocol = "https:";
-      dest.host = MFA_SITE_HOST;
+      // 인증봇 패널은 예전 주소에 남긴다 (OAuth 콜백 · 쿠키가 거기 있다)
+      dest.host = "doesmc.xyz";
       dest.pathname = pathname.startsWith("/verify")
         ? pathname
         : pathname === "/"
@@ -427,10 +453,16 @@ export async function middleware(request: Request) {
     }
 
     // DOES 첫 화면은 랜딩. 로그인 실패 안내 등 쿼리가 붙은 링크는 전처럼 월드(로그인 화면)로 보낸다
-    const mfaLanding = pathname === "/" && slug === "mfa";
-    if (mfaLanding && url.search) {
+    // 도스.com: shop.도스.com 첫 화면은 상점(대시보드), mc.도스.com 첫 화면은 웹마크
+    if (pathname === "/" && slug === "mfa" && url.search) {
       return redirectResponse(request, `/main${url.search}`, slug);
     }
+    if (pathname === "/" && hn === DOES_MC_HOST) {
+      const mcHeaders = new Headers(request.headers);
+      mcHeaders.set("x-orel-shop", slug);
+      return shopRewriteResponse(request, url, slug, "/main", mcHeaders);
+    }
+    const mfaLanding = pathname === "/" && slug === "mfa" && !isDoesDomainHost(host);
     const shortcut = mfaLanding ? undefined : SHOP_SHORTCUTS[pathname];
     if (shortcut) {
       return redirectResponse(request, shortcut, slug);

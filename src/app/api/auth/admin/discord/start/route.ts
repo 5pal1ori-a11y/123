@@ -20,7 +20,10 @@ export async function GET(request: Request) {
   const authorize = buildPanelOAuthAuthorizeUrl({
     applicationId: creds.applicationId,
     state,
-    redirectUri: panelOAuthRedirectUri("shop", shopSlug),
+    redirectUri:
+      shopSlug === "mfa"
+        ? `${await import("@/lib/does-oauth-origin").then((m) => m.mfaLoginOrigin(url.origin, "/api/auth/admin/discord/callback"))}/api/auth/admin/discord/callback`
+        : panelOAuthRedirectUri("shop", shopSlug),
   });
   return NextResponse.redirect(authorize, 302);
 }

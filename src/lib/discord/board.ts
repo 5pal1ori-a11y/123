@@ -1,6 +1,7 @@
 /**
  * /전광판 — 거래소 전광판 이미지를 채널에 고정하고 5분마다 다시 그린다 · /닉네임 — 마크 닉네임 조회
  */
+import { MFA_SITE_ORIGIN } from "@/lib/domain";
 import { appEmoji } from "@/lib/discord/app-emojis";
 import { actionRow, ButtonStyle, ComponentType, container, errorPanel, mediaGallery, MessageFlags, plainEphemeral, sectionText, textDisplay, thumbnail, v2Ephemeral } from "@/lib/discord/components";
 import { isDiscordAdmin } from "@/lib/discord/handlers";
@@ -41,7 +42,7 @@ async function boardBody(shopId: string, shopSlug: string) {
         textDisplay(`오늘 거래액 **${won(d.today.volume)}** · 체결 **${d.today.trades}건** · 판매 중 **${d.listings}개**`),
         textDisplay(d.tape.slice(0, 7).map((t) => `· ${t.product} — ${won(t.price)} · ${t.buyer} · ${ago(t.at)}`).join("\n") || "아직 체결이 없어요"),
       ];
-  kids.push(actionRow(link("https://doesmc.xyz/board", "실시간 전광판"), link("https://doesmc.xyz/dashboard?tab=products", "매물 보기"), link("https://doesmc.xyz/dashboard?tab=market", "계정 차트")));
+  kids.push(actionRow(link(`${MFA_SITE_ORIGIN}/board`, "실시간 전광판"), link(`${MFA_SITE_ORIGIN}/dashboard?tab=products`, "매물 보기"), link(`${MFA_SITE_ORIGIN}/dashboard?tab=market`, "계정 차트")));
   return { flags: MessageFlags.IS_COMPONENTS_V2, components: [container(kids, 0x10b981)], allowed_mentions: { parse: [] as string[] } };
 }
 
@@ -93,7 +94,7 @@ export async function handleNameCommand(name: string) {
       [
         sectionText({ text: `## ${appEmoji("does_chart")} ${d.name}\n${lines.join("\n")}`, accessory: thumbnail(d.headUrl) }),
         mediaGallery([d.renderUrl]),
-        actionRow(link(`https://doesmc.xyz/mc/${encodeURIComponent(d.name)}`, "자세히 보기"), link(`https://doesmc.xyz/dashboard?tab=dosmarket&sub=buyback&ign=${encodeURIComponent(d.name)}`, "시세 감정받기")),
+        actionRow(link(`${MFA_SITE_ORIGIN}/mc/${encodeURIComponent(d.name)}`, "자세히 보기"), link(`${MFA_SITE_ORIGIN}/dashboard?tab=dosmarket&sub=buyback&ign=${encodeURIComponent(d.name)}`, "시세 감정받기")),
       ],
       0x10b981,
     ),

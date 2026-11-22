@@ -72,6 +72,23 @@ async function syncDiscordCommands(env: Env, ctx: ExecutionContext) {
   console.log("discord command sync", res.status, (await res.text()).slice(0, 200));
 }
 
+/**
+ * 도스.com — shop · mc · admin 이 로그인 하나로 이어지도록, 쿠키를 도스.com 전체(하위 주소 포함)에 붙인다.
+ * 쿠키는 앱이 host 전용으로 만들고, 여기서 Domain 만 덧붙인다 (다른 도메인은 그대로).
+ */
+const DOES_COOKIE_ROOT = "xn--hq1b35z.com";
+function shareDoesCookies(request: Request, res: Response): Response {
+  const host = new URL(request.url).hostname.toLowerCase();
+  if (host !== DOES_COOKIE_ROOT && !host.endsWith(`.${DOES_COOKIE_ROOT}`)) return res;
+  if (res.status === 101) return res;
+  const cookies = typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : [];
+  if (!cookies.length) return res;
+  const headers = new Headers(res.headers);
+  headers.delete("set-cookie");
+  for (const c of cookies) headers.append("set-cookie", /;\s*domain=/i.test(c) ? c : `${c}; Domain=${DOES_COOKIE_ROOT}`);
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+}
+
 /** AI 가 켜진 열린 티켓이 있거나 "도스야" 채팅 봇이 켜져 있으면 TicketGateway 를 붙여 두고, 없으면 닫는다 */
 async function syncTicketGateway(env: Env, ctx: ExecutionContext) {
   const secret = (env.AOS_BRIDGE_SECRET || env.AUTH_SECRET || "").trim();
@@ -183,7 +200,7 @@ export default {
       const id = env.PRESENCE.idFromName(roomName(url));
       return env.PRESENCE.get(id).fetch(request);
     }
-    return handler.fetch(request, env, ctx);
+    return shareDoesCookies(request, await handler.fetch(request, env, ctx));
   },
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
     if (controller.cron === "* * * * *") {

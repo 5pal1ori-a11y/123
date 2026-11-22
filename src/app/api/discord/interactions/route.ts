@@ -1,3 +1,4 @@
+import { MFA_SITE_ORIGIN } from "@/lib/domain";
 import { NextResponse } from "next/server";
 import { ensureAppEmojis, plainEmoji } from "@/lib/discord/app-emojis";
 import {
@@ -294,7 +295,7 @@ async function editOriginalInteraction(
 
 /** 결과를 바로 보여 주지 않고 '여는 중…' 을 5초 보여 준 뒤 공개하는 동작 */
 function suspenseFor(interaction: DiscordInteraction): { title: string; gif: string } | null {
-  const origin = "https://doesmc.xyz";
+  const origin = `${MFA_SITE_ORIGIN}`;
   if (interaction.type === 2) {
     const name = interaction.data?.name ?? "";
     if (name === "출석") return { title: `${plainEmoji("does_gift")} 출석 상자를 여는 중…`, gif: `${origin}/brand/suspense-checkin-3d.gif` };

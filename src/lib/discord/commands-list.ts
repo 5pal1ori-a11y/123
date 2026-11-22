@@ -212,7 +212,7 @@ export const VENDIX_DISCORD_COMMANDS = [
       { name: "규칙채널", description: "규칙·이용약관 채널", type: 7, channel_types: [0, 5], required: false },
       { name: "구매채널", description: "자판기·구매 채널", type: 7, channel_types: [0, 5], required: false },
       { name: "문의채널", description: "문의 채널", type: 7, channel_types: [0, 5], required: false },
-      { name: "웹사이트", description: "웹사이트 열기 버튼 주소 (비우면 https://doesmc.xyz)", type: 3, required: false },
+      { name: "웹사이트", description: "웹사이트 열기 버튼 주소 (비우면 shop.도스.com)", type: 3, required: false },
     ],
   },
   {

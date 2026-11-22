@@ -6,6 +6,7 @@
  * - 없는 닉네임이면 "사용 가능할 수 있는 닉네임"으로 알려준다
  * - 인기 검색(조회수) · 최근 검색
  */
+import { MFA_SITE_ORIGIN } from "@/lib/domain";
 import { kvGetJson, kvPutJson, withLock } from "@/lib/world/kv";
 
 export type NameHistory = {
@@ -65,7 +66,7 @@ export async function lookupPlayer(query: string): Promise<LookupResult> {
     name: realName,
     skinUrl: profile?.skinUrl ?? null,
     slim: Boolean(profile?.slim),
-    renderUrl: `https://doesmc.xyz/api/discord/skin/${uuid}.png`,
+    renderUrl: `${MFA_SITE_ORIGIN}/api/discord/skin/${uuid}.png`,
     headUrl: `https://mc-heads.net/avatar/${uuid}/64`,
     // capes.me 는 바로 불러오기를 막아서, 망토 그림은 공식 텍스처(textures.minecraft.net)로 보여준다
     capes: (resolved?.capes ?? []).map((c) => ({

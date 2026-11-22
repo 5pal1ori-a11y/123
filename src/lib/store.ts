@@ -6,7 +6,7 @@ import path from "path";
 import { keepAlive, loadDbJsonFromKv, saveDbJsonToKv } from "@/lib/db-persist";
 import { isKvMode, markKvMode } from "@/lib/store-init";
 import { ensureStoreExtensions } from "@/lib/store-bind";
-import { isValidShopSlug } from "@/lib/domain";
+import { isValidShopSlug, MFA_SITE_ORIGIN } from "@/lib/domain";
 import type {
   BugReport,
   ChargeMethod,
@@ -4865,7 +4865,7 @@ export function purchaseWithPoints(
             codePreview: codes || null,
             receiptUrl: shopSlug
               ? ((await import("@/lib/discord/rank-image").then((m) => m.receiptImageUrl(shopId, first.orderUuid)).catch(() => null)) ??
-                `https://doesmc.xyz/api/discord/rank-image/${shopSlug}-receipt-${first.orderUuid}.png`)
+                `${MFA_SITE_ORIGIN}/api/discord/rank-image/${shopSlug}-receipt-${first.orderUuid}.png`)
               : null,
           },
           [

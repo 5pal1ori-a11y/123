@@ -1,3 +1,4 @@
+import { MFA_SITE_ORIGIN } from "@/lib/domain";
 import {
   InteractionResponseType,
   InteractionType,
@@ -757,7 +758,7 @@ export async function handleDiscordInteraction(interaction: DiscordInteraction) 
     if (action === "stock_vending") return handleVendingCommand(shop.slug, actor.id);
     if (action === "stock_inquiry") {
       return plainEphemeral(
-        `${shop.name} 문의는 웹 우측 하단 문의 버튼에서 AI가 먼저 답해요.\nhttps://doesmc.xyz/dashboard?tab=inquiry`,
+        `${shop.name} 문의는 웹 우측 하단 문의 버튼에서 AI가 먼저 답해요.\n${MFA_SITE_ORIGIN}/dashboard?tab=inquiry`,
       );
     }
     if (action === "stock_restock") {

@@ -249,7 +249,7 @@ function howto(shopId: string, topic: string, settings: ShopSettings) {
     return `쇼핑 탭에서 카테고리 골라 포인트로 구매. 자판기/개별, 자동/수동은 상품마다 다름.\n${catalogSnapshot(shopId)}`;
   }
   if (/랜덤박스|상자|잭팟|gift/.test(t)) {
-    return `랜덤박스는 리더보드 아래 또는 doesmc.xyz/gift 에서 하루 한 번. 0~3,000원, 1,200원 이상은 잭팟.`;
+    return `랜덤박스는 리더보드 아래 또는 shop.도스.com/gift 에서 하루 한 번. 0~3,000원, 1,200원 이상은 잭팟.`;
   }
   return "";
 }

@@ -2,6 +2,7 @@
  * 입장 환영 — StatusWatch(게이트웨이)가 GUILD_MEMBER_ADD 를 받으면 /api/discord/server-status(op: member_add)로 넘기고,
  * 여기서 환영 패널(GIF · 몇 번째 멤버 · 처음 오셨나요? · 웹사이트 열기)을 정해 둔 채널에 올린다.
  */
+import { MFA_SITE_ORIGIN } from "@/lib/domain";
 import { appEmoji } from "@/lib/discord/app-emojis";
 import {
   actionRow,
@@ -30,7 +31,7 @@ export type WelcomeConfig = {
   siteUrl?: string | null;
 };
 
-const DEFAULT_SITE = "https://doesmc.xyz";
+const DEFAULT_SITE = `${MFA_SITE_ORIGIN}`;
 
 function appOrigin() {
   return (process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://vendix.team").replace(/\/$/, "");
@@ -84,7 +85,7 @@ export function welcomePanel(
 
   // 환영 이미지 (프로필 · 이름 · 몇 번째 멤버 · 가입일) — 상점 주소를 알면 이미지, 아니면 예전 GIF 패널
   const image = shopSlug
-    ? `https://doesmc.xyz/api/discord/rank-image/${shopSlug}-welcome-${member.guildId ?? "0"}-${member.userId}-${member.memberCount ?? 0}-${member.avatar || "0"}.png`
+    ? `${MFA_SITE_ORIGIN}/api/discord/rank-image/${shopSlug}-welcome-${member.guildId ?? "0"}-${member.userId}-${member.memberCount ?? 0}-${member.avatar || "0"}.png`
     : null;
   const kids: unknown[] = image
     ? [

@@ -20,7 +20,7 @@ import {
   v2Update,
   type DiscordInteraction,
 } from "@/lib/discord/components";
-import { shopUrl } from "@/lib/domain";
+import { shopUrl, MFA_SITE_ORIGIN } from "@/lib/domain";
 import { CAPE_BY_TYPE } from "@/lib/capes-data";
 import { buyerPurchases, reportDispute } from "@/lib/dosmarket";
 import { listResaleRequests } from "@/lib/resale";
@@ -89,7 +89,7 @@ export async function handleDmPick(shopSlug: string, requestId: string) {
         textDisplay(`> ${appEmoji("does_shield")} 도스마켓 구매자 보호 24시간 — 문제가 있으면 \`내가 산 계정\`에서 신고하면 정산이 멈추고 환불받을 수 있어요.`),
         actionRow(
           link(shopUrl(shop.slug, `/product/${p.slug}`), "웹에서 구매하기"),
-          link(`https://doesmc.xyz/passport/p/${p.id}`, "계정 여권"),
+          link(`${MFA_SITE_ORIGIN}/passport/p/${p.id}`, "계정 여권"),
           btn(cid(shopSlug, "dm_list"), "목록으로", ButtonStyle.SECONDARY),
         ),
         textDisplay("-# 결제 · 지급 안전을 위해 구매는 웹에서 해요. 결제하면 계정 정보가 바로 지급돼요."),

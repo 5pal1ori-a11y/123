@@ -8,15 +8,16 @@
  * - 버튼은 링크 스타일(5)만, 키는 id/type/url/style/label/emoji/disabled 만 (다른 키가 있으면 통째로 무시됨)
  * - 실패하면 Open Graph 미리보기로 대체되므로 layout 의 openGraph 메타는 유지한다
  */
+import { MFA_SITE_ORIGIN } from "@/lib/domain";
 import type { DbStore } from "@/lib/store";
 import { fallbackEmoji, type AppEmojiName } from "@/lib/discord/app-emojis";
 
 export const COMPONENT_EMBED_PATH = "/api/discord/component-embed";
-export const COMPONENT_EMBED_URL = `https://doesmc.xyz${COMPONENT_EMBED_PATH}`;
+export const COMPONENT_EMBED_URL = `${MFA_SITE_ORIGIN}${COMPONENT_EMBED_PATH}`;
 
-const SITE_URL = "https://doesmc.xyz";
+const SITE_URL = `${MFA_SITE_ORIGIN}`;
 const INVITE_URL = "https://discord.gg/doesmc";
-const BANNER_URL = "https://doesmc.xyz/brand/does-banner.png";
+const BANNER_URL = `${MFA_SITE_ORIGIN}/brand/does-banner.png`;
 const MAX_BYTES = 3000;
 
 const COUNTED = new Set(["dispensed", "paid", "awaiting_fulfillment"]);

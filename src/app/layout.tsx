@@ -1,3 +1,4 @@
+import { MFA_SITE_ORIGIN } from "@/lib/domain";
 import type { Metadata, Viewport } from "next";
 import { Do_Hyeon, Geist, Inter, JetBrains_Mono, Noto_Sans_KR, Space_Grotesk } from "next/font/google";
 import { PwaRegister } from "@/components/pwa-register";
@@ -49,7 +50,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://doesmc.xyz"),
+  metadataBase: new URL(`${MFA_SITE_ORIGIN}`),
   title: { default: "DOES · 마인크래프트 정품 계정 샵", template: "%s · DOES" },
   description: "한국 마인크래프트 정품 계정 샵 · 거래소 — 자동 자판기, 16자리 코드 안전 전달, 30일 보증.",
   icons: {
@@ -59,7 +60,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "DOES · 마인크래프트 정품 계정 샵",
     description: "자동 자판기 · 16자리 코드 안전 전달 · 30일 보증 · 계좌이체/코인/컬쳐랜드 자동 입금",
-    url: "https://doesmc.xyz",
+    url: `${MFA_SITE_ORIGIN}`,
     siteName: "DOES",
     images: [{ url: "/brand/does-banner.png", width: 1500, height: 500 }],
     type: "website",

@@ -1,12 +1,13 @@
 "use client";
 
+import { MFA_SITE_ORIGIN } from "@/lib/domain";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Coins, Copy, ExternalLink, Gem, Loader2, Medal, Package, Receipt, Search, X } from "lucide-react";
 import type { DiscordSDK as DiscordSDKType } from "@discord/embedded-app-sdk";
 
 /** DOES 디스코드 앱 ID (봇과 같은 앱 — 개발자 포털에서 Activities 를 켜야 한다) */
 const CLIENT_ID = "1540972072963149944";
-const SITE = "https://doesmc.xyz";
+const SITE = `${MFA_SITE_ORIGIN}`;
 
 type Product = { id: string; slug: string; name: string; category: string; price: number; originalPrice: number | null; stock: number; image: string | null; needsInput: boolean; description: string };
 type Order = { id: string; product: string; amount: number; status: string; code: string | null; at: string };

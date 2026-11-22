@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   buildShopUserDiscordAuthorizeUrl,
   createShopUserOAuthState,
-  getShopUserDiscordRedirectUri,
+  getShopUserDiscordRedirectUriForStart,
 } from "@/lib/discord/user-oauth";
 import { doesDiscordEnvAsync, isMfaShopSlug } from "@/lib/discord/does-env";
 import { discordEnvAsync } from "@/lib/discord/verify";
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     ...(safeReturn ? { returnPath: safeReturn } : {}),
     ...(linkUserId ? { linkUserId } : {}),
   });
-  const redirectUri = getShopUserDiscordRedirectUri(url.origin, shop.slug);
+  const redirectUri = await getShopUserDiscordRedirectUriForStart(url.origin, shop.slug);
   const authorize = buildShopUserDiscordAuthorizeUrl({
     applicationId: env.applicationId,
     state,

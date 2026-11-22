@@ -1,12 +1,13 @@
 /**
  * 안전거래 링크 (에스크로) — DOES 밖에서 만난 사람끼리도 DOES 가 돈을 맡아 주는 거래.
  *
- * 1. 판매자: 상품명 · 가격 · 설명 · 계정 로그인 정보(암호화) · 정산 방법으로 링크 생성 → doesmc.xyz/safe/<코드> 공유
+ * 1. 판매자: 상품명 · 가격 · 설명 · 계정 로그인 정보(암호화) · 정산 방법으로 링크 생성 → shop.도스.com/safe/<코드> 공유
  * 2. 구매자: 링크에서 포인트로 결제 → DOES 가 돈을 보관, 로그인 정보는 구매자에게 바로 전달
  * 3. 구매자 보호 24시간: [구매 확정] 하면 바로 정산 · [문제 신고] 하면 정산 보류 → 관리자가 정산 또는 환불
  * 4. 보호 시간이 끝나면 자동 정산 (포인트 자동 · 계좌는 관리자 카드로 송금)
  * 수수료 5% (DOES PASS+ 3%) 는 판매자 정산액에서 뺀다. 열린 링크는 7일 뒤 만료.
  */
+import { MFA_SITE_ORIGIN } from "@/lib/domain";
 import { decryptSecret, encryptSecret } from "@/lib/verify-bot/crypto";
 import { kvGetJson, kvPutJson, withLock } from "@/lib/world/kv";
 
@@ -73,7 +74,7 @@ async function mutate<T>(shopId: string, fn: (db: Db) => T | Promise<T>) {
 }
 
 export function safeUrl(id: string) {
-  return `https://doesmc.xyz/safe/${id}`;
+  return `${MFA_SITE_ORIGIN}/safe/${id}`;
 }
 
 export function tradeCred(t: Pick<SafeTrade, "credEnc">): Cred | null {

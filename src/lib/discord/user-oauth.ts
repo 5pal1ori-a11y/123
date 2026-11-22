@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
-import { getOAuthRedirectOrigin, MFA_SITE_ORIGIN } from "@/lib/domain";
+import { getOAuthRedirectOrigin, mfaOAuthOrigin } from "@/lib/domain";
 import { isMfaShopSlug } from "@/lib/discord/does-env";
 
 const USER_OAUTH_SCOPES = "identify email";
@@ -66,12 +66,20 @@ function verifyBody(prefix: string, body: string, sig: string) {
 
 export function getShopUserDiscordRedirectUri(fallbackOrigin?: string, shopSlug?: string) {
   if (isMfaShopSlug(shopSlug)) {
-    return `${MFA_SITE_ORIGIN}/api/auth/user/discord/callback`;
+    // 콜백은 들어온 도메인 그대로 (도스.com 이면 shop.도스.com, 아니면 doesmc.xyz)
+    return `${mfaOAuthOrigin(fallbackOrigin)}/api/auth/user/discord/callback`;
   }
   const explicit = process.env.DISCORD_USER_OAUTH_REDIRECT_URI?.trim().replace(/\/$/, "");
   if (explicit) return explicit;
   const origin = getOAuthRedirectOrigin(fallbackOrigin).replace(/\/$/, "");
   return `${origin}/api/auth/user/discord/callback`;
+}
+
+/** 로그인 시작용 — 새 도메인 콜백이 아직 등록 전이면 예전 주소로 */
+export async function getShopUserDiscordRedirectUriForStart(requestOrigin: string, shopSlug?: string) {
+  if (!isMfaShopSlug(shopSlug)) return getShopUserDiscordRedirectUri(requestOrigin, shopSlug);
+  const { mfaLoginOrigin } = await import("@/lib/does-oauth-origin");
+  return `${await mfaLoginOrigin(requestOrigin, "/api/auth/user/discord/callback")}/api/auth/user/discord/callback`;
 }
 
 export function createShopUserOAuthState(opts: {

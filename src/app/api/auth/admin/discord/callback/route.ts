@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     product: "shop",
     shopSlug: payload.shopSlug,
     code,
-    redirectUri: panelOAuthRedirectUri("shop", payload.shopSlug),
+    redirectUri: panelOAuthRedirectUri("shop", payload.shopSlug, new URL(request.url).origin),
   });
   if ("error" in session) {
     return fail("error", session.error);

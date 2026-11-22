@@ -15,7 +15,7 @@ import {
   type DiscordInteraction,
 } from "@/lib/discord/components";
 import { appEmoji, plainEmoji } from "@/lib/discord/app-emojis";
-import { verifyOrigin, MFA_SITE_ORIGIN } from "@/lib/domain";
+import { verifyOrigin, ASSET_ORIGIN } from "@/lib/domain";
 import { scheduleDiscordBackground } from "@/lib/discord/schedule";
 import { computeSuspicionScore } from "@/lib/verify-bot/analytics";
 import { verifyFeatureError, verifyHasFeature, recoveryLimitFor } from "@/lib/verify-bot/plan";
@@ -40,7 +40,7 @@ import {
 } from "@/lib/verify-bot/store";
 
 /** Discord 가 직접 받아 가므로 절대 URL 이어야 한다 (public/brand) */
-export const VERIFY_PANEL_BANNER = `${MFA_SITE_ORIGIN}/brand/does-verify.gif`;
+export const VERIFY_PANEL_BANNER = `${ASSET_ORIGIN}/brand/does-verify.gif`;
 
 function isGuildAdmin(permissions?: string) {
   if (!permissions) return false;

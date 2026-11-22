@@ -3,7 +3,7 @@
  * 그림은 별도 워커(does-rank-image, 서비스 바인딩 RANK_IMG)가 그린다.
  * 디스코드는 같은 주소 이미지를 오래 캐시하므로, 내용이 바뀌면 주소(해시)도 바뀐다.
  */
-import { MFA_SITE_ORIGIN } from "@/lib/domain";
+import { ASSET_ORIGIN } from "@/lib/domain";
 import { doesDiscordEnvAsync } from "@/lib/discord/does-env";
 import { purchaseRanking } from "@/lib/discord/leaderboard-board";
 import { getShopById, getShopSettings, MFA_DISCORD_GUILD_ID } from "@/lib/store";
@@ -231,9 +231,9 @@ export async function stockImageData(shopId: string, page = 0): Promise<StockIma
             imgKind: p.productKind === "mc_account" ? "skin" : capeHash ? "cape" : p.thumbnail?.trim() ? "thumb" : null,
             img:
               p.productKind === "mc_account"
-                ? `${MFA_SITE_ORIGIN}/api/mc-account/${p.id}?asset=skin&v=${encodeURIComponent(p.mcVersion ?? "0")}`
+                ? `${ASSET_ORIGIN}/api/mc-account/${p.id}?asset=skin&v=${encodeURIComponent(p.mcVersion ?? "0")}`
                 : capeHash
-                  ? `${MFA_SITE_ORIGIN}/api/capes/texture/${capeHash}`
+                  ? `${ASSET_ORIGIN}/api/capes/texture/${capeHash}`
                   : p.thumbnail?.trim() || null,
           };
         }),
@@ -250,7 +250,7 @@ export async function stockImageUrl(shopId: string, page = 0) {
   const d = await stockImageData(shopId, page);
   const { updated: _u, ...rest } = d;
   void _u;
-  return { url: `${MFA_SITE_ORIGIN}/api/discord/rank-image/${shop.slug}-stock-${d.page}-${await hashOf(rest as StockImageData)}.png`, page: d.page, pages: d.pages };
+  return { url: `${ASSET_ORIGIN}/api/discord/rank-image/${shop.slug}-stock-${d.page}-${await hashOf(rest as StockImageData)}.png`, page: d.page, pages: d.pages };
 }
 
 export async function renderStockImage(shopId: string, page = 0) {
@@ -308,7 +308,7 @@ export async function statusImageUrl(shopId: string) {
   const shop = getShopById(shopId);
   if (!shop) return null;
   const d = await statusImageData(shopId);
-  return `${MFA_SITE_ORIGIN}/api/discord/rank-image/${shop.slug}-status-${await hashOf(d)}.png`;
+  return `${ASSET_ORIGIN}/api/discord/rank-image/${shop.slug}-status-${await hashOf(d)}.png`;
 }
 
 export async function renderStatusImage(shopId: string) {
@@ -344,9 +344,9 @@ export async function purchaseLogData(shopId: string, orderUuid: string) {
     imgKind: product?.productKind === "mc_account" ? "skin" : capeHash ? "cape" : product?.thumbnail?.trim() ? "thumb" : null,
     img:
       product?.productKind === "mc_account"
-        ? `${MFA_SITE_ORIGIN}/api/mc-account/${product.id}?asset=skin&v=${encodeURIComponent(product.mcVersion ?? "0")}`
+        ? `${ASSET_ORIGIN}/api/mc-account/${product.id}?asset=skin&v=${encodeURIComponent(product.mcVersion ?? "0")}`
         : capeHash
-          ? `${MFA_SITE_ORIGIN}/api/capes/texture/${capeHash}`
+          ? `${ASSET_ORIGIN}/api/capes/texture/${capeHash}`
           : product?.thumbnail?.trim() || null,
     quantity: orders.reduce((n, o) => n + (o.quantity || 1), 0),
     amount: orders.reduce((n, o) => n + (o.amount || 0), 0),
@@ -360,7 +360,7 @@ export async function purchaseLogImageUrl(shopId: string, orderUuid: string) {
   const shop = getShopById(shopId);
   if (!shop || !/^[A-Za-z0-9_-]{6,64}$/.test(orderUuid)) return null;
   const signed = await signedDataImageUrl(shop.slug, await purchaseLogData(shopId, orderUuid).catch(() => null));
-  return signed ?? `${MFA_SITE_ORIGIN}/api/discord/rank-image/${shop.slug}-order-${orderUuid}.png`;
+  return signed ?? `${ASSET_ORIGIN}/api/discord/rank-image/${shop.slug}-order-${orderUuid}.png`;
 }
 
 /** 구매 영수증(DM) 이미지 주소 */
@@ -368,7 +368,7 @@ export async function receiptImageUrl(shopId: string, orderUuid: string) {
   const shop = getShopById(shopId);
   if (!shop || !/^[A-Za-z0-9_-]{6,64}$/.test(orderUuid)) return null;
   const signed = (await rankBinding()) ? await signedDataImageUrl(shop.slug, await receiptData(shopId, orderUuid).catch(() => null)) : null;
-  return signed ?? `${MFA_SITE_ORIGIN}/api/discord/rank-image/${shop.slug}-receipt-${orderUuid}.png`;
+  return signed ?? `${ASSET_ORIGIN}/api/discord/rank-image/${shop.slug}-receipt-${orderUuid}.png`;
 }
 
 export async function renderPurchaseLogImage(shopId: string, orderUuid: string) {
@@ -410,7 +410,7 @@ export async function chargeLogImageUrl(shopId: string, chargeId: string, balanc
   const shop = getShopById(shopId);
   if (!shop || !/^[A-Za-z0-9_-]{4,64}$/.test(chargeId)) return null;
   const signed = await signedDataImageUrl(shop.slug, await chargeLogData(shopId, chargeId, balance).catch(() => null));
-  return signed ?? `${MFA_SITE_ORIGIN}/api/discord/rank-image/${shop.slug}-charge-${chargeId}.png?b=${Math.max(0, Math.round(balance))}`;
+  return signed ?? `${ASSET_ORIGIN}/api/discord/rank-image/${shop.slug}-charge-${chargeId}.png?b=${Math.max(0, Math.round(balance))}`;
 }
 
 export async function renderChargeLogImage(shopId: string, chargeId: string, balance: number) {
@@ -470,9 +470,9 @@ export async function reviewData(shopId: string, reviewId: string) {
     imgKind: product?.productKind === "mc_account" ? "skin" : capeHash ? "cape" : product?.thumbnail?.trim() ? "thumb" : null,
     img:
       product?.productKind === "mc_account"
-        ? `${MFA_SITE_ORIGIN}/api/mc-account/${product.id}?asset=skin&v=${encodeURIComponent(product.mcVersion ?? "0")}`
+        ? `${ASSET_ORIGIN}/api/mc-account/${product.id}?asset=skin&v=${encodeURIComponent(product.mcVersion ?? "0")}`
         : capeHash
-          ? `${MFA_SITE_ORIGIN}/api/capes/texture/${capeHash}`
+          ? `${ASSET_ORIGIN}/api/capes/texture/${capeHash}`
           : product?.thumbnail?.trim() || null,
     rating: Math.max(0, Math.min(5, Math.round(review.rating || 0))),
     body: review.body,
@@ -494,7 +494,7 @@ export async function reviewImageUrl(shopId: string, reviewId: string) {
   const shop = getShopById(shopId);
   if (!shop) return null;
   const signed = await signedDataImageUrl(shop.slug, await reviewData(shopId, reviewId).catch(() => null));
-  return signed ?? `${MFA_SITE_ORIGIN}/api/discord/rank-image/${shop.slug}-review-${reviewId}.png`;
+  return signed ?? `${ASSET_ORIGIN}/api/discord/rank-image/${shop.slug}-review-${reviewId}.png`;
 }
 
 async function productImg(productId: string | null | undefined) {
@@ -507,9 +507,9 @@ async function productImg(productId: string | null | undefined) {
     imgKind: product?.productKind === "mc_account" ? "skin" : capeHash ? "cape" : product?.thumbnail?.trim() ? "thumb" : null,
     img:
       product?.productKind === "mc_account"
-        ? `${MFA_SITE_ORIGIN}/api/mc-account/${product.id}?asset=skin&v=${encodeURIComponent(product.mcVersion ?? "0")}`
+        ? `${ASSET_ORIGIN}/api/mc-account/${product.id}?asset=skin&v=${encodeURIComponent(product.mcVersion ?? "0")}`
         : capeHash
-          ? `${MFA_SITE_ORIGIN}/api/capes/texture/${capeHash}`
+          ? `${ASSET_ORIGIN}/api/capes/texture/${capeHash}`
           : product?.thumbnail?.trim() || null,
   };
 }
@@ -618,7 +618,7 @@ export async function profileImageUrl(shopId: string, discordId: string) {
   const shop = getShopById(shopId);
   if (!shop) return null;
   const d = await profileData(shopId, discordId);
-  return { url: `${MFA_SITE_ORIGIN}/api/discord/rank-image/${shop.slug}-profile-${discordId}-${await hashOf(d as unknown as StatusImageData)}.png`, linked: d.linked };
+  return { url: `${ASSET_ORIGIN}/api/discord/rank-image/${shop.slug}-profile-${discordId}-${await hashOf(d as unknown as StatusImageData)}.png`, linked: d.linked };
 }
 
 export async function renderProfileImage(shopId: string, discordId: string, hash: string) {
@@ -665,7 +665,7 @@ export async function signedDataImageUrl(shopSlug: string, data: ({ kind: string
   if (!data || !SIGNED_KINDS.has(data.kind)) return null;
   const body = b64url(JSON.stringify(data));
   if (body.length > SIGNED_MAX_BODY) return null;
-  return `${MFA_SITE_ORIGIN}/api/discord/rank-image/${shopSlug}-sd-${body}-${await cardSig(shopSlug, `sd:${body}`)}.png`;
+  return `${ASSET_ORIGIN}/api/discord/rank-image/${shopSlug}-sd-${body}-${await cardSig(shopSlug, `sd:${body}`)}.png`;
 }
 
 /** 상점 통계 띠 이미지 (링크 미리보기 맨 아래) — 숫자가 바뀌면 주소도 바뀌어 디스코드 캐시가 갱신된다 */
@@ -699,7 +699,7 @@ export async function cardImageUrl(shopSlug: string, p: CardPayload) {
     ...(p.note ? { note: p.note.slice(0, 80) } : {}),
   };
   const body = b64url(JSON.stringify(clean));
-  return `${MFA_SITE_ORIGIN}/api/discord/rank-image/${shopSlug}-card-${body}-${await cardSig(shopSlug, body)}.png`;
+  return `${ASSET_ORIGIN}/api/discord/rank-image/${shopSlug}-card-${body}-${await cardSig(shopSlug, body)}.png`;
 }
 
 export async function renderCardImage(shopSlug: string, body: string, sig: string) {
@@ -756,7 +756,7 @@ export async function rankImageUrl(shopId: string) {
   if (!shop) return null;
   const d = await rankImageData(shopId);
   const file = `${shop.slug}-${await hashOf(d)}.png`;
-  return (await warmPng(file, () => renderRankImage(shopId, null))) ? `${MFA_SITE_ORIGIN}/api/discord/rank-image/${file}` : null;
+  return (await warmPng(file, () => renderRankImage(shopId, null))) ? `${ASSET_ORIGIN}/api/discord/rank-image/${file}` : null;
 }
 
 /**
@@ -777,7 +777,7 @@ export async function inviteRankImageUrl(shopId: string, guildId: string) {
   if (!shop) return null;
   const d = await inviteImageData(shopId, guildId);
   const file = `${shop.slug}-inv-${guildId}-${await hashOf(d)}.png`;
-  return (await warmPng(file, () => renderRankImage(shopId, guildId))) ? `${MFA_SITE_ORIGIN}/api/discord/rank-image/${file}` : null;
+  return (await warmPng(file, () => renderRankImage(shopId, guildId))) ? `${ASSET_ORIGIN}/api/discord/rank-image/${file}` : null;
 }
 
 /** 문의 대기 현황 이미지 주소 — 분 단위로 내용이 바뀌므로 해시에 시각은 넣지 않는다 */
@@ -787,7 +787,7 @@ export async function queueImageUrl(shopId: string, guildId: string, d: QueueIma
   if (!shop) return null;
   const { queue, ...rest } = d;
   const key = { ...rest, queue: queue.map((x) => ({ ...x, waited: "" })), b: Math.floor(Date.now() / 600_000) };
-  return `${MFA_SITE_ORIGIN}/api/discord/rank-image/${shop.slug}-q-${guildId}-${await hashOf(key as unknown as QueueImageData)}.png`;
+  return `${ASSET_ORIGIN}/api/discord/rank-image/${shop.slug}-q-${guildId}-${await hashOf(key as unknown as QueueImageData)}.png`;
 }
 
 export async function renderQueueImage(d: QueueImageData) {

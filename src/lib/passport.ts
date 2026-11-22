@@ -11,7 +11,7 @@
  *  - 점검: 관리자 밴 점검(하이픽셀 · 도넛) · 체크락 상태
  *  - 보증: 판매 중이면 '구매 후 30일', 팔렸으면 남은 보증 기간
  */
-import { MFA_SITE_ORIGIN } from "@/lib/domain";
+import { MFA_SITE_ORIGIN, ASSET_ORIGIN } from "@/lib/domain";
 import { createHmac } from "crypto";
 import { kvGetJson, kvPutJson } from "@/lib/world/kv";
 import { CAPE_BY_TYPE, capeTypesFromHashes } from "@/lib/capes-data";
@@ -185,7 +185,7 @@ export async function passportImageUrl(shopSlug: string, d: PassportData) {
     no: d.no,
     name: d.name,
     uuid: d.uuidShort,
-    skin: `${MFA_SITE_ORIGIN}/api/mc-account/${d.productId}?asset=skin`,
+    skin: `${ASSET_ORIGIN}/api/mc-account/${d.productId}?asset=skin`,
     capes: d.capes.map((c) => c.title).slice(0, 4),
     hypixel: d.hypixel ? { rank: d.hypixel.rank, level: d.hypixel.level, bw: d.hypixel.bedwarsStars, first: d.hypixel.firstLogin } : null,
     lastNameChange: d.nameChange?.lastChangedAt ?? null,

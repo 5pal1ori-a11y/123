@@ -20,6 +20,8 @@ export const DOES_MC_ORIGIN = `https://${DOES_MC_HOST}`;
 export const DOES_ADMIN_ORIGIN = `https://${DOES_ADMIN_HOST}`;
 export const LEGACY_SITE_HOST = "doesmc.xyz";
 export const LEGACY_SITE_ORIGIN = "https://doesmc.xyz";
+/** 디스코드가 가져가는 이미지 · 파일 주소 — 확실히 동작하는 예전 주소로 둔다 (새 도메인 확인 전까지) */
+export const ASSET_ORIGIN = LEGACY_SITE_ORIGIN;
 
 /** 도스.com 이나 그 하위 주소인가 */
 export function isDoesDomainHost(host: string) {

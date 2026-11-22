@@ -78,7 +78,7 @@ export function handleStockRequestCommand(
   const kids: unknown[] = [
     sectionText({
       text: "## 재고 요청\n> 현재 **품절인** 상품을 요청해주세요!",
-      accessory: thumbnail(`${appOrigin()}/brand/stock-request-icon-3d.gif`),
+      accessory: thumbnail(`${appOrigin()}/brand/mc-grass.png`),
     }),
   ];
   if (options.length) {

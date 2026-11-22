@@ -528,39 +528,31 @@ export function chargeTree(d) {
 
 /* ───────── 입장 환영 ───────── */
 export function welcomeTree(d) {
-  const dots = [[90, 60, "#f472b6"], [980, 80, "#facc15"], [60, 330, "#22d3ee"], [1020, 340, "#a78bfa"], [200, 380, "#4ade80"], [880, 30, "#fb923c"], [300, 40, "#38bdf8"], [760, 390, "#f472b6"]];
+  const sparks = [[90, 70, "#facc15", 12], [980, 90, "#a78bfa", 12], [60, 330, "#a78bfa", 10], [1020, 330, "#facc15", 10], [200, 380, "#c4b5fd", 8], [880, 40, "#facc15", 8]];
   return h(
     "div",
-    {
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      position: "relative",
-      width: "100%",
-      height: "100%",
-      padding: "34px 60px 30px",
-      background: "radial-gradient(ellipse 45% 60% at 50% 42%, rgba(52,211,153,0.30) 0%, rgba(11,15,26,0) 100%), linear-gradient(180deg, #0d1120 0%, #070910 100%)",
-      fontFamily: "Pretendard",
-      color: "#fff",
-    },
-    ...dots.map(([x, y, c]) => h("div", { display: "flex", position: "absolute", left: x, top: y, width: 12, height: 12, borderRadius: 3, background: c, transform: "rotate(25deg)", opacity: 0.75 })),
+    { display: "flex", flexDirection: "column", alignItems: "center", position: "relative", width: "100%", height: "100%", padding: "30px 60px 26px", fontFamily: "Pretendard", color: "#fff" },
+    ...sparks.map(([x, y, c, z]) => h("div", { display: "flex", position: "absolute", left: x, top: y, width: z, height: z, background: c, boxShadow: `0 0 10px ${c}` })),
     h("div", { display: "flex", alignItems: "center" },
-      d.logo ? img(d.logo, { width: 34, height: 34, marginRight: 10 }) : null,
-      h("div", { display: "flex", fontSize: 16, fontWeight: 700, color: "#6ee7b7", letterSpacing: 6 }, "WELCOME"),
+      d.logo ? img(d.logo, { width: 38, height: 38, marginRight: 12 }) : null,
+      h("div", { display: "flex", fontSize: 18, fontWeight: 700, color: MC_EYEBROW, letterSpacing: 4 }, "WELCOME"),
     ),
-    h("div", { display: "flex", marginTop: 18 },
-      h("div", { display: "flex", width: 168, height: 168, borderRadius: 168, padding: 6, background: "linear-gradient(135deg,#6ee7b7,#10b981 50%,#3b82f6)", boxShadow: "0 0 60px rgba(52,211,153,0.5)" },
-        d.avatar ? img(d.avatar, { width: 156, height: 156, borderRadius: 156, objectFit: "cover" }) : h("div", { display: "flex", width: 156, height: 156, borderRadius: 156, background: "#1f2937" }),
+    h("div", { display: "flex", marginTop: 14 },
+      h("div", { display: "flex", width: 164, height: 164, borderRadius: 164, padding: 6, background: "linear-gradient(135deg,#a78bfa,#6d28d9)", boxShadow: "0 0 50px rgba(139,92,246,0.5)" },
+        d.avatar ? img(d.avatar, { width: 152, height: 152, borderRadius: 152, objectFit: "cover" }) : h("div", { display: "flex", width: 152, height: 152, borderRadius: 152, background: "#4b5563" }),
       ),
     ),
-    h("div", { display: "flex", alignItems: "baseline", marginTop: 18 },
-      h("div", { display: "flex", fontSize: 44, fontWeight: 900, letterSpacing: -1.5, maxWidth: 760, overflow: "hidden", whiteSpace: "nowrap" }, d.name ?? "새 멤버"),
-      h("div", { display: "flex", marginLeft: 10, fontSize: 26, fontWeight: 700, color: "#94a3b8" }, "님"),
+    h("div", { display: "flex", alignItems: "center", marginTop: 14, padding: "6px 26px", borderRadius: 50, background: "rgba(10,12,28,0.6)", border: "1.5px solid rgba(255,255,255,0.14)" },
+      h("div", { display: "flex", fontSize: 34, fontWeight: 800, maxWidth: 700, overflow: "hidden", whiteSpace: "nowrap" }, d.name ?? "새 멤버"),
+      h("div", { display: "flex", marginLeft: 10, fontSize: 24, fontWeight: 600, color: "#94a3b8" }, "님"),
     ),
-    h("div", { display: "flex", marginTop: 4, fontSize: 24, fontWeight: 700, color: "#e2e8f0" }, `${d.shop ?? "DOES"}에 오신 걸 환영해요!`),
-    h("div", { display: "flex", marginTop: 18, gap: 10 },
-      d.memberCount ? h("div", { display: "flex", padding: "8px 16px", borderRadius: 30, background: "rgba(52,211,153,0.14)", border: "1px solid rgba(52,211,153,0.4)", fontSize: 17, fontWeight: 700, color: "#6ee7b7" }, `${num(d.memberCount)}번째 멤버`) : null,
-      d.created ? h("div", { display: "flex", padding: "8px 16px", borderRadius: 30, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", fontSize: 17, fontWeight: 700, color: "#cbd5e1" }, `디스코드 가입 ${d.created}`) : null,
+    h("div", { display: "flex", alignItems: "baseline", marginTop: 12 },
+      h("div", { display: "flex", fontSize: 40, fontWeight: 900, marginRight: 14 }, `${d.shop ?? "DOES"}에 오신 걸`),
+      h("div", { display: "flex", fontSize: 40, fontWeight: 900, color: MC_PURPLE }, "환영해요!"),
+    ),
+    h("div", { display: "flex", marginTop: 12 },
+      d.memberCount ? h("div", { display: "flex", padding: "8px 18px", borderRadius: 30, background: "rgba(139,92,246,0.18)", border: "1.5px solid rgba(167,139,250,0.5)", fontSize: 18, fontWeight: 700, color: "#ddd6fe", marginRight: 10 }, `${num(d.memberCount)}번째 멤버`) : null,
+      d.created ? h("div", { display: "flex", padding: "8px 18px", borderRadius: 30, background: "rgba(10,12,28,0.6)", border: "1.5px solid rgba(255,255,255,0.14)", fontSize: 18, fontWeight: 600, color: "#cbd5e1" }, `디스코드 가입 ${d.created}`) : null,
     ),
   );
 }
@@ -1598,5 +1590,42 @@ export function boardTree(d) {
       ),
     ),
     footer("실제 주문 · 계정 차트 기준 · 5분마다 갱신", "shop.도스.com/board"),
+  );
+}
+
+/* ───────── 안내 배너 (환영 · 이벤트 · 문의 등 — 마크 밤 테마) ─────────
+ * d: { eyebrow, title, accent?(제목 중 보라색 부분), sub?, icon?: "grass"|"chest"|"pickaxe"|"diamond"|"crown"|"gift"|"x", accentColor? }
+ */
+const BANNER_ICON = {
+  chest: () => CHEST,
+  pickaxe: () => PICKAXE,
+  diamond: () => DIAMOND,
+  crown: () => svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 40"><path d="M4 12l14 12L32 2l14 22 14-12-6 26H10z" fill="#fbbf24" stroke="#00000066" stroke-width="2.5" stroke-linejoin="round"/><circle cx="32" cy="27" r="4" fill="#fff8"/></svg>`),
+  gift: () => svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><path fill="#a855f7" d="M2 6h12v9H2z"/><path fill="#c084fc" d="M1 4h14v3H1z"/><path fill="#fde047" d="M7 4h2v11H7z"/><path fill="#fde047" d="M4 1h2v1h1v2H5V3H4zM10 1h2v2h-1v1H9V2h1z"/></svg>`),
+  x: () => svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><path fill="#64748b" d="M2 2h3v1h1v1h1v1h2V4h1V3h1V2h3v3h-1v1h-1v1h-1v2h1v1h1v1h1v3h-3v-1h-1v-1H9v-1H7v1H6v1H5v1H2v-3h1v-1h1V9h1V7H4V6H3V5H2z"/></svg>`),
+};
+
+export function bannerTree(d) {
+  const title = d.title ?? "DOES";
+  const acc = d.accent && title.includes(d.accent) ? d.accent : null;
+  const [before, after] = acc ? [title.slice(0, title.indexOf(acc)), title.slice(title.indexOf(acc) + acc.length)] : [title, ""];
+  const iconSrc = d.icon && d.icon !== "grass" && BANNER_ICON[d.icon] ? BANNER_ICON[d.icon]() : MC_LOGO;
+  const tall = (d.h ?? 300) > 250;
+  const len = title.length;
+  const fs = tall ? (len > 13 ? 44 : len > 9 ? 52 : 62) : len > 10 ? 40 : 48;
+  return h("div", { display: "flex", alignItems: "center", width: "100%", height: "100%", padding: tall ? "0 60px" : "0 48px", fontFamily: "Pretendard", color: "#fff" },
+    iconSrc ? img(iconSrc, { width: tall ? 150 : 104, height: tall ? 150 : 104, marginRight: tall ? 40 : 28, objectFit: "contain" }) : null,
+    h("div", { display: "flex", flexDirection: "column", flexGrow: 1 },
+      h("div", { display: "flex", alignItems: "center" },
+        h("div", { display: "flex", fontSize: tall ? 20 : 17, fontWeight: 700, color: MC_EYEBROW, letterSpacing: 4 }, d.eyebrow ?? "DOES"),
+        h("div", { display: "flex", flexGrow: 1, height: 2, marginLeft: 16, background: "linear-gradient(90deg, rgba(185,168,255,0.5), rgba(185,168,255,0))" }),
+      ),
+      h("div", { display: "flex", alignItems: "baseline", marginTop: tall ? 10 : 6 },
+        before.trim() ? h("div", { display: "flex", fontSize: fs, fontWeight: 900, marginRight: acc ? 16 : 0 }, before.trim()) : null,
+        acc ? h("div", { display: "flex", fontSize: fs, fontWeight: 900, color: d.accentColor ?? MC_PURPLE }, acc) : null,
+        after.trim() ? h("div", { display: "flex", fontSize: fs, fontWeight: 900, marginLeft: 16 }, after.trim()) : null,
+      ),
+      d.sub ? h("div", { display: "flex", marginTop: tall ? 14 : 8, fontSize: tall ? 24 : 20, fontWeight: 600, color: "#cbd5e1" }, d.sub) : null,
+    ),
   );
 }

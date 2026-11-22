@@ -70,7 +70,7 @@ function eventPanel(shop: Shop) {
     components: [
       container(
         [
-          mediaGallery([`${origin()}/brand/invite-event-3d.gif`]),
+          mediaGallery([`${origin()}/brand/mc/invite-event.png`]),
           textDisplay("## 초대 이벤트\n아래 버튼으로 **내 초대 링크**를 만들어 친구를 초대해 보세요."),
           separator(true, 1),
           textDisplay(`### 보상\n${DEFAULT_REWARDS.map((r) => `> ${r}`).join("\n")}`),
@@ -313,7 +313,7 @@ function rankPanelText(shopName: string, db: InviteDb) {
     components: [
       container(
         [
-          mediaGallery([`${origin()}/brand/invite-rank-3d.gif`]),
+          mediaGallery([`${origin()}/brand/mc/invite-rank.png`]),
           textDisplay(`## ${shopName} 초대 랭킹`),
           separator(true, 1),
           textDisplay(lines.length ? lines.join("\n") : "아직 초대한 사람이 없어요. 초대 이벤트 패널에서 링크를 만들어 보세요!"),

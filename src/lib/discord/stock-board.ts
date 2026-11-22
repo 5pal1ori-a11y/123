@@ -64,7 +64,7 @@ export function buildStockPanel(shopId: string, mode: "board" | "view") {
 
   const kids: unknown[] = [
     // 상점 주인 서버(DOES)만 3D 배너를 붙인다
-    ...(slug === "mfa" ? [mediaGallery([`${ASSET_ORIGIN}/brand/stock-board-3d.gif`])] : []),
+    ...(slug === "mfa" ? [mediaGallery([`${ASSET_ORIGIN}/brand/mc/stock.png`])] : []),
     textDisplay(`## ${shop?.name ?? "상점"} 재고현황`),
     textDisplay(`-# 10분마다 갱신돼요 · 마지막 갱신 <t:${now}:R>`),
     separator(true, 1),

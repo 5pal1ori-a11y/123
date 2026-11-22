@@ -537,7 +537,7 @@ export async function cachedPng(key: string, render: () => Promise<Response | nu
     get(k: string, type: "arrayBuffer"): Promise<ArrayBuffer | null>;
     put(k: string, v: ArrayBuffer, o?: { expirationTtl?: number }): Promise<void>;
   } | null;
-  const k = `img:v1:${key}`;
+  const k = `img:v2:${key}`; // v2: 마크 밤 테마 (예전 모양으로 그려 둔 그림은 다시 그린다)
   if (kv) {
     const hit = await kv.get(k, "arrayBuffer").catch(() => null);
     if (hit && hit.byteLength > 0) return new Response(hit, { headers: { "content-type": "image/png" } });

@@ -39,7 +39,7 @@ export function buildServerStatusPanel(shopId: string) {
   const now = Math.floor(Date.now() / 1000);
   // 디스코드가 같은 주소 이미지를 오래 캐시하므로 상태마다 다른 파일을 쓴다
   const away = status === "idle" || status === "dnd";
-  const image = `${appOrigin()}/brand/${away ? "admin-idle-3d" : online ? "admin-online-3d" : "admin-offline-3d"}.gif`;
+  const image = `${appOrigin()}/brand/mc/${away ? "admin-idle" : online ? "admin-online" : "admin-offline"}.png`;
 
   return {
     flags: MessageFlags.IS_COMPONENTS_V2,

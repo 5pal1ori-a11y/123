@@ -67,7 +67,7 @@ async function startPanel(shopName: string, g: Game, shopSlug?: string) {
     components: [
       container(
         [
-          mediaGallery([card ?? `${origin()}/brand/number-guess-3d.gif`]),
+          mediaGallery([card ?? `${origin()}/brand/mc/number-guess.png`]),
           textDisplay(`-# ${shopName}`),
           textDisplay(ended ? `## ${appEmoji("does_question")} 숫자 맞추기 종료` : `## ${appEmoji("does_question")} 숫자 맞추기 시작!`),
           textDisplay(
@@ -122,7 +122,7 @@ async function winPanel(shopName: string, g: Game, shopSlug?: string) {
     components: [
       container(
         [
-          mediaGallery([`${origin()}/brand/number-guess-win-3d.gif`]),
+          mediaGallery([`${origin()}/brand/mc/number-guess-win.png`]),
           textDisplay(`-# ${shopName}`),
           textDisplay(`## ${appEmoji("does_party")} 정답이 나왔어요!`),
           textDisplay(`<@${g.winnerId}> 님이 맞혔어요. 축하합니다!\n**정답** ${g.answer.toLocaleString("ko-KR")}`),

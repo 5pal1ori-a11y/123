@@ -38,7 +38,7 @@ export function gachaPanel(shop: Shop) {
     components: [
       container(
         [
-          mediaGallery([`${origin()}/brand/gacha3d2-idle.gif`]),
+          mediaGallery([`${origin()}/brand/mc/gacha-idle.png`]),
           textDisplay(`## 랜덤뽑기\n한 번에 **${formatKRW(cfg.price)}** · 잔액에서 바로 차감돼요`),
           separator(true, 1),
           textDisplay(`### 상품 · 확률\n${lines}`),
@@ -78,7 +78,7 @@ export async function handleGachaDraw(shop: Shop, discordId: string) {
   const key = r.prize.points > 0 ? "coin" : /꽝/.test(r.prize.label) ? "none" : "item";
   // 고화질 연출 GIF (금액 · 상품 이름은 아래 글자로 보여 준다). 마크 계정은 잔디 블록 그림
   const isMc = key === "item" && /마인크래프트|마크|계정/.test(r.prize.label);
-  const gif = isMc ? `${origin()}/brand/3d2-raffle-mc.gif` : `${origin()}/brand/gacha3d2-${key === "item" ? "win" : key}.gif`;
+  const gif = isMc ? `${origin()}/brand/mc/gacha-mc.png` : `${origin()}/brand/mc/gacha-${key === "item" ? "win" : key}.png`;
   // /뽑기로그 채널: 누가 무엇을 뽑았는지 모두에게
   const logCh = getShopSettings(shop.id).gachaLogChannelId;
   if (logCh) {

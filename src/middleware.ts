@@ -160,7 +160,8 @@ export async function middleware(request: Request) {
   }
 
   const customDomain = slug && root !== "localhost" ? customShopDomain(slug) : null;
-  if (customDomain && host.split(":")[0]?.toLowerCase() !== customDomain && request.method === "GET") {
+  // DOES 는 주소가 여러 개(shop · mc · admin · 예전 doesmc.xyz)라 여기서 한 주소로 몰지 않는다
+  if (customDomain && !isMfaSiteHost(host) && host.split(":")[0]?.toLowerCase() !== customDomain && request.method === "GET") {
     const target = new URL(url);
     target.protocol = "https:";
     target.host = customDomain;

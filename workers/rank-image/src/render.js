@@ -288,7 +288,7 @@ export function stockTree(d) {
       ),
     ),
     h("div", { display: "flex", justifyContent: "space-between", marginTop: "auto", paddingTop: 22, fontSize: 15, fontWeight: 500, color: "#475569" },
-      h("div", { display: "flex" }, "doesmc.xyz 에서 바로 구매할 수 있어요"),
+      h("div", { display: "flex" }, "shop.도스.com 에서 바로 구매할 수 있어요"),
       h("div", { display: "flex" }, d.updated ?? ""),
     ),
   );
@@ -805,7 +805,7 @@ export function shopStatsTree(d) {
       bigStat("구매자", fmtN(d.buyers), "명", "#67e8f9", (d.buyers || 0) / top),
       bigStat("후기", fmtN(d.reviews), "개", "#f9a8d4", (d.reviews || 0) / top, true),
     ),
-    footer(d.since ? `${d.since} · 실제 주문·후기 기준` : "실제 주문·후기 기준", "doesmc.xyz"),
+    footer(d.since ? `${d.since} · 실제 주문·후기 기준` : "실제 주문·후기 기준", "shop.도스.com"),
   );
 }
 
@@ -822,7 +822,7 @@ export function proxyPanelTree(d) {
       bigStat("판매 완료", fmtN(d.sold), "개", "#86efac", (d.sold || 0) / top, true),
     ),
     h("div", { display: "flex", marginTop: 26 }, glowLine()),
-    footer(d.pending ? `지금 검토 중인 신청 ${fmtN(d.pending)}건 · 실제 등록·주문 기준` : "실제 등록·주문 기준", d.time ? `${d.time} 갱신` : "doesmc.xyz"),
+    footer(d.pending ? `지금 검토 중인 신청 ${fmtN(d.pending)}건 · 실제 등록·주문 기준` : "실제 등록·주문 기준", d.time ? `${d.time} 갱신` : "shop.도스.com"),
   );
 }
 
@@ -868,7 +868,7 @@ export function proxyStatusTree(d) {
           })
         : [h("div", { display: "flex", justifyContent: "center", padding: "26px 0", fontSize: 22, fontWeight: 700, color: "#64748b" }, "아직 등록한 판매가 없어요")]),
     ),
-    footer("판매되면 구매자 보호 24시간 뒤 포인트 · 계좌로 정산해 드려요", "doesmc.xyz"),
+    footer("판매되면 구매자 보호 24시간 뒤 포인트 · 계좌로 정산해 드려요", "shop.도스.com"),
   );
 }
 
@@ -942,7 +942,7 @@ export function minePanelTree(d) {
         );
       }),
     ),
-    footer("하루 1회 무료 · 500P 채굴은 보상 ×1.5 · 확률은 기본 곡괭이 기준", d.time ? `${d.time} 갱신` : "doesmc.xyz"),
+    footer("하루 1회 무료 · 500P 채굴은 보상 ×1.5 · 확률은 기본 곡괭이 기준", d.time ? `${d.time} 갱신` : "shop.도스.com"),
   );
 }
 
@@ -967,7 +967,7 @@ export function mineResultTree(d) {
       ),
     ),
     h("div", { display: "flex", marginTop: 24 }, goalBlock(d, 988)),
-    footer(d.paid ? "500P 채굴은 보상 ×1.5 · 원하는 만큼 다시 캘 수 있어요" : "무료 채굴은 내일 0시(한국 시간)에 다시 · 더 캐려면 500P", "doesmc.xyz"),
+    footer(d.paid ? "500P 채굴은 보상 ×1.5 · 원하는 만큼 다시 캘 수 있어요" : "무료 채굴은 내일 0시(한국 시간)에 다시 · 더 캐려면 500P", "shop.도스.com"),
   );
 }
 
@@ -1010,7 +1010,7 @@ export function pickaxeCardTree(d) {
         );
       }),
     ),
-    footer(next ? `다음 단계 ${d.nextName} · ${fmtN(d.nextCost)}P` : "모든 단계를 강화했어요", "doesmc.xyz"),
+    footer(next ? `다음 단계 ${d.nextName} · ${fmtN(d.nextCost)}P` : "모든 단계를 강화했어요", "shop.도스.com"),
   );
 }
 
@@ -1074,7 +1074,7 @@ export function attResultTree(d) {
           miss ? "다음 기회에!" : kind === "points" ? "출석 포인트로 바로 지급됐어요" : "관리자에게 문의하면 전달해 드려요"),
       ),
     ),
-    footer(`뽑기권 ${fmtN(d.cost)}P 사용`, d.time ? `${d.time}` : "doesmc.xyz"),
+    footer(`뽑기권 ${fmtN(d.cost)}P 사용`, d.time ? `${d.time}` : "shop.도스.com"),
   );
 }
 
@@ -1126,7 +1126,7 @@ export function coinPanelTree(d) {
       coinTile("김치 프리미엄", prem, "업비트 vs 해외 시세", "#fcd34d"),
       coinTile("누적 이용금액", `₩${fmtN(d.volume)}`, `${fmtN(d.orders)}건 송금 완료`, "#93c5fd", true),
     ),
-    footer("실시간 업비트 시세 · 결제하면 자동 송금", d.time ? `${d.time} 기준` : "doesmc.xyz"),
+    footer("실시간 업비트 시세 · 결제하면 자동 송금", d.time ? `${d.time} 기준` : "shop.도스.com"),
   );
 }
 
@@ -1185,7 +1185,7 @@ export function coinLogTree(d) {
         coinPill(`누적 ${fmtN(d.orders)}건`, "#93c5fd"),
       ),
     ),
-    footer(d.txid ? `TXID ${d.txid}` : "결제하면 자동 송금", "doesmc.xyz"),
+    footer(d.txid ? `TXID ${d.txid}` : "결제하면 자동 송금", "shop.도스.com"),
   );
 }
 
@@ -1200,7 +1200,7 @@ export function coinRestockTree(d) {
         d.stockKrw ? coinPill(`≈ ₩${fmtN(d.stockKrw)}`) : null,
       ),
     ),
-    footer("지금 바로 구매할 수 있어요 · /코인대행", "doesmc.xyz"),
+    footer("지금 바로 구매할 수 있어요 · /코인대행", "shop.도스.com"),
   );
 }
 
@@ -1222,7 +1222,7 @@ export function coinReviewTree(d) {
       ),
       h("div", { display: "flex", marginTop: 22, fontSize: comment.length > 90 ? 24 : 28, fontWeight: 700, color: "#f1f5f9", lineHeight: 1.45 }, `“${comment}”`),
     ),
-    footer("DOES 코인대행 실제 이용 후기", "doesmc.xyz"),
+    footer("DOES 코인대행 실제 이용 후기", "shop.도스.com"),
   );
 }
 
@@ -1308,7 +1308,7 @@ export function passportTree(d) {
       h("div", { display: "flex", flexDirection: "column", alignItems: "center", width: 170, marginLeft: 20 },
         img(qrDataUrl(d.url), { width: 160, height: 160, borderRadius: 12 }),
         h("div", { display: "flex", fontSize: 15, fontWeight: 700, color: PASS_GOLD, marginTop: 10 }, "QR로 진위 확인"),
-        h("div", { display: "flex", fontSize: 13, fontWeight: 500, color: "#8b93a7", marginTop: 2 }, "doesmc.xyz/passport"),
+        h("div", { display: "flex", fontSize: 13, fontWeight: 500, color: "#8b93a7", marginTop: 2 }, "shop.도스.com/passport"),
       ),
     ),
     h("div", { display: "flex", justifyContent: "space-between", marginTop: "auto", paddingTop: 14, fontSize: 14, fontWeight: 500, color: "#64748b" },
@@ -1418,7 +1418,7 @@ export function seasonPassTree(d) {
         ),
       ),
     ),
-    footer("출석 30XP · 구매 500원당 1XP · 후기 50XP · 패스 보유 XP +25%", d.cl ? `받을 보상 ${d.cl}개!` : "doesmc.xyz"),
+    footer("출석 30XP · 구매 500원당 1XP · 후기 50XP · 패스 보유 XP +25%", d.cl ? `받을 보상 ${d.cl}개!` : "shop.도스.com"),
   );
 }
 
@@ -1474,7 +1474,7 @@ export function planPanelTree(d) {
     h("div", { display: "flex", marginTop: 34 },
       ...plans.map((p, i) => h("div", { display: "flex", flex: 1, marginLeft: i ? 22 : 0 }, planCard(p, me && me.plan === p.id))),
     ),
-    footer("포인트로 바로 구독 · 30일 단위 · 라이선스 키로도 사용 가능", "doesmc.xyz · /도스플랜"),
+    footer("포인트로 바로 구독 · 30일 단위 · 라이선스 키로도 사용 가능", "shop.도스.com · /도스플랜"),
   );
 }
 export function planPanelHeight(d) {
@@ -1536,6 +1536,6 @@ export function boardTree(d) {
         ),
       ),
     ),
-    footer("실제 주문 · 계정 차트 기준 · 5분마다 갱신", "doesmc.xyz/board"),
+    footer("실제 주문 · 계정 차트 기준 · 5분마다 갱신", "shop.도스.com/board"),
   );
 }
